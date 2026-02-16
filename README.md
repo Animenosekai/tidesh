@@ -336,11 +336,11 @@ Please make sure to update the tests as appropriate.
 
 ## Authors
 
-- **anise** - *Initial work, Lexer, Prompt, Expansions* - [Animenosekai](https://github.com/Animenosekai)
-- **dindedouce** - *Initial work, Parser* - [DindeDouce](https://github.com/DindeDouce)
-- **GRILLERE Malo** - *Initial work, Commands* - [malogr](https://github.com/malogr)
-- **BESSIERE Lena** - *Initial work, Commands* - [lena.bessiere](https://gibson.telecomnancy.univ-lorraine.fr/lena.bessiere)
+- **anise** — *Initial work, Lexer, Prompt, Expansions* — [Animenosekai](https://github.com/Animenosekai)
+- **dindedouce** — *Initial work, Parser* — [DindeDouce](https://github.com/DindeDouce)
+- **GRILLERE Malo** — *Initial work, Commands* — [malogr](https://github.com/malogr)
+- **BESSIERE Lena** — *Initial work, Commands* — [lena.bessiere](https://gibson.telecomnancy.univ-lorraine.fr/lena.bessiere)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details
