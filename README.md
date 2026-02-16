@@ -1,6 +1,6 @@
 # 🌊 tidesh
 
-<img src="./assets/logo.png" alt="Logo" align="right" height="220px">
+<img src="./assets/logo-scaled.png" alt="Logo" align="right" height="220px">
 
 ***A lightweight but fully-featured shell 🐚***
 
