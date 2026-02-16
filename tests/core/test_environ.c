@@ -8,6 +8,7 @@ describe(environ) {
         Environ *env = init_environ(NULL);
         assertneq_ptr(env, NULL);
         free_environ(env);
+        free(env);
     }
 
     it("should set and get variables") {
@@ -19,6 +20,7 @@ describe(environ) {
         asserteq_str(value, "test_value");
         
         free_environ(env);
+        free(env);
     }
 
     it("should check if variable exists") {
@@ -29,6 +31,7 @@ describe(environ) {
         assert(!environ_contains(env, "NONEXISTENT"));
         
         free_environ(env);
+        free(env);
     }
 
     it("should return NULL for nonexistent variables") {
@@ -37,6 +40,7 @@ describe(environ) {
         asserteq_ptr(value, NULL);
         
         free_environ(env);
+        free(env);
     }
 
     it("should return default value for nonexistent variables") {
@@ -45,6 +49,7 @@ describe(environ) {
         asserteq_str(value, "default");
         
         free_environ(env);
+        free(env);
     }
 
     it("should set exit status") {
@@ -56,6 +61,7 @@ describe(environ) {
         asserteq_str(status, "42");
         
         free_environ(env);
+        free(env);
     }
 
     it("should set background PID") {
@@ -67,6 +73,7 @@ describe(environ) {
         asserteq_str(pid, "12345");
         
         free_environ(env);
+        free(env);
     }
 
     it("should set last argument") {
@@ -78,6 +85,7 @@ describe(environ) {
         asserteq_str(arg, "last_arg_value");
         
         free_environ(env);
+        free(env);
     }
 
     it("should copy environment") {
@@ -94,7 +102,9 @@ describe(environ) {
         asserteq_str(environ_get(dest, "VAR3"), "value3");
         
         free_environ(src);
+        free(src);
         free_environ(dest);
+        free(dest);
     }
 
     it("should update variables") {
@@ -106,6 +116,7 @@ describe(environ) {
         asserteq_str(value, "new_value");
         
         free_environ(env);
+        free(env);
     }
 
     it("should convert to array") {
@@ -118,7 +129,9 @@ describe(environ) {
         assert(arr->count >= 2);
         
         free_array(arr);
+        free(arr);
         free_environ(env);
+        free(env);
     }
 
     it("should handle variables with empty values") {
@@ -130,6 +143,7 @@ describe(environ) {
         asserteq_str(value, "");
         
         free_environ(env);
+        free(env);
     }
 
     it("should handle variables with special characters") {
@@ -140,6 +154,7 @@ describe(environ) {
         asserteq_str(value, "value/with:special=chars");
         
         free_environ(env);
+        free(env);
     }
 
     it("should handle multiple variables") {
@@ -161,5 +176,6 @@ describe(environ) {
         }
         
         free_environ(env);
+        free(env);
     }
 }

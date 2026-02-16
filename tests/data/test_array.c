@@ -33,6 +33,7 @@ describe(array) {
         asserteq_str(arr->items[1], "second");
         asserteq_str(arr->items[2], "third");
         free_array(arr);
+        free(arr);
     }
 
     it("should grow capacity as needed") {

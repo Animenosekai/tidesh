@@ -11,6 +11,7 @@ describe(dirstack) {
         assertneq(stack->stack, NULL);
         asserteq(stack->stack->count, 0);
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should push directory onto stack") {
@@ -22,6 +23,7 @@ describe(dirstack) {
         asserteq(stack->stack->count, 1);
         
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should peek at directory in stack") {
@@ -35,6 +37,7 @@ describe(dirstack) {
         
         free(dir);
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should pop directory from stack") {
@@ -53,6 +56,7 @@ describe(dirstack) {
         free(original_cwd);
         free(new_cwd);
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should handle push pop sequence") {
@@ -69,6 +73,7 @@ describe(dirstack) {
         asserteq(stack->stack->count, 0);
         
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should return false for popd on empty stack") {
@@ -77,6 +82,7 @@ describe(dirstack) {
         assert(!result);
         
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should peek at multiple levels") {
@@ -97,6 +103,7 @@ describe(dirstack) {
         free(dir1);
         free(dir2);
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should return NULL for peek out of bounds") {
@@ -107,6 +114,7 @@ describe(dirstack) {
         asserteq(dir, NULL);
         
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should swap directories") {
@@ -121,6 +129,7 @@ describe(dirstack) {
         assert(result);
         
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should handle invalid dirstack swap") {
@@ -131,6 +140,7 @@ describe(dirstack) {
         assert(!result);
         
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should preserve stack after peek") {
@@ -145,6 +155,7 @@ describe(dirstack) {
         
         free(dir);
         free_dirstack(stack);
+        free(stack);
     }
 
     it("should handle multiple pushd and popd cycles") {
@@ -163,5 +174,6 @@ describe(dirstack) {
         asserteq(stack->stack->count, 0);
         
         free_dirstack(stack);
+        free(stack);
     }
 }

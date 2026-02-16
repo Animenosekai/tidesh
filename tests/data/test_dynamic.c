@@ -11,6 +11,7 @@ describe(dynamic) {
         assertneq(dyn->capacity, 0);
         assertneq(dyn->value, NULL);
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should append characters") {
@@ -23,6 +24,7 @@ describe(dynamic) {
         asserteq(dyn->value[1], 'i');
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should extend with strings") {
@@ -36,6 +38,7 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should prepend characters") {
@@ -53,6 +56,7 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should delete last character") {
@@ -65,6 +69,7 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should insert strings at positions") {
@@ -77,6 +82,7 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should remove segments") {
@@ -89,6 +95,7 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should clear content") {
@@ -99,6 +106,7 @@ describe(dynamic) {
         asserteq(dyn->length, 0);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should convert to string") {
@@ -110,6 +118,7 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should copy dynamic strings") {
@@ -124,7 +133,9 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(src);
+        free(src);
         free_dynamic(dest);
+        free(dest);
     }
 
     it("should grow capacity as needed") {
@@ -139,6 +150,7 @@ describe(dynamic) {
         assert(dyn->capacity > initial_capacity);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should handle empty dynamic") {
@@ -148,6 +160,7 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should work with custom growing strategy") {
@@ -161,6 +174,7 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should handle special characters") {
@@ -172,6 +186,7 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should handle unicode (as bytes)") {
@@ -183,5 +198,6 @@ describe(dynamic) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 }
