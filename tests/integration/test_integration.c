@@ -203,6 +203,7 @@ describe(integration) {
         
         char *str = dynamic_to_string(dyn);
         asserteq_str(str, "test");
+        free(str);
         
         free_dynamic(dyn);
     }

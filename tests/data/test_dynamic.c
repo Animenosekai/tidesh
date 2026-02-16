@@ -33,6 +33,7 @@ describe(dynamic) {
         
         char *str = dynamic_to_string(dyn);
         asserteq_str(str, "hello world");
+        free(str);
         
         free_dynamic(dyn);
     }
@@ -49,6 +50,7 @@ describe(dynamic) {
         
         char *str = dynamic_to_string(dyn);
         asserteq_str(str, "hello world");
+        free(str);
         
         free_dynamic(dyn);
     }
@@ -60,6 +62,7 @@ describe(dynamic) {
         
         char *str = dynamic_to_string(dyn);
         asserteq_str(str, "hell");
+        free(str);
         
         free_dynamic(dyn);
     }
@@ -71,6 +74,7 @@ describe(dynamic) {
         
         char *str = dynamic_to_string(dyn);
         asserteq_str(str, "hello");
+        free(str);
         
         free_dynamic(dyn);
     }
@@ -82,6 +86,7 @@ describe(dynamic) {
         
         char *str = dynamic_to_string(dyn);
         asserteq_str(str, "hello");
+        free(str);
         
         free_dynamic(dyn);
     }
@@ -102,6 +107,7 @@ describe(dynamic) {
         
         char *str = dynamic_to_string(dyn);
         asserteq_str(str, "test");
+        free(str);
         
         free_dynamic(dyn);
     }
@@ -115,6 +121,7 @@ describe(dynamic) {
         
         char *str = dynamic_to_string(dest);
         asserteq_str(str, "original");
+        free(str);
         
         free_dynamic(src);
         free_dynamic(dest);
@@ -138,6 +145,7 @@ describe(dynamic) {
         Dynamic *dyn = init_dynamic(NULL);
         char *str = dynamic_to_string(dyn);
         asserteq_str(str, "");
+        free(str);
         
         free_dynamic(dyn);
     }
@@ -148,7 +156,9 @@ describe(dynamic) {
         assertneq(dyn, NULL);
         
         dynamic_extend(dyn, "test");
-        asserteq_str(dynamic_to_string(dyn), "test");
+        char *str = dynamic_to_string(dyn);
+        asserteq_str(str, "test");
+        free(str);
         
         free_dynamic(dyn);
     }
@@ -159,6 +169,7 @@ describe(dynamic) {
         
         char *str = dynamic_to_string(dyn);
         asserteq_str(str, "hello\nworld\t!");
+        free(str);
         
         free_dynamic(dyn);
     }
@@ -169,6 +180,7 @@ describe(dynamic) {
         
         char *str = dynamic_to_string(dyn);
         asserteq_str(str, "café");
+        free(str);
         
         free_dynamic(dyn);
     }

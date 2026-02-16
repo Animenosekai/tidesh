@@ -32,6 +32,8 @@ jobs:
           brew install llvm clang-format
 
       - name: Build and run tests (${{ matrix.build_type }})
+        env:
+          ASAN_EXIT_STATUS: 1
         run: make test BUILD_TYPE=${{ matrix.build_type }}
 
       - name: Upload test binaries
