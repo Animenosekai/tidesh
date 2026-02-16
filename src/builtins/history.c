@@ -39,10 +39,13 @@ int builtin_history(int argc, char **argv, Session *session) {
             return 0;
         } else if (strcmp(argv[1], "file") == 0) {
             if (argc > 2) {
-                if (session->history->filepath) {
+                if (session->history->filepath &&
+                    session->history->owns_filepath) {
                     free(session->history->filepath);
                 }
                 session->history->filepath = strdup(argv[2]);
+                session->history->owns_filepath =
+                    session->history->filepath != NULL;
             } else {
                 printf("%s\n", session->history->filepath
                                    ? session->history->filepath

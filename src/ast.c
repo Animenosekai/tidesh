@@ -139,35 +139,53 @@ ASTNode *parse(LexerInput *lexer, Session *session) {
 
 /* Parse a sequence of commands separated by ;, &, \n */
 static ASTNode *parse_sequence(Parser *parser, Session *session) {
-    // Skip leading newlines and semicolons
+    // Skip leading newlines, semicolons, and comments
     while (parser_peek(parser)->type == TOKEN_EOL ||
            parser_peek(parser)->type == TOKEN_SEMICOLON ||
            parser_peek(parser)->type == TOKEN_COMMENT) {
         parser_skip(parser);
     }
 
+    if (parser_peek(parser)->type == TOKEN_RPAREN ||
+        parser_peek(parser)->type == TOKEN_EOF) {
+        return NULL;
+    }
+
     ASTNode *left = parse_and_or(parser, session);
     if (!left)
         return NULL;
-    LexerToken *token = parser_peek(parser);
-    if (token->type == TOKEN_SEMICOLON || token->type == TOKEN_EOL) {
-        parser_skip(parser);
+
+    while (true) {
+        LexerToken *token = parser_peek(parser);
+
+        if (token->type == TOKEN_BACKGROUND) {
+            parser_skip(parser);
+            left->background = true;
+            token            = parser_peek(parser);
+            if (token->type == TOKEN_EOF || token->type == TOKEN_EOL ||
+                token->type == TOKEN_SEMICOLON || token->type == TOKEN_RPAREN) {
+                continue;
+            }
+        } else if (token->type == TOKEN_SEMICOLON || token->type == TOKEN_EOL) {
+            parser_skip(parser);
+            token = parser_peek(parser);
+            if (token->type == TOKEN_EOF || token->type == TOKEN_EOL ||
+                token->type == TOKEN_SEMICOLON || token->type == TOKEN_RPAREN) {
+                continue;
+            }
+        } else {
+            break;
+        }
+
+        ASTNode *right = parse_and_or(parser, session);
+        if (!right)
+            break;
         ASTNode *node = init_ast(NULL, NODE_SEQUENCE);
         node->left    = left;
-        node->right   = parse_sequence(parser, session);
-        return node;
+        node->right   = right;
+        left          = node;
     }
-    if (token->type == TOKEN_BACKGROUND) {
-        parser_skip(parser);
-        left->background = true;
-        token            = parser_peek(parser);
-        if (token->type != TOKEN_EOF && token->type != TOKEN_EOL) {
-            ASTNode *node = init_ast(NULL, NODE_SEQUENCE);
-            node->left    = left;
-            node->right   = parse_sequence(parser, session);
-            return node;
-        }
-    }
+
     return left;
 }
 
@@ -176,20 +194,29 @@ static ASTNode *parse_and_or(Parser *parser, Session *session) {
     ASTNode *left = parse_pipeline(parser, session);
     if (!left)
         return NULL;
-    LexerToken *token = parser_peek(parser);
-    if (token->type == TOKEN_SEQUENCE) {
+
+    while (true) {
+        LexerToken *token = parser_peek(parser);
+        NodeType    type;
+
+        if (token->type == TOKEN_SEQUENCE) {
+            type = NODE_AND;
+        } else if (token->type == TOKEN_OR) {
+            type = NODE_OR;
+        } else {
+            break;
+        }
+
         parser_skip(parser);
-        ASTNode *node = init_ast(NULL, NODE_AND);
+        ASTNode *right = parse_pipeline(parser, session);
+        if (!right)
+            break;
+        ASTNode *node = init_ast(NULL, type);
         node->left    = left;
-        node->right   = parse_and_or(parser, session);
-        return node;
-    } else if (token->type == TOKEN_OR) {
-        parser_skip(parser);
-        ASTNode *node = init_ast(NULL, NODE_OR);
-        node->left    = left;
-        node->right   = parse_and_or(parser, session);
-        return node;
+        node->right   = right;
+        left          = node;
     }
+
     return left;
 }
 
@@ -226,15 +253,17 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
     LexerToken *peek = parser_peek(parser);
     if (peek->type == TOKEN_LPAREN) {
         parser_skip(parser);
-        ASTNode *subshell = parse_sequence(parser, session);
-        if (subshell)
-            subshell->type = NODE_SUBSHELL;
-        LexerToken token = parser_next(parser);
+        ASTNode   *subshell_body = parse_sequence(parser, session);
+        LexerToken token         = parser_next(parser);
         if (token.type != TOKEN_RPAREN) {
             fprintf(stderr, "Syntax error: expected ')'\n");
             parser->error = true;
         }
         free_lexer_token(&token);
+        if (!subshell_body)
+            return NULL;
+        ASTNode *subshell = init_ast(NULL, NODE_SUBSHELL);
+        subshell->left    = subshell_body;
         return subshell;
     }
 

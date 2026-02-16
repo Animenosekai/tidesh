@@ -44,11 +44,11 @@ bool trie_set(Trie *root, char *key, char *value) {
 
     /* Replace prior value */
     free(cur->value);
-    cur->value = strdup(value);
+    cur->value = value ? strdup(value) : NULL;
     return true;
 }
 
-bool trie_add(Trie *root, char *key) { return trie_set(root, key, NULL); }
+bool trie_add(Trie *root, char *key) { return trie_set(root, key, ""); }
 
 bool trie_contains(Trie *root, char *key) {
     Trie *cur = root;
@@ -137,45 +137,66 @@ Array *trie_starting_with(Trie *root, char *prefix) {
 }
 
 /* Helper: recursively delete nodes if empty */
-static bool trie_delete_rec(Trie *node, char *key) {
+static bool trie_delete_rec(Trie *node, char *key, bool *should_prune) {
     if (*key == '\0') {
-        if (!node->value)
+        if (!node->value) {
+            *should_prune = false;
             return false; // key not found
+        }
 
         free(node->value);
         node->value = NULL;
 
         // If no children, this node can be freed
-        for (int i = 0; i < ALPHABET_SIZE; i++)
-            if (node->children[i])
-                return false;
+        for (int i = 0; i < ALPHABET_SIZE; i++) {
+            if (node->children[i]) {
+                *should_prune = false;
+                return true;
+            }
+        }
 
+        *should_prune = true;
         return true;
     }
 
     unsigned char idx = (unsigned char)*key;
-    if (!node->children[idx])
+    if (!node->children[idx]) {
+        *should_prune = false;
         return false;
+    }
 
-    bool should_delete_child = trie_delete_rec(node->children[idx], key + 1);
+    bool child_prune = false;
+    bool deleted = trie_delete_rec(node->children[idx], key + 1, &child_prune);
+    if (!deleted) {
+        *should_prune = false;
+        return false;
+    }
 
-    if (should_delete_child) {
+    if (child_prune) {
         free_trie(node->children[idx]);
+        free(node->children[idx]);
         node->children[idx] = NULL;
+    }
 
-        if (!node->value) {
-            for (int i = 0; i < ALPHABET_SIZE; i++)
-                if (node->children[i])
-                    return false;
+    if (node->value) {
+        *should_prune = false;
+        return true;
+    }
+
+    for (int i = 0; i < ALPHABET_SIZE; i++) {
+        if (node->children[i]) {
+            *should_prune = false;
             return true;
         }
     }
 
-    return false;
+    *should_prune = true;
+    return true;
 }
 
 bool trie_delete_key(Trie *root, char *key) {
-    return trie_delete_rec(root, key);
+    bool should_prune = false;
+    return trie_delete_rec(root, key, &should_prune);
 }
 
 void free_trie(Trie *root) {

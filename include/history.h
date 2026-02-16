@@ -8,7 +8,8 @@
 #ifndef HISTORY_H
 #define HISTORY_H
 
-#include <stddef.h> /* size_t */
+#include <stdbool.h> /* bool */
+#include <stddef.h>  /* size_t */
 
 /* Holds a single command in the history list */
 typedef struct HistoryEntry {
@@ -20,13 +21,14 @@ typedef struct HistoryEntry {
 
 /* The history state container */
 typedef struct History {
-    HistoryEntry *head;     // Oldest entry
-    HistoryEntry *tail;     // Newest entry
-    HistoryEntry *current;  // Navigation pointer (NULL = at live prompt)
-    size_t        size;     // Current number of entries
-    size_t        limit;    // Max number of entries
-    bool          disabled; // Whether history is disabled
-    char         *filepath; // Filepath for persistence
+    HistoryEntry *head;          // Oldest entry
+    HistoryEntry *tail;          // Newest entry
+    HistoryEntry *current;       // Navigation pointer (NULL = at live prompt)
+    size_t        size;          // Current number of entries
+    size_t        limit;         // Max number of entries
+    bool          disabled;      // Whether history is disabled
+    char         *filepath;      // Filepath for persistence
+    bool          owns_filepath; // Whether filepath should be freed
 } History;
 
 /**

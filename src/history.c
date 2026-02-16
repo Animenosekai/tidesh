@@ -135,13 +135,14 @@ History *init_history(History *history) {
         if (!history)
             return NULL;
     }
-    history->head     = NULL;
-    history->tail     = NULL;
-    history->current  = NULL;
-    history->size     = 0;
-    history->limit    = DEFAULT_HISTORY_LIMIT;
-    history->disabled = false;
-    history->filepath = NULL;
+    history->head          = NULL;
+    history->tail          = NULL;
+    history->current       = NULL;
+    history->size          = 0;
+    history->limit         = DEFAULT_HISTORY_LIMIT;
+    history->disabled      = false;
+    history->filepath      = NULL;
+    history->owns_filepath = false;
     return history;
 }
 
@@ -150,8 +151,10 @@ History *load_history(History *history, char *filepath) {
     if (!history)
         return NULL;
 
-    if (filepath)
-        history->filepath = strdup(filepath);
+    if (filepath) {
+        history->filepath      = strdup(filepath);
+        history->owns_filepath = history->filepath != NULL;
+    }
 
     FILE *file = fopen(filepath, "r");
     if (!file)
@@ -211,10 +214,11 @@ void free_history(History *history) {
     history->current = NULL;
     history->size    = 0;
 
-    if (history->filepath) {
+    if (history->filepath && history->owns_filepath) {
         free(history->filepath);
         history->filepath = NULL;
     }
+    history->owns_filepath = false;
 }
 
 void history_clear(History *history) {
@@ -229,13 +233,14 @@ void history_clear(History *history) {
     free_history(history); // Clears entries and path
 
     // Restore state
-    history->head     = NULL;
-    history->tail     = NULL;
-    history->current  = NULL;
-    history->size     = 0;
-    history->filepath = path;
-    history->limit    = limit;
-    history->disabled = disabled;
+    history->head          = NULL;
+    history->tail          = NULL;
+    history->current       = NULL;
+    history->size          = 0;
+    history->filepath      = path;
+    history->owns_filepath = path != NULL;
+    history->limit         = limit;
+    history->disabled      = disabled;
 
     // Truncate file
     if (history->filepath) {
@@ -304,9 +309,6 @@ void history_append(History *history, const char *command) {
         visible_length(command) == 0)
         return;
 
-    // Remove exact duplicates if it exists
-    bool removed_any = history_remove(history, command, false);
-
     // Append new
     HistoryEntry *entry = malloc(sizeof(HistoryEntry));
     entry->command      = strdup(command);
@@ -331,7 +333,7 @@ void history_append(History *history, const char *command) {
 
     // Append to file immediately
     if (history->filepath) {
-        if (removed_any || pruned) {
+        if (pruned) {
             history_save(history);
             return;
         }

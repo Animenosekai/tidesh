@@ -125,9 +125,13 @@ void update_working_dir(Session *session) {
     char       *cwd           = getcwd(NULL, 0);
 
     if (cwd) {
-        session->current_working_dir = strdup(cwd);
-        environ_set(session->environ, "PWD", session->current_working_dir);
-        free(cwd);
+        if (current_value && strcmp(current_value, cwd) == 0) {
+            free(cwd);
+        } else {
+            session->current_working_dir = strdup(cwd);
+            environ_set(session->environ, "PWD", session->current_working_dir);
+            free(cwd);
+        }
     } else if (!session->current_working_dir) {
         session->current_working_dir =
             strdup(environ_get_default(session->environ, "PWD", "."));
@@ -152,7 +156,6 @@ void update_working_dir(Session *session) {
     // change directories, so do not update the previous working dir
     if (current_value && session->current_working_dir &&
         strcmp(current_value, session->current_working_dir) == 0) {
-        free((void *)current_value);
         return;
     }
 
