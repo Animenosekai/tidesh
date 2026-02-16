@@ -1,0 +1,43 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        build_type: [debug, release]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang clang-format clang-tidy
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm clang-format
+
+      - name: Build and run tests (${{ matrix.build_type }})
+        run: make test BUILD_TYPE=${{ matrix.build_type }}
+
+      - name: Upload test binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-binaries-${{ matrix.os }}-${{ matrix.build_type }}
+          path: bin/
+          retention-days: 7
