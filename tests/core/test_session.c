@@ -13,6 +13,7 @@ describe(session) {
         assertneq_ptr(session->dirstack, NULL);
         assertneq_ptr(session->aliases, NULL);
         free_session(session);
+        free(session);
     }
 
     it("should initialize session with custom history path") {
@@ -20,36 +21,42 @@ describe(session) {
         Session *session = init_session(NULL, (char *)history_path);
         assertneq_ptr(session, NULL);
         free_session(session);
+        free(session);
     }
 
     it("should have environment initialized") {
         Session *session = init_session(NULL, "/tmp/test_history");
         assertneq_ptr(session->environ, NULL);
         free_session(session);
+        free(session);
     }
 
     it("should have history initialized") {
         Session *session = init_session(NULL, "/tmp/test_history");
         assertneq_ptr(session->history, NULL);
         free_session(session);
+        free(session);
     }
 
     it("should have aliases initialized") {
         Session *session = init_session(NULL, "/tmp/test_history");
         assertneq_ptr(session->aliases, NULL);
         free_session(session);
+        free(session);
     }
 
     it("should have dirstack initialized") {
         Session *session = init_session(NULL, "/tmp/test_history");
         assertneq_ptr(session->dirstack, NULL);
         free_session(session);
+        free(session);
     }
 
     it("should not request exit initially") {
         Session *session = init_session(NULL, "/tmp/test_history");
         assert(!session->exit_requested);
         free_session(session);
+        free(session);
     }
 
     it("should update working directory") {
@@ -61,12 +68,14 @@ describe(session) {
         
         free(cwd);
         free_session(session);
+        free(session);
     }
 
     it("should initialize working directory on startup") {
         Session *session = init_session(NULL, "/tmp/test_history");
         assertneq_ptr(session->current_working_dir, NULL);
         free_session(session);
+        free(session);
     }
 
     it("should update PATH in session") {
@@ -74,6 +83,7 @@ describe(session) {
         update_path(session);
         // PATH should be updated without crashing
         free_session(session);
+        free(session);
     }
 
     it("should handle multiple sessions") {
@@ -85,7 +95,9 @@ describe(session) {
         assertneq_ptr(session1, session2);
         
         free_session(session1);
+        free(session1);
         free_session(session2);
+        free(session2);
     }
 
     it("should maintain separate environments for different sessions") {
@@ -99,7 +111,9 @@ describe(session) {
         asserteq_str(environ_get(session2->environ, "TEST_VAR"), "session2");
         
         free_session(session1);
+        free(session1);
         free_session(session2);
+        free(session2);
     }
 
     it("should preserve current working directory after operations") {
@@ -111,6 +125,7 @@ describe(session) {
         
         asserteq_str(cwd1, cwd2);
         free_session(session);
+        free(session);
     }
 
     it("should pass multiple init_session calls") {
@@ -118,6 +133,7 @@ describe(session) {
             Session *session = init_session(NULL, "/tmp/test_history");
             assertneq_ptr(session, NULL);
             free_session(session);
+            free(session);
         }
     }
 }

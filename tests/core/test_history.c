@@ -13,6 +13,7 @@ describe(history) {
         asserteq(history->head, NULL);
         asserteq(history->tail, NULL);
         free_history(history);
+        free(history);
     }
 
     it("should append commands to history") {
@@ -24,6 +25,7 @@ describe(history) {
         asserteq_str(history->tail->command, "ls -la");
         
         free_history(history);
+        free(history);
     }
 
     it("should append multiple commands") {
@@ -37,6 +39,7 @@ describe(history) {
         asserteq_str(history->tail->command, "echo hello");
         
         free_history(history);
+        free(history);
     }
 
     it("should navigate history forward and backward") {
@@ -57,6 +60,7 @@ describe(history) {
         asserteq_str(next, "cmd3");
         
         free_history(history);
+        free(history);
     }
 
     it("should get last command") {
@@ -69,6 +73,7 @@ describe(history) {
         asserteq_str(last, "third");
         
         free_history(history);
+        free(history);
     }
 
     it("should get Nth last command") {
@@ -95,6 +100,7 @@ describe(history) {
         assert(history->size > 0);
         
         free_history(history);
+        free(history);
     }
 
     it("should get last command starting with prefix") {
@@ -109,6 +115,7 @@ describe(history) {
         assert(history->size == 4);
         
         free_history(history);
+        free(history);
     }
 
     it("should remove commands from history") {
@@ -122,6 +129,7 @@ describe(history) {
         asserteq(history->size, 2);
         
         free_history(history);
+        free(history);
     }
 
     it("should enforce history limit") {
@@ -139,6 +147,7 @@ describe(history) {
         assert(history->size <= history->limit);
         
         free_history(history);
+        free(history);
     }
 
     it("should clear history") {
@@ -152,6 +161,7 @@ describe(history) {
         asserteq(history->tail, NULL);
         
         free_history(history);
+        free(history);
     }
 
     it("should reset navigation state") {
@@ -165,6 +175,7 @@ describe(history) {
         asserteq(history->current, NULL);
         
         free_history(history);
+        free(history);
     }
 
     it("should handle empty history navigation") {
@@ -175,6 +186,7 @@ describe(history) {
         // Should not crash
         
         free_history(history);
+        free(history);
     }
 
     it("should save and load history") {
@@ -187,6 +199,7 @@ describe(history) {
         
         history_save(history);
         free_history(history);
+        free(history);
         
         History *loaded = load_history(NULL, (char *)tmpfile);
         assertneq(loaded, NULL);
@@ -194,6 +207,7 @@ describe(history) {
         
         unlink(tmpfile);
         free_history(loaded);
+        free(loaded);
     }
 
     it("should deduplicate consecutive identical commands") {
@@ -207,6 +221,7 @@ describe(history) {
         asserteq(history->size, 3); // Or may be dedup'd to 1
         
         free_history(history);
+        free(history);
     }
 
     it("should handle very long commands") {
@@ -220,6 +235,7 @@ describe(history) {
         asserteq_str(history->tail->command, long_cmd);
         
         free_history(history);
+        free(history);
     }
 
     it("should handle search with non-matching prefix") {
@@ -231,5 +247,6 @@ describe(history) {
         asserteq(cmd, NULL);
         
         free_history(history);
+        free(history);
     }
 }

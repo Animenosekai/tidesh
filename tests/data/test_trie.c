@@ -8,6 +8,7 @@ describe(trie) {
         Trie *trie = init_trie(NULL);
         assertneq_ptr(trie, NULL);
         free_trie(trie);
+        free(trie);
     }
 
     it("should set and get values") {
@@ -19,6 +20,7 @@ describe(trie) {
         asserteq_str(value, "world");
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should add keys without values") {
@@ -30,6 +32,7 @@ describe(trie) {
         assert(trie_contains(trie, "key2"));
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should check if trie contains key") {
@@ -40,6 +43,7 @@ describe(trie) {
         assert(!trie_contains(trie, "nonexistent"));
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should return NULL for nonexistent keys") {
@@ -48,6 +52,7 @@ describe(trie) {
         asserteq(value, NULL);
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should handle prefix matching") {
@@ -61,6 +66,7 @@ describe(trie) {
         assert(!trie_starts_with(trie, "banana"));
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should get all keys starting with prefix") {
@@ -75,7 +81,9 @@ describe(trie) {
         asserteq(matches->count, 3);
         
         free_array(matches);
+        free(matches);
         free_trie(trie);
+        free(trie);
     }
 
     it("should delete keys") {
@@ -89,6 +97,7 @@ describe(trie) {
         assert(trie_contains(trie, "key2"));
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should return false when deleting nonexistent key") {
@@ -97,6 +106,7 @@ describe(trie) {
         assert(!result);
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should copy trie") {
@@ -113,7 +123,9 @@ describe(trie) {
         asserteq_str(trie_get(dest, "key3"), "value3");
         
         free_trie(src);
+        free(src);
         free_trie(dest);
+        free(dest);
     }
 
     it("should handle empty strings") {
@@ -124,6 +136,7 @@ describe(trie) {
         asserteq_str(value, "empty");
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should handle single character keys") {
@@ -135,6 +148,7 @@ describe(trie) {
         asserteq_str(trie_get(trie, "b"), "second");
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should handle keys with common prefixes") {
@@ -150,6 +164,7 @@ describe(trie) {
         asserteq_str(trie_get(trie, "t"), "short");
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should handle many keys") {
@@ -171,6 +186,7 @@ describe(trie) {
         }
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should handle special characters in keys") {
@@ -186,6 +202,7 @@ describe(trie) {
         asserteq_str(trie_get(trie, "key/with/slashes"), "value4");
         
         free_trie(trie);
+        free(trie);
     }
 
     it("should get all starting with when no matches") {
@@ -197,6 +214,8 @@ describe(trie) {
         asserteq(matches->count, 0);
         
         free_array(matches);
+        free(matches);
         free_trie(trie);
+        free(trie);
     }
 }

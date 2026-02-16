@@ -10,6 +10,7 @@ describe(array) {
         asserteq(arr->count, 0);
         assertneq(arr->capacity, 0);
         free_array(arr);
+        free(arr);
     }
 
     it("should add elements to an array") {
@@ -19,6 +20,7 @@ describe(array) {
         asserteq(arr->count, 1);
         asserteq_str(arr->items[0], "hello");
         free_array(arr);
+        free(arr);
     }
 
     it("should add multiple elements") {
@@ -46,6 +48,7 @@ describe(array) {
         asserteq(arr->count, 20);
         assert(arr->capacity > initial_capacity);
         free_array(arr);
+        free(arr);
     }
 
     it("should insert elements at specific indices") {
@@ -59,6 +62,7 @@ describe(array) {
         asserteq_str(arr->items[1], "second");
         asserteq_str(arr->items[2], "third");
         free_array(arr);
+        free(arr);
     }
 
     it("should pop elements by index") {
@@ -74,6 +78,7 @@ describe(array) {
         
         free(popped);
         free_array(arr);
+        free(arr);
     }
 
     it("should remove elements by index") {
@@ -87,6 +92,7 @@ describe(array) {
         asserteq_str(arr->items[0], "first");
         asserteq_str(arr->items[1], "third");
         free_array(arr);
+        free(arr);
     }
 
     it("should set elements") {
@@ -98,6 +104,7 @@ describe(array) {
         asserteq_str(arr->items[1], "updated");
         asserteq(arr->count, 2);
         free_array(arr);
+        free(arr);
     }
 
     it("should copy arrays") {
@@ -114,7 +121,9 @@ describe(array) {
         asserteq_str(dest->items[2], "c");
         
         free_array(src);
+        free(src);
         free_array(dest);
+        free(dest);
     }
 
     it("should extend arrays") {
@@ -134,7 +143,9 @@ describe(array) {
         asserteq_str(arr1->items[3], "d");
         
         free_array(arr1);
+        free(arr1);
         free_array(arr2);
+        free(arr2);
     }
 
     it("should sort arrays") {
@@ -153,6 +164,7 @@ describe(array) {
         assertneq(arr->items[3], NULL);
         
         free_array(arr);
+        free(arr);
     }
 
     it("should clear arrays") {
@@ -164,6 +176,7 @@ describe(array) {
         asserteq(arr->count, 0);
         
         free_array(arr);
+        free(arr);
     }
 
     it("should handle empty arrays") {
@@ -175,7 +188,9 @@ describe(array) {
         asserteq(copied->count, 0);
         
         free_array(arr);
+        free(arr);
         free_array(copied);
+        free(copied);
     }
 
     it("should work with custom growing strategy") {
@@ -192,5 +207,6 @@ describe(array) {
         
         asserteq(arr->count, 10);
         free_array(arr);
+        free(arr);
     }
 }
