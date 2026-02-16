@@ -39,6 +39,7 @@ describe(integration) {
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -105,6 +106,7 @@ describe(integration) {
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -128,6 +130,7 @@ describe(integration) {
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -151,6 +154,7 @@ describe(integration) {
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -170,6 +174,7 @@ describe(integration) {
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -191,6 +196,7 @@ describe(integration) {
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -213,6 +219,7 @@ describe(integration) {
         asserteq(arr->count, 2);
         
         free_array(arr);
+        free(arr);
     }
 
     it("should handle dynamic string operations") {
@@ -224,6 +231,7 @@ describe(integration) {
         free(str);
         
         free_dynamic(dyn);
+        free(dyn);
     }
 
     it("should create and manage trie for commands") {

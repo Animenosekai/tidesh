@@ -42,6 +42,7 @@ describe(execute) {
         }
         
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -95,6 +96,7 @@ describe(execute) {
         }
         
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -113,6 +115,7 @@ describe(execute) {
         }
         
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -131,6 +134,7 @@ describe(execute) {
         }
         
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -149,6 +153,7 @@ describe(execute) {
         }
         
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -167,6 +172,7 @@ describe(execute) {
         }
         
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -185,6 +191,7 @@ describe(execute) {
         }
         
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }
@@ -204,6 +211,7 @@ describe(execute) {
         }
         
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
         free(session);
     }

@@ -87,6 +87,7 @@ describe(history) {
         assert(history->size > 0);
         
         free_history(history);
+        free(history);
     }
 
     it("should get Nth command") {
