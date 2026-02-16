@@ -20,25 +20,12 @@
 #include "builtins/terminal.h"
 #include "builtins/unalias.h"
 #include "builtins/which.h"
-#include "commands/myarp.h"
-#include "commands/mydelexe.h"
-#include "commands/mydump.h"
-#include "commands/myenv.h"
-#include "commands/myexe.h"
-#include "commands/myinfo.h"
-#include "commands/mylof.h"
-#include "commands/mymaps.h"
-#include "commands/mynetstat.h"
-#include "commands/myps.h"
-#include "commands/mypstree.h"
 #include "session.h"
 
 const char *builtins[] = {
-    "cd",        "exit",       "pwd",    "clear",    "history", "help",
-    "printenv",  "which",      "export", "alias",    "unalias", "eval",
-    "terminal",  "info",       "pushd",  "popd",     "myps",    "mypstree",
-    "mynetstat", "mynetstat2", "myarp",  "myexe",    "mylof",   "myinfo",
-    "myenv",     "mymaps",     "mydump", "mydelexe", NULL};
+    "cd",       "exit",  "pwd",    "clear", "history", "help",
+    "printenv", "which", "export", "alias", "unalias", "eval",
+    "terminal", "info",  "pushd",  "popd",  NULL};
 
 int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
     if (strcmp(name, "cd") == 0)
@@ -73,30 +60,6 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_pushd;
     if (strcmp(name, "popd") == 0)
         return builtin_popd;
-    if (strcmp(name, "myps") == 0)
-        return builtin_myps;
-    if (strcmp(name, "mypstree") == 0)
-        return builtin_mypstree;
-    if (strcmp(name, "mynetstat") == 0)
-        return builtin_mynetstat;
-    if (strcmp(name, "mynetstat2") == 0)
-        return builtin_mynetstat;
-    if (strcmp(name, "myarp") == 0)
-        return builtin_myarp;
-    if (strcmp(name, "myexe") == 0)
-        return builtin_myexe;
-    if (strcmp(name, "mylof") == 0)
-        return builtin_mylof;
-    if (strcmp(name, "myinfo") == 0)
-        return builtin_myinfo;
-    if (strcmp(name, "myenv") == 0)
-        return builtin_myenv;
-    if (strcmp(name, "mymaps") == 0)
-        return builtin_mymaps;
-    if (strcmp(name, "mydump") == 0)
-        return builtin_mydump;
-    if (strcmp(name, "mydelexe") == 0)
-        return builtin_mydelexe;
     return NULL;
 }
 

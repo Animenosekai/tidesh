@@ -4,9 +4,6 @@
 
 ***A lightweight but fully-featured shell 🐚***
 
-> [!WARNING]  
-> You are on the `forensic-toolkit` branch, which has forensic tools that were part of the project originally but were removed from the main branch to focus on the core shell features. These tools are still available here for anyone interested in using them or contributing to them, but they are not maintained and may contain bugs or security issues. Use them at your own risk.
-
 ## Index
 
 - [Index](#index)
@@ -19,11 +16,6 @@
   - [Development](#development)
   - [Builtin Commands](#builtin-commands)
   - [Terminal Handling](#terminal-handling)
-  - [System \& Forensic Commands](#system--forensic-commands)
-    - [System Information](#system-information)
-    - [Process Analysis](#process-analysis)
-    - [Network Analysis](#network-analysis)
-    - [File System Analysis](#file-system-analysis)
 - [Features](#features)
   - [Core Shell Features](#core-shell-features)
     - [Environment Variables](#environment-variables)
@@ -163,41 +155,6 @@ The shell includes terminal handling features such as:
 - Command history navigation
 
 It manages the terminal state directly by keeping a virtual representation of the terminal screen and cursor position. Allowing for total control over the terminal display and user input.
-
-### System & Forensic Commands
-
-The shell includes a suite of built-in commands designed for system analysis and memory forensics, directly interacting with the Linux `procfs`.
-
-#### System Information
-
-- `myinfo`: Displays system health in three lines:
-  - Hostname, kernel version, and architecture.
-  - Current time and system uptime (days, hours, minutes).
-  - Load average (1, 5, and 15 minutes).
-
-#### Process Analysis
-
-- `myps`: Lists all running processes with detailed information (PID, PPID, UID, VSZ, RSS, command). Automatically calculates and displays total Virtual Size (VSZ) and Resident Set Size (RSS) memory usage across all processes.
-- `mypstree`: Displays the process tree hierarchy. Shows parent-child relationships between processes with PIDs. On macOS, falls back to `ps -axjf` if `pstree` is not installed.
-- `myenv -p <PID>`: Lists all environment variables of a specific process. It handles binary null-byte separators to provide a clean, readable output.
-- `mymaps -p <PID>`: Displays the memory map of a process, including:
-  - Memory address ranges and permissions (`rwxp`).
-  - Inodes and pathnames for mapped files.
-  - **Forensic Marking**: Automatically flags suspicious memory regions (e.g., zones that are both Writable and Executable `rwx`) with a `[*] suspicious` tag.
-- `mydump -p <PID> --start <0xADR> --end <0xADR> -o <file>`: Performs a live binary acquisition of a specific memory region from `/proc/<PID>/mem` and saves it to a file for external analysis (e.g., with `hexdump`).
-- `mylof -p <PID>`: Lists all open file descriptors for a specific process, showing the FD number, type (FILE, SOCK, PIPE, CHR), and target object. On Linux, parses `/proc/<PID>/fd` directly; on macOS, uses `lsof`.
-- `mydelexe`: Detects and lists fileless or deleted executables currently running in memory. Shows processes whose executable has been deleted from disk (useful for detecting malware or compromised binaries). Displays PID, process name, and the deleted file path.
-
-**Note**: Forensic commands targeting other users' processes may require `sudo` to bypass Linux security restrictions
-
-#### Network Analysis
-
-- `myarp`: Displays the Address Resolution Protocol (ARP) cache, showing IP-to-MAC address mappings for devices on the local network. Uses `arp -a -n` on macOS and `arp -n` on Linux for numeric output.
-- `mynetstat`: Shows active network connections and listening ports. Displays protocol, local/remote addresses, and connection states. On Linux, uses `netstat -tunap`; on macOS, uses `lsof -i -n -P` for consistent output.
-
-#### File System Analysis
-
-- `myexe [paths...]`: Searches for executable files in the specified paths (or default system paths like `/bin`, `/usr/bin`, `/sbin`, `/usr/local/bin` if no path is given). Uses `file` command to verify actual executable format (ELF on Linux, Mach-O on macOS), filtering out scripts and other non-binary executables.
 
 ## Features
 

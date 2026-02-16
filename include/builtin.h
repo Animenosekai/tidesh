@@ -24,18 +24,6 @@
 #include "builtins/unalias.h"
 #include "builtins/which.h"
 
-// Commands (prefixed with "my")
-#include "commands/myarp.h"
-#include "commands/mydump.h"
-#include "commands/myenv.h"
-#include "commands/myexe.h"
-#include "commands/myinfo.h"
-#include "commands/mylof.h"
-#include "commands/mymaps.h"
-#include "commands/mynetstat.h"
-#include "commands/myps.h"
-#include "commands/mypstree.h"
-
 /**
  * Get the function pointer for a builtin command by name
  *
