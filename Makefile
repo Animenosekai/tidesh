@@ -99,7 +99,7 @@ TESTS_SRC_OBJ_DIR = $(TESTING_OBJ_DIR)/src
 TESTS_OBJ = $(patsubst $(TESTS_DIR)/%.c,$(TESTS_OBJ_DIR)/%.o,$(TESTS_SRC))
 
 # Source objects compiled with TESTING flag for test builds
-TESTS_SRC_OBJ = $(patsubst $(SRC_DIR)/%.c,$(TESTS_SRC_OBJ_DIR)/%.o,$(CORE_SRC))
+TESTS_SRC_OBJ = $(patsubst $(SRC_DIR)/%.c,$(TESTS_SRC_OBJ_DIR)/%.o,$(SRC))
 
 # Targets
 TARGET_PREFIX = $(BIN_DIR)/$(PROJECT_NAME)
@@ -304,7 +304,7 @@ $(TESTS_OBJ_DIR)/%.o: $(TESTS_DIR)/%.c
 	$(SILENT)$(CC) $(CFLAGS) $(TESTINGFLAGS) -MMD -MP -c $< -o $@
 
 # Test targets
-.PHONY: test tests
+.PHONY: test tests test/data test/core test/parsing test/execution test/integration test/builtins test/lexer test/ast test/execute test/utf8
 tests: test
 
 test: $(TESTS_TARGET)
@@ -314,7 +314,43 @@ test: $(TESTS_TARGET)
 	@echo "—————————————————————————————————————————————————————"
 	@echo "$(BOLD)✅ Tests completed$(SGR0)"
 
+test/data: $(TESTS_TARGET)
+	@echo "$(BOLD)🧪 Testing data structures...$(SGR0)"
+	$(SILENT)$(TESTS_TARGET) array dynamic trie utf8
+
+test/core: $(TESTS_TARGET)
+	@echo "$(BOLD)🧪 Testing core components...$(SGR0)"
+	$(SILENT)$(TESTS_TARGET) environ session dirstack history
+
+test/parsing: $(TESTS_TARGET)
+	@echo "$(BOLD)🧪 Testing parsing...$(SGR0)"
+	$(SILENT)$(TESTS_TARGET) lexer ast
+
+test/execution: $(TESTS_TARGET)
+	@echo "$(BOLD)🧪 Testing execution...$(SGR0)"
+	$(SILENT)$(TESTS_TARGET) execute
+
+test/integration: $(TESTS_TARGET)
+	@echo "$(BOLD)🧪 Testing integration...$(SGR0)"
+	$(SILENT)$(TESTS_TARGET) integration
+
+test/builtins: $(TESTS_TARGET)
+	@echo "$(BOLD)🧪 Testing builtins...$(SGR0)"
+	$(SILENT)$(TESTS_TARGET) builtin
+
+test/lexer: $(TESTS_TARGET)
+	$(SILENT)$(TESTS_TARGET) lexer
+
+test/ast: $(TESTS_TARGET)
+	$(SILENT)$(TESTS_TARGET) ast
+
+test/execute: $(TESTS_TARGET)
+	$(SILENT)$(TESTS_TARGET) execute
+
+test/utf8: $(TESTS_TARGET)
+	$(SILENT)$(TESTS_TARGET) utf8
+
 # Test binary targets
 $(TESTS_TARGET): $(TESTS_OBJ) $(TESTS_SRC_OBJ)
 	@echo "$(BOLD)🔗 Linking tests...$(SGR0)"
-	$(SILENT)$(CC) $(TESTS_CFLAGS) -o $@ $^
+	$(SILENT)$(CC) $(CFLAGS) $(TESTINGFLAGS) -o $@ $^

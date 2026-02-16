@@ -130,6 +130,7 @@ static void print_usage(const char *prog_name, bool colors) {
            "Disable command history");
 }
 
+#ifndef TESTING
 int main(int argc, char **argv) {
     signal(SIGINT, SIG_IGN);
     signal(SIGQUIT, SIG_IGN);
@@ -382,3 +383,4 @@ int main(int argc, char **argv) {
 
     return 0;
 }
+#endif

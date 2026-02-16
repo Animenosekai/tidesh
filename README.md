@@ -16,6 +16,7 @@
   - [Development](#development)
   - [Builtin Commands](#builtin-commands)
   - [Terminal Handling](#terminal-handling)
+- [Testing](#testing)
 - [Features](#features)
   - [Core Shell Features](#core-shell-features)
     - [Environment Variables](#environment-variables)
@@ -155,6 +156,39 @@ The shell includes terminal handling features such as:
 - Command history navigation
 
 It manages the terminal state directly by keeping a virtual representation of the terminal screen and cursor position. Allowing for total control over the terminal display and user input.
+
+## Testing
+
+`tidesh` uses the [Snow](https://github.com/mortie/snow) testing framework.
+
+### Prerequisites
+
+You need to initialize and update the submodules to include the Snow testing framework:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Running Tests
+
+You can run all the tests using the following command:
+
+```bash
+make test
+```
+
+### Specialized Test Targets
+
+You can also run tests for specific modules to speed up development:
+
+- `make test/data`: Data structures (Array, Dynamic String, Trie, UTF-8)
+- `make test/parsing`: Lexer and AST
+- `make test/execution`: Command execution logic
+- `make test/builtins`: Shell builtins
+- `make test/core`: Core shell components (Environment, History, etc.)
+- `make test/integration`: Full integration tests
+
+Individual suite targets like `make test/lexer`, `make test/ast`, or `make test/utf8` are also available.
 
 ## Features
 
