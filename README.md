@@ -4,6 +4,14 @@
 
 ***A lightweight but fully-featured shell 🐚***
 
+[![GitHub - License](https://img.shields.io/github/license/Animenosekai/tidesh)](https://github.com/Animenosekai/tidesh/blob/main/LICENSE)
+[![GitHub Top Language](https://img.shields.io/github/languages/top/Animenosekai/tidesh)](https://github.com/Animenosekai/tidesh)
+[![Tests](https://github.com/Animenosekai/tidesh/actions/workflows/test.yml/badge.svg)](https://github.com/Animenosekai/tidesh/actions/workflows/test.yml)
+[![Builds](https://github.com/Animenosekai/tidesh/actions/workflows/build.yml/badge.svg)](https://github.com/Animenosekai/tidesh/actions/workflows/build.yml)
+![Code Size](https://img.shields.io/github/languages/code-size/Animenosekai/tidesh)
+![Repo Size](https://img.shields.io/github/repo-size/Animenosekai/tidesh)
+![Issues](https://img.shields.io/github/issues/Animenosekai/tidesh)
+
 ## Index
 
 - [Index](#index)
