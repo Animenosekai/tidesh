@@ -18,8 +18,11 @@ describe(ast) {
         asserteq_str(ast->argv[1], "hello");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse command with arguments") {
@@ -35,8 +38,11 @@ describe(ast) {
         asserteq_str(ast->argv[0], "ls");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse pipeline") {
@@ -58,8 +64,11 @@ describe(ast) {
         asserteq_str(ast->right->argv[0], "grep");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse sequence with semicolon") {
@@ -79,8 +88,11 @@ describe(ast) {
         asserteq_str(ast->right->argv[0], "ls");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse AND operator") {
@@ -100,8 +112,11 @@ describe(ast) {
         asserteq_str(ast->right->argv[0], "cat");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse OR operator") {
@@ -121,8 +136,11 @@ describe(ast) {
         asserteq_str(ast->right->argv[0], "fallback");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse background command") {
@@ -138,8 +156,11 @@ describe(ast) {
         asserteq_str(ast->argv[0], "sleep");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse subshell") {
@@ -154,8 +175,11 @@ describe(ast) {
         assertneq(ast->left, NULL);
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse redirections") {
@@ -171,8 +195,11 @@ describe(ast) {
         assertneq(ast->redirects->target, NULL);
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse input redirection") {
@@ -188,8 +215,11 @@ describe(ast) {
         assertneq(ast->redirects->target, NULL);
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse append redirection") {
@@ -205,8 +235,11 @@ describe(ast) {
         assertneq(ast->redirects->target, NULL);
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse variable assignment") {
@@ -221,8 +254,11 @@ describe(ast) {
         assert(ast->assignments->count > 0);
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle empty input") {
@@ -234,9 +270,14 @@ describe(ast) {
         // Empty input may return NULL or an empty command
         // Both are acceptable
         
-        if (ast) free_ast(ast);
+        if (ast) {
+            free_ast(ast);
+            free(ast);
+        }
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse complex pipeline") {
@@ -253,8 +294,11 @@ describe(ast) {
         assert(ast->right->type == NODE_PIPE || ast->right->type == NODE_COMMAND);
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse nested structures") {
@@ -272,8 +316,11 @@ describe(ast) {
         asserteq(ast->right->type, NODE_COMMAND);
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should free AST recursively") {
@@ -287,10 +334,13 @@ describe(ast) {
         assertneq(ast->left, NULL);
         assertneq(ast->right, NULL);
         asserteq(ast->left->type, NODE_PIPE);
-        free_ast(ast); // Should not crash
+        free_ast(ast);
+        free(ast);
         
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle quotes in arguments") {
@@ -306,7 +356,10 @@ describe(ast) {
         asserteq_str(ast->argv[1], "hello world");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
+        free(lexer);
         free_session(session);
+        free(session);
     }
 }

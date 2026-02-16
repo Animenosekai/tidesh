@@ -98,6 +98,7 @@ describe(module_name) {
 
         // Cleanup
         free_module(m);
+        free(m);
     }
 }
 ```

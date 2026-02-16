@@ -67,6 +67,7 @@ describe(lexer) {
         asserteq(token.type, TOKEN_EOF);
         free_lexer_token(&token);
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle empty input") {
@@ -77,6 +78,7 @@ describe(lexer) {
         asserteq(token.type, TOKEN_EOF);
         free_lexer_token(&token);
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle simple word token") {
@@ -89,7 +91,9 @@ describe(lexer) {
         free_lexer_token(&token);
         consume_all_tokens(input);
         free_lexer_input(input);
+        free(input);
         free_session(session);
+        free(session);
     }
 
     it("should handle multiple words") {
@@ -102,7 +106,9 @@ describe(lexer) {
         free_lexer_token(&token);
         consume_all_tokens(input);
         free_lexer_input(input);
+        free(input);
         free_session(session);
+        free(session);
     }
 
     it("should handle pipe operator") {
@@ -110,6 +116,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_PIPE));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle redirection operators") {
@@ -118,6 +125,7 @@ describe(lexer) {
         assert(contains_token_type(input, TOKEN_REDIRECT_OUT));
         assert(contains_token_type(input, TOKEN_REDIRECT_IN));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle AND operator") {
@@ -125,6 +133,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_SEQUENCE));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle OR operator") {
@@ -132,6 +141,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_OR));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle semicolon") {
@@ -139,6 +149,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_SEMICOLON));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle background operator") {
@@ -146,6 +157,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_BACKGROUND));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle parentheses") {
@@ -154,6 +166,7 @@ describe(lexer) {
         assert(contains_token_type(input, TOKEN_LPAREN));
         assert(contains_token_type(input, TOKEN_RPAREN));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle variable assignment") {
@@ -161,6 +174,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_ASSIGNMENT));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle quoted strings") {
@@ -180,6 +194,7 @@ describe(lexer) {
         asserteq(token.type, TOKEN_EOF);
         free_lexer_token(&token);
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle single quoted strings") {
@@ -199,6 +214,7 @@ describe(lexer) {
         asserteq(token.type, TOKEN_EOF);
         free_lexer_token(&token);
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle comments") {
@@ -216,6 +232,7 @@ describe(lexer) {
 
         consume_all_tokens(input);
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle IO number redirection") {
@@ -224,6 +241,7 @@ describe(lexer) {
         assert(contains_token_type(input, TOKEN_IO_NUMBER));
         assert(contains_token_type(input, TOKEN_REDIRECT_OUT_ERR));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle process substitution input") {
@@ -231,6 +249,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_PROCESS_SUBSTITUTION_IN));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle process substitution output") {
@@ -238,6 +257,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_PROCESS_SUBSTITUTION_OUT));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle heredoc") {
@@ -245,6 +265,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_HEREDOC));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle herestring") {
@@ -252,6 +273,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_HERESTRING));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle append redirection") {
@@ -259,6 +281,7 @@ describe(lexer) {
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_REDIRECT_APPEND));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should handle complex command") {
@@ -270,6 +293,7 @@ describe(lexer) {
         assert(contains_token_type(input, TOKEN_REDIRECT_OUT_ERR));
         assert(contains_token_type(input, TOKEN_BACKGROUND));
         free_lexer_input(input);
+        free(input);
     }
 
     it("should initialize with callback functions") {
@@ -292,7 +316,9 @@ describe(lexer) {
         asserteq(token.type, TOKEN_EOF);
         free_lexer_token(&token);
         free_lexer_input(input);
+        free(input);
         free_session(session);
+        free(session);
     }
 
     it("should handle whitespace") {
@@ -312,5 +338,6 @@ describe(lexer) {
         asserteq(token.type, TOKEN_EOF);
         free_lexer_token(&token);
         free_lexer_input(input);
+        free(input);
     }
 }

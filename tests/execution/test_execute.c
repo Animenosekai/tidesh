@@ -14,6 +14,7 @@ describe(execute) {
         
         if (path) free(path);
         free_session(session);
+        free(session);
     }
 
     it("should handle nonexistent command in PATH") {
@@ -23,6 +24,7 @@ describe(execute) {
         asserteq(path, NULL);
         
         free_session(session);
+        free(session);
     }
 
     it("should execute simple echo command") {
@@ -36,10 +38,12 @@ describe(execute) {
             // Result should be 0 for success or non-zero for error
             assert(result >= 0);
             free_ast(ast);
+            free(ast);
         }
         
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle command execution in session") {
@@ -51,6 +55,7 @@ describe(execute) {
         assert(result >= 0);
         
         free_session(session);
+        free(session);
     }
 
     it("should capture command stdout") {
@@ -62,6 +67,7 @@ describe(execute) {
         
         free(output);
         free_session(session);
+        free(session);
     }
 
     it("should handle failing command") {
@@ -72,6 +78,7 @@ describe(execute) {
         assert(result != 0);
         
         free_session(session);
+        free(session);
     }
 
     it("should handle execution with AST") {
@@ -84,10 +91,12 @@ describe(execute) {
             int result = execute(ast, session);
             assert(result >= 0);
             free_ast(ast);
+            free(ast);
         }
         
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle pipe commands") {
@@ -100,10 +109,12 @@ describe(execute) {
             int result = execute(ast, session);
             assert(result >= 0);
             free_ast(ast);
+            free(ast);
         }
         
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle command with arguments") {
@@ -116,10 +127,12 @@ describe(execute) {
             int result = execute(ast, session);
             assert(result >= 0);
             free_ast(ast);
+            free(ast);
         }
         
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle multiple sequential commands") {
@@ -132,10 +145,12 @@ describe(execute) {
             int result = execute(ast, session);
             assert(result >= 0);
             free_ast(ast);
+            free(ast);
         }
         
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle AND operator") {
@@ -148,10 +163,12 @@ describe(execute) {
             int result = execute(ast, session);
             assert(result > 0); // Should fail since second command fails
             free_ast(ast);
+            free(ast);
         }
         
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle OR operator") {
@@ -164,10 +181,12 @@ describe(execute) {
             int result = execute(ast, session);
             assert(result == 0); // Should succeed since second command succeeds
             free_ast(ast);
+            free(ast);
         }
         
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle redirections") {
@@ -181,10 +200,12 @@ describe(execute) {
             // Command should execute (may succeed or fail depending on permissions)
             assert(result >= 0);
             free_ast(ast);
+            free(ast);
         }
         
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle expansion in commands") {
@@ -198,5 +219,6 @@ describe(execute) {
         assert(result >= 0);
         
         free_session(session);
+        free(session);
     }
 }

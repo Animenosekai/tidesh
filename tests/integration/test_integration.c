@@ -20,6 +20,7 @@ describe(integration) {
         assertneq_ptr(session->dirstack, NULL);
         assertneq_ptr(session->aliases, NULL);
         free_session(session);
+        free(session);
     }
 
     it("should parse and create simple command AST") {
@@ -36,8 +37,10 @@ describe(integration) {
         asserteq_str(ast->argv[1], "hello");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle environment variables in session") {
@@ -48,6 +51,7 @@ describe(integration) {
         asserteq_str(value, "test_value");
         
         free_session(session);
+        free(session);
     }
 
     it("should maintain history across operations") {
@@ -61,6 +65,7 @@ describe(integration) {
         asserteq_str(last, "echo hello");
         
         free_session(session);
+        free(session);
     }
 
     it("should handle aliases") {
@@ -71,6 +76,7 @@ describe(integration) {
         asserteq_str(alias_value, "ls -la");
         
         free_session(session);
+        free(session);
     }
 
     it("should track working directory") {
@@ -81,6 +87,7 @@ describe(integration) {
         assertneq_ptr(session->current_working_dir, NULL);
         
         free_session(session);
+        free(session);
     }
 
     it("should handle command with redirections") {
@@ -96,8 +103,10 @@ describe(integration) {
         assertneq_ptr(ast->redirects->target, NULL);
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle pipe commands") {
@@ -117,8 +126,10 @@ describe(integration) {
         asserteq_str(ast->right->argv[0], "grep");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle logical operators") {
@@ -138,8 +149,10 @@ describe(integration) {
         asserteq(ast->left->right->type, NODE_COMMAND);
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle background processes") {
@@ -155,8 +168,10 @@ describe(integration) {
         asserteq_str(ast->argv[0], "sleep");
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should parse multiple commands in sequence") {
@@ -174,8 +189,10 @@ describe(integration) {
         asserteq(ast->right->type, NODE_COMMAND);
         
         free_ast(ast);
+        free(ast);
         free_lexer_input(lexer);
         free_session(session);
+        free(session);
     }
 
     it("should handle exit flag") {
@@ -185,6 +202,7 @@ describe(integration) {
         assert(session->exit_requested);
         
         free_session(session);
+        free(session);
     }
 
     it("should handle array operations in context") {
@@ -217,5 +235,6 @@ describe(integration) {
         assert(trie_contains(trie, "cat"));
         
         free_trie(trie);
+        free(trie);
     }
 }
