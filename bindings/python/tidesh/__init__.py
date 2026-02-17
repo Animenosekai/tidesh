@@ -63,7 +63,6 @@ from .__info__ import (
     __year__,
 )
 from ._tidesh import ffi, lib
-
 from .ast import ASTNode, NodeType
 from .exceptions import (
     AliasError,
@@ -77,7 +76,13 @@ from .exceptions import (
     TideshError,
 )
 from .lexer import Lexer
-from .session import Session
+from .session import (
+    AliasCommandInfo,
+    BuiltinCommandInfo,
+    CommandInfo,
+    ExternalCommandInfo,
+    Session,
+)
 from .state import Aliases, DirectoryStack, Environ, History, Terminal
 from .tokens import (
     AssignmentToken,
@@ -117,6 +122,10 @@ __all__ = [
     "Token",
     "CommentToken",
     "CommandNotFoundError",
+    "CommandInfo",
+    "ExternalCommandInfo",
+    "BuiltinCommandInfo",
+    "AliasCommandInfo",
     "DirectoryStack",
     "DirectoryStackError",
     "EOFToken",
@@ -173,6 +182,7 @@ __all__ = [
     "__year__",
     "__compiler__",
 ]
+
 
 def run(command: str) -> int:
     """

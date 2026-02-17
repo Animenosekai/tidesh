@@ -28,6 +28,9 @@
   - [Prerequisites](#prerequisites-1)
   - [Running Tests](#running-tests)
   - [Specialized Test Targets](#specialized-test-targets)
+- [Python Bindings](#python-bindings)
+  - [Installation](#installation-1)
+  - [Usage](#usage)
 - [Features](#features)
   - [Core Shell Features](#core-shell-features)
     - [Environment Variables](#environment-variables)
@@ -200,6 +203,46 @@ You can also run tests for specific modules to speed up development:
 - `make test/integration`: Full integration tests
 
 Individual suite targets like `make test/lexer`, `make test/ast`, or `make test/utf8` are also available.
+
+## Python Bindings
+
+`tidesh` provides Python bindings to interact with the shell programmatically.
+
+### Installation
+
+```bash
+make build/python
+```
+
+### Usage
+
+```python
+from tidesh import Session, ExternalCommandInfo
+
+with Session() as session:
+    # Execute a command
+    session.execute("echo Hello from Python!")
+
+    # Set environment variables
+    session.environ["GREETING"] = "Bonjour"
+    session.execute("echo $GREETING")
+
+    # Capture output
+    output = session.capture("pwd")
+    print(f"Current directory: {output}")
+    session.execute("cd /tmp")
+    output = session.capture("pwd")
+    print(f"Changed directory: {output}")
+
+    # Check a command's path
+    ls, echo, *_ = session.which("ls", "echo")
+
+    if isinstance(ls, ExternalCommandInfo):
+        print(f"Path to ls: {ls.path}")
+
+    if isinstance(echo, ExternalCommandInfo):
+        print(f"Path to echo: {echo.path}")
+```
 
 ## Features
 

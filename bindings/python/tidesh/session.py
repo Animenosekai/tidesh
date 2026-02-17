@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import dataclasses
-import enum
 import typing
 
 import typing_extensions
