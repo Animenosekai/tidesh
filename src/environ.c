@@ -111,6 +111,21 @@ void environ_set(Environ *env, char *key, char *value) {
     free(newvar);
 }
 
+bool environ_remove(Environ *env, char *key) {
+    if (!env || !env->array)
+        return false;
+
+    size_t keylen = strlen(key);
+    for (size_t i = 0; i < env->array->count; i++) {
+        if (!strncmp(env->array->items[i], key, keylen) &&
+            env->array->items[i][keylen] == '=') {
+            array_remove(env->array, i);
+            return true;
+        }
+    }
+    return false;
+}
+
 void environ_set_exit_status(Environ *env, int status) {
     char status_str[12];
     snprintf(status_str, sizeof(status_str), "%d", status);

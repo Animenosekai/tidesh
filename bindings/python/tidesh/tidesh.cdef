@@ -1,0 +1,182 @@
+typedef int... size_t;
+typedef _Bool bool;
+
+typedef struct Session Session;
+typedef struct History History;
+typedef struct Trie Trie;
+typedef struct DirStack DirStack;
+typedef struct Terminal Terminal;
+typedef struct Environ Environ;
+typedef struct Array Array;
+typedef struct Redirection Redirection;
+typedef struct LexerInput LexerInput;
+typedef struct ASTNode ASTNode;
+
+typedef enum CommandType {
+    COMMAND_NOT_FOUND,
+    COMMAND_ALIAS,
+    COMMAND_BUILTIN,
+    COMMAND_SPECIAL_BUILTIN,
+    COMMAND_EXTERNAL
+} CommandType;
+
+typedef struct CommandInfo {
+    CommandType type;
+    char       *path;
+} CommandInfo;
+
+struct Array {
+    char **items;
+    size_t count;
+    size_t capacity;
+    size_t (*growing_strategy)(size_t, size_t);
+    ...;
+};
+
+struct Session {
+    char     *current_working_dir;
+    char     *previous_working_dir;
+    Environ  *environ;
+    History  *history;
+    Trie     *aliases;
+    Trie     *path_commands;
+    DirStack *dirstack;
+    Terminal *terminal;
+    bool      exit_requested;
+    ...;
+};
+
+struct Terminal {
+    size_t rows;
+    size_t cols;
+    bool   supports_colors;
+    ...;
+};
+
+// Session
+Session *init_session(Session *session, char *history_path);
+void update_working_dir(Session *session);
+void update_path(Session *session);
+void free_session(Session *session);
+
+// Execution
+int execute_string(const char *cmd, Session *session);
+char *execute_string_stdout(const char *cmd, Session *session);
+char *find_in_path(const char *cmd, Session *session);
+CommandInfo get_command_info(const char *cmd, Session *session);
+
+// Environment
+Environ *init_environ(Environ *env);
+char *environ_get(Environ *env, char *key);
+void environ_set(Environ *env, char *key, char *value);
+bool environ_contains(Environ *env, char *key);
+char *environ_get_default(Environ *env, char *key, char *default_value);
+Environ *environ_copy(Environ *src, Environ *dest);
+Array *environ_to_array(Environ *env);
+bool environ_remove(Environ *env, char *key);
+void free_environ(Environ *env);
+
+// Array
+void free_array(Array *array);
+
+// History
+History *init_history(History *history);
+History *load_history(History *history, char *filepath);
+void history_clear(History *history);
+void history_save(History *history);
+bool history_remove(History *history, const char *command, bool all);
+void history_append(History *history, const char *command);
+char *history_get_next(History *history);
+char *history_get_previous(History *history);
+char *history_last_command(History *history);
+char *history_nth_command(History *history, size_t n);
+void free_history(History *history);
+
+// Trie (for aliases)
+char *trie_get(Trie *trie, char *key);
+bool trie_set(Trie *trie, char *key, char *value);
+bool trie_contains(Trie *trie, char *key);
+bool trie_delete_key(Trie *trie, char *key);
+Array *trie_starting_with(Trie *trie, char *prefix);
+
+// DirStack
+bool dirstack_pushd(DirStack *directory_stack, const char *path);
+bool dirstack_popd(DirStack *directory_stack);
+char *dirstack_peek(const DirStack *directory_stack, size_t n);
+
+// Expansions
+Array *full_expansion(char *input, Session *session);
+
+// Lexer
+typedef enum TokenType {
+    TOKEN_WORD,
+    TOKEN_IO_NUMBER,
+    TOKEN_COMMENT,
+    TOKEN_ASSIGNMENT,
+    TOKEN_PIPE,
+    TOKEN_REDIRECT_IN,
+    TOKEN_FD_DUPLICATION,
+    TOKEN_PROCESS_SUBSTITUTION_IN,
+    TOKEN_HEREDOC,
+    TOKEN_HERESTRING,
+    TOKEN_REDIRECT_OUT,
+    TOKEN_REDIRECT_APPEND,
+    TOKEN_REDIRECT_OUT_ERR,
+    TOKEN_PROCESS_SUBSTITUTION_OUT,
+    TOKEN_BACKGROUND,
+    TOKEN_SEQUENCE,
+    TOKEN_OR,
+    TOKEN_SEMICOLON,
+    TOKEN_LPAREN,
+    TOKEN_RPAREN,
+    TOKEN_EOL,
+    TOKEN_EOF
+} TokenType;
+
+typedef struct LexerToken {
+    TokenType type;
+    char *value;
+    char *extra;
+    ...;
+} LexerToken;
+
+LexerInput *init_lexer_input(LexerInput *input, char *data, void *execute_fn, Session *session);
+LexerToken lexer_next_token(LexerInput *input);
+void free_lexer_token(LexerToken *token);
+void free_lexer_input(LexerInput *input);
+
+// Parser
+typedef enum NodeType {
+    NODE_COMMAND,
+    NODE_PIPE,
+    NODE_AND,
+    NODE_OR,
+    NODE_SEQUENCE,
+    NODE_SUBSHELL
+} NodeType;
+
+struct ASTNode {
+    NodeType type;
+    char **argv;
+    int *arg_is_sub;
+    int argc;
+    Redirection *redirects;
+    Array *assignments;
+    struct ASTNode *left;
+    struct ASTNode *right;
+    bool background;
+    ...;
+};
+
+ASTNode *parse(LexerInput *lexer, Session *session);
+void free_ast(ASTNode *node);
+
+// Builtins
+int builtin_info(int argc, char **argv, Session *session);
+int builtin_cd(int argc, char **argv, Session *session);
+int builtin_which(int argc, char **argv, Session *session);
+
+extern const char *tidesh_compiler;
+
+// General free
+void free(void *ptr);

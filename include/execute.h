@@ -13,6 +13,34 @@
 #include "session.h"
 
 /**
+ * The type of a command.
+ */
+typedef enum CommandType {
+    COMMAND_NOT_FOUND,
+    COMMAND_ALIAS,
+    COMMAND_BUILTIN,
+    COMMAND_SPECIAL_BUILTIN,
+    COMMAND_EXTERNAL
+} CommandType;
+
+/**
+ * Detailed information about a command.
+ */
+typedef struct CommandInfo {
+    CommandType type;
+    char       *path;
+} CommandInfo;
+
+/**
+ * Get detailed information about a command.
+ *
+ * @param cmd The command name to lookup
+ * @param session The session context
+ * @return A CommandInfo struct containing the command type and path/expansion
+ */
+CommandInfo get_command_info(const char *cmd, Session *session);
+
+/**
  * Find the full path of a command by searching the PATH environment variable.
  *
  * @param cmd The command name to find
@@ -47,17 +75,5 @@ int execute_string(const char *cmd, Session *session);
  * @return The captured standard output of the command
  */
 char *execute_string_stdout(const char *cmd, Session *session);
-
-/**
- * A helper function to build arguments and execute a command.
- *
- * @param cmd The command to execute.
- * @param argc The number of arguments.
- * @param argv The arguments.
- * @param prefix_args The arguments to add to the command.
- * @return The exit status of the executed command.
- */
-int exec_wrapper(const char *cmd, int argc, char **argv,
-                 const char **prefix_args);
 
 #endif /* EXECUTE_H */

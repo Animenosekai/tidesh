@@ -11,6 +11,7 @@
 #include "ast.h"
 #include "builtin.h"
 #include "data/array.h"
+#include "data/trie.h"
 #include "environ.h" /* environ_set, environ_to_array */
 #include "execute.h"
 #include "expand.h"
@@ -50,6 +51,42 @@ char *find_in_path(const char *cmd, Session *session) {
             return strdup(buffer);
     }
     return NULL;
+}
+
+CommandInfo get_command_info(const char *cmd, Session *session) {
+    CommandInfo info = {COMMAND_NOT_FOUND, NULL};
+
+    // 1. Alias
+    char *alias_val = trie_get(session->aliases, (char *)cmd);
+    if (alias_val) {
+        info.type = COMMAND_ALIAS;
+        info.path = strdup(alias_val);
+        return info;
+    }
+
+    // 2. Special Builtin
+    if (is_special_builtin(cmd)) {
+        info.type = COMMAND_SPECIAL_BUILTIN;
+        info.path = NULL;
+        return info;
+    }
+
+    // 3. Regular Builtin
+    if (is_builtin(cmd)) {
+        info.type = COMMAND_BUILTIN;
+        info.path = NULL;
+        return info;
+    }
+
+    // 4. External Command
+    char *path = find_in_path(cmd, session);
+    if (path) {
+        info.type = COMMAND_EXTERNAL;
+        info.path = path;
+        return info;
+    }
+
+    return info;
 }
 
 /* Forward declaration */
@@ -547,42 +584,4 @@ char *execute_string_stdout(const char *cmd, Session *session) {
     }
 
     return buffer;
-}
-
-// The following function is used for internal sped up commands in
-// `src/commands`. To stay as lightweight as possible, we don't use AST parsing
-// here and just exec the command directly.
-
-/* A lightweight helper function to build arguments and execute a command */
-int exec_wrapper(const char *cmd, int argc, char **argv,
-                 const char **prefix_args) {
-    int prefix_count = 0;
-    while (prefix_args[prefix_count] != NULL) {
-        prefix_count++;
-    }
-
-    // New argv has space for: new_cmd_name + prefix_args + user_args (argc-1)
-    // + NULL
-    char **new_argv =
-        malloc(sizeof(char *) * (1 + prefix_count + (argc - 1) + 1));
-    if (!new_argv) {
-        perror("malloc");
-        return 1;
-    }
-
-    new_argv[0] = (char *)cmd;
-    for (int i = 0; i < prefix_count; i++) {
-        new_argv[i + 1] = (char *)prefix_args[i];
-    }
-    for (int i = 1; i < argc; i++) {
-        new_argv[1 + prefix_count + (i - 1)] = argv[i];
-    }
-    new_argv[1 + prefix_count + argc - 1] = NULL;
-
-    execvp(cmd, new_argv);
-
-    // execvp only returns on error
-    fprintf(stderr, "tidesh: command not found: %s\n", cmd);
-    free(new_argv);
-    return 127;
 }

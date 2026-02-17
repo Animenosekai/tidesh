@@ -149,6 +149,8 @@ help:
 	@echo "  $(BOLD)docs:		Generate documentation$(SGR0)"
 	@echo "  $(BOLD)clean:	Clean build files$(SGR0)"
 	@echo "  $(BOLD)clean/all:	Clean everything$(SGR0)"
+	@echo "  $(BOLD)build/python: Build Python bindings$(SGR0)"
+	@echo "  $(BOLD)clean/python: Clean Python bindings$(SGR0)"
 	@echo "  $(BOLD)uninstall:	Uninstall the shell$(SGR0)"
 	@echo "  $(BOLD)lint:		Run linters$(SGR0)"
 	@echo "  $(BOLD)lint/tests:	Lint test code$(SGR0)"
@@ -186,15 +188,19 @@ info:
 routine: clean format docs lint
 
 # Clean commands
-.PHONY: clean clean/all
+.PHONY: clean clean/all clean/python
 clean:
 	@echo "$(BOLD)🧹 Cleaning build files...$(SGR0)"
 	$(SILENT)rm -rf $(OBJ_DIR)
 
-clean/all: clean
+clean/all: clean clean/python
 	@echo "$(BOLD)🧹 Performing deep clean...$(SGR0)"
 	$(SILENT)rm -rf $(BIN_DIR)
 	$(SILENT)rm -rf $(DOC_DIR)/out
+
+clean/python:
+	@echo "$(BOLD)🧹 Cleaning Python bindings...$(SGR0)"
+	$(SILENT)rm -rf bindings/python/dist bindings/python/build bindings/python/*.egg-info bindings/python/obj
 
 # Linting commands
 .PHONY: lint lint/tests
@@ -275,7 +281,7 @@ run: build
 # Install targets
 .PHONY: install uninstall
 
-install: clean/all build
+install: build
 	@echo "$(BOLD)📥 Installing $(PROJECT_NAME) to $(INSTALL_DIR)...$(SGR0)"
 	$(SILENT)mkdir -p $(INSTALL_DIR)
 	$(SILENT)cp $(TARGET) $(INSTALL_DIR)/$(PROJECT_NAME)
@@ -354,3 +360,28 @@ test/utf8: $(TESTS_TARGET)
 $(TESTS_TARGET): $(TESTS_OBJ) $(TESTS_SRC_OBJ)
 	@echo "$(BOLD)🔗 Linking tests...$(SGR0)"
 	$(SILENT)$(CC) $(CFLAGS) $(TESTINGFLAGS) -o $@ $^
+
+######################################
+#         PYTHON BINDINGS            #
+######################################
+
+.PHONY: build/python
+
+python/stage: $(SRC) $(INCLUDES_DIR)/*.h
+	@echo "$(BOLD)📦 Staging C sources for Python bindings...$(SGR0)"
+	$(SILENT)mkdir -p bindings/python/src bindings/python/include
+	$(SILENT)cp -r $(SRC_DIR)/* bindings/python/src/ 2>/dev/null || true
+	$(SILENT)cp -r $(INCLUDES_DIR)/* bindings/python/include/ 2>/dev/null || true
+	@echo "$(BOLD)✅ Staging completed$(SGR0)"
+
+build/python: python/stage
+	@echo "$(BOLD)🐍 Building Python bindings...$(SGR0)"
+	@echo "$(BOLD)  → Running build...$(SGR0)"
+	@if cd bindings/python && PROJECT_NAME="$(PROJECT_NAME)" RAW_VERSION="$(VERSION)" BRIEF="$(BRIEF)" PLATFORM="$(PLATFORM)" GIT_VERSION="$(GIT_VERSION)" BUILD_DATE="$(BUILD_DATE)" BUILD_TYPE="$(BUILD_TYPE)" uv build; then \
+		echo "$(BOLD)  → Cleaning up staged sources...$(SGR0)"; \
+		rm -rf src include; \
+		echo "$(BOLD)✅ Python bindings built successfully$(SGR0)"; \
+	else \
+		echo "$(BOLD)❌ Build failed. Keeping staged sources for debugging.$(SGR0)"; \
+		exit 1; \
+	fi

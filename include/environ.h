@@ -62,6 +62,15 @@ char *environ_get_default(Environ *env, char *key, char *default_value);
 void environ_set(Environ *env, char *key, char *value);
 
 /**
+ * Removes a variable `key` from the environment
+ *
+ * @param env Pointer to Environ
+ * @param key Variable name to remove
+ * @return true if variable was found and removed, false otherwise
+ */
+bool environ_remove(Environ *env, char *key);
+
+/**
  * Sets the exit status variable $? in the environment
  *
  * @param env Pointer to Environ
