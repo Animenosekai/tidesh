@@ -11,6 +11,7 @@
 #include "environ.h"         /* environ_get, environ_set, environ_get_default */
 #include "execute.h"         /* execute_string */
 #include "features.h"        /* Features */
+#include "hooks.h"           /* HOOK_NAME_* */
 #include "prompt/terminal.h" /* Terminal, terminal functions */
 #include "session.h"         /* Session, Environ, History, Trie, DirStack */
 
@@ -83,6 +84,7 @@ Session *init_session(Session *session, char *history_path) {
     session->current_working_dir  = NULL;
     session->previous_working_dir = NULL;
     session->exit_requested       = false;
+    session->hooks_disabled       = false;
 
     // Initialize feature flags (all enabled by default)
     init_features(&session->features);
@@ -187,6 +189,8 @@ static void run_dir_hook(Session *session, const char *dir,
                          const char *hook_name) {
     if (!session || !dir || !hook_name)
         return;
+    if (session->hooks_disabled)
+        return;
 
     char hook_path[PATH_MAX];
     int  written =
@@ -216,13 +220,25 @@ static void run_dir_hook(Session *session, const char *dir,
     session->history->disabled = true;
 #endif
 
+    bool hooks_were_disabled = session->hooks_disabled;
+    session->hooks_disabled  = true;
+
     execute_string(content, session);
+
+    session->hooks_disabled = hooks_were_disabled;
 
 #ifndef TIDESH_DISABLE_HISTORY
     session->history->disabled = was_disabled;
 #endif
 
     free(content);
+}
+
+void run_cwd_hook(Session *session, const char *hook_name) {
+    if (!session || !session->current_working_dir)
+        return;
+
+    run_dir_hook(session, session->current_working_dir, hook_name);
 }
 
 static void run_parent_enter_hooks(Session *session, const char *path) {
@@ -259,7 +275,7 @@ static void run_parent_enter_hooks(Session *session, const char *path) {
     }
 
     for (size_t i = parents->count; i > 0; i--) {
-        run_dir_hook(session, parents->items[i - 1], "enter");
+        run_dir_hook(session, parents->items[i - 1], HOOK_NAME_ENTER);
     }
 
     free(cursor);
@@ -327,14 +343,17 @@ void update_working_dir(Session *session) {
             is_descendant_path(session->current_working_dir, current_value);
 
         if (moved_down) {
-            run_dir_hook(session, current_value, "enter_child");
-            run_dir_hook(session, session->current_working_dir, "enter");
+            run_dir_hook(session, current_value, HOOK_NAME_ENTER_CHILD);
+            run_dir_hook(session, session->current_working_dir,
+                         HOOK_NAME_ENTER);
         } else if (moved_up) {
-            run_dir_hook(session, current_value, "exit");
-            run_dir_hook(session, session->current_working_dir, "exit_child");
+            run_dir_hook(session, current_value, HOOK_NAME_EXIT);
+            run_dir_hook(session, session->current_working_dir,
+                         HOOK_NAME_EXIT_CHILD);
         } else {
-            run_dir_hook(session, current_value, "exit");
-            run_dir_hook(session, session->current_working_dir, "enter");
+            run_dir_hook(session, current_value, HOOK_NAME_EXIT);
+            run_dir_hook(session, session->current_working_dir,
+                         HOOK_NAME_ENTER);
         }
     }
 }

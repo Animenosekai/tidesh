@@ -46,6 +46,7 @@ typedef struct Session {
 #endif
     Features features;       // Runtime feature flags
     bool     exit_requested; // Flag to indicate if shell should exit
+    bool     hooks_disabled; // Prevent hook recursion during hook execution
 } Session;
 
 /**
@@ -71,6 +72,14 @@ void update_working_dir(Session *session);
  * @param session Pointer to Session to update
  */
 void update_path(Session *session);
+
+/**
+ * Run a hook script from the current working directory's .tide folder.
+ *
+ * @param session Pointer to Session
+ * @param hook_name Hook script name (e.g., "cmd_pre")
+ */
+void run_cwd_hook(Session *session, const char *hook_name);
 
 /**
  * Free all resources used by a Session structure

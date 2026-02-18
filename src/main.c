@@ -13,6 +13,7 @@
 #include "environ.h" /* environ_get */
 #include "execute.h" /* execute */
 #include "expand.h"  /* full_expansion */
+#include "hooks.h"   /* HOOK_NAME_* */
 #include "lexer.h"   /* free_lexer_token, LexerInput, LexerToken, TOKEN_* */
 #include "prompt.h"
 #include "prompt/ansi.h" /* ansi_apply */
@@ -243,6 +244,8 @@ int main(int argc, char **argv) {
         }
     }
 
+    run_cwd_hook(session, HOOK_NAME_BEFORE_RC);
+
     // Read and execute .tideshrc if it exists in the home directory
     char rc_path[PATH_MAX] = {0};
     if (custom_rc_path) {
@@ -274,6 +277,8 @@ int main(int argc, char **argv) {
                     custom_rc_path);
         }
     }
+
+    run_cwd_hook(session, HOOK_NAME_SESSION_START);
 
     // If an eval command is provided, execute it
     if (eval_command) {
@@ -319,6 +324,8 @@ int main(int argc, char **argv) {
                 free(content);
 
                 if (!keep_alive) {
+                    run_cwd_hook(session, HOOK_NAME_SESSION_END);
+                    run_cwd_hook(session, HOOK_NAME_SESSION_END);
                     free_session(session);
                     free(session);
                     return exit_status;
@@ -340,6 +347,7 @@ int main(int argc, char **argv) {
         }
 
         if (!keep_alive) {
+            run_cwd_hook(session, HOOK_NAME_SESSION_END);
             free_session(session);
             free(session);
             return 0;
@@ -459,6 +467,7 @@ int main(int argc, char **argv) {
         execute_string(input, session);
         free(input);
     }
+    run_cwd_hook(session, HOOK_NAME_SESSION_END);
     free_session(session);
     free(session);
 
