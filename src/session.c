@@ -225,6 +225,48 @@ static void run_dir_hook(Session *session, const char *dir,
     free(content);
 }
 
+static void run_parent_enter_hooks(Session *session, const char *path) {
+    if (!session || !path || path[0] == '\0')
+        return;
+
+    Array *parents = init_array(NULL);
+    if (!parents)
+        return;
+
+    char *cursor = strdup(path);
+    if (!cursor) {
+        free_array(parents);
+        free(parents);
+        return;
+    }
+
+    size_t len  = trim_trailing_slash_len(cursor, strlen(cursor));
+    cursor[len] = '\0';
+
+    while (true) {
+        array_add(parents, strdup(cursor));
+        if (strcmp(cursor, "/") == 0)
+            break;
+
+        char *slash = strrchr(cursor, '/');
+        if (!slash)
+            break;
+        if (slash == cursor) {
+            cursor[1] = '\0';
+        } else {
+            *slash = '\0';
+        }
+    }
+
+    for (size_t i = parents->count; i > 0; i--) {
+        run_dir_hook(session, parents->items[i - 1], "enter");
+    }
+
+    free(cursor);
+    free_array(parents);
+    free(parents);
+}
+
 void update_working_dir(Session *session) {
     const char *current_value = session->current_working_dir;
     char       *cwd           = getcwd(NULL, 0);
@@ -257,7 +299,7 @@ void update_working_dir(Session *session) {
 
     if (!session->previous_working_dir) {
         init_previous_working_dir(session);
-        run_dir_hook(session, session->current_working_dir, "enter");
+        run_parent_enter_hooks(session, session->current_working_dir);
         return;
     }
 
