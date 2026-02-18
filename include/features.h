@@ -12,12 +12,22 @@
 
 /**
  * Compile-time feature disable flags.
- * Comment out or define at compile time to disable features:
+ * Define at compile time (e.g., -DTIDESH_DISABLE_PIPES) to disable features:
+ *
+ * Existing compile-time flags:
  *  - TIDESH_DISABLE_JOB_CONTROL: Disable background jobs, fg, bg, jobs
  *  - TIDESH_DISABLE_HISTORY: Disable command history
  *  - TIDESH_DISABLE_ALIASES: Disable alias/unalias
  *  - TIDESH_DISABLE_DIRSTACK: Disable pushd, popd, dirs
  *  - TIDESH_DISABLE_EXPANSIONS: Disable all expansions
+ *
+ * Control Flow & Redirection compile-time flags:
+ *  - TIDESH_DISABLE_PIPES: Disable pipe operator |
+ *  - TIDESH_DISABLE_REDIRECTIONS: Disable redirections >, <, >>, etc.
+ *  - TIDESH_DISABLE_SEQUENCES: Disable ; && || operators
+ *  - TIDESH_DISABLE_SUBSHELLS: Disable subshells ( ... )
+ *  - TIDESH_DISABLE_COMMAND_SUBSTITUTION: Disable $(...)
+ *  - TIDESH_DISABLE_ASSIGNMENTS: Disable VAR=value assignments
  */
 
 /**
@@ -40,6 +50,14 @@ typedef struct Features {
     // Advanced features
     bool prompt_expansion; // Prompt customization (future)
     bool completion;       // Tab completion (future)
+
+    // Control flow and redirection features
+    bool pipes;                // Pipe operator |
+    bool redirections;         // Input/output redirection >, <, >>, etc.
+    bool sequences;            // Command sequences ;, &&, ||
+    bool subshells;            // Subshells ( ... )
+    bool command_substitution; // Command substitution $(...) and <(...)
+    bool assignments;          // Variable assignments VAR=VAL in commands
 } Features;
 
 /**

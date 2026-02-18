@@ -241,144 +241,243 @@ LexerToken lexer_next_token(LexerInput *input) {
 
     switch (c) {
         case '|':
-            advance(input);
-            if (peek(input) == '|') {
+            // Check if pipes feature is enabled
+            if (!input->session || input->session->features.pipes) {
                 advance(input);
-                token.type = TOKEN_OR;
+                if (peek(input) == '|') {
+                    advance(input);
+                    token.type = TOKEN_OR;
+                } else {
+                    token.type = TOKEN_PIPE;
+                }
             } else {
-                token.type = TOKEN_PIPE;
+                // Pipes disabled, treat | as a normal word
+                Dynamic word_value = read_single_word(input);
+                token.type         = TOKEN_WORD;
+                token.value        = dynamic_to_string(&word_value);
+                free_dynamic(&word_value);
             }
             break;
         case '&':
-            advance(input);
-            if (peek(input) == '&') {
+            // Check if sequences or job_control feature is enabled
+            if (!input->session) {
                 advance(input);
-                token.type = TOKEN_SEQUENCE;
+                if (peek(input) == '&') {
+                    advance(input);
+                    token.type = TOKEN_SEQUENCE;
+                } else {
+                    token.type = TOKEN_BACKGROUND;
+                }
             } else {
-                token.type = TOKEN_BACKGROUND;
+                advance(input);
+                if (peek(input) == '&') {
+                    // && operator controlled by sequences
+                    if (input->session->features.sequences) {
+                        advance(input);
+                        token.type = TOKEN_SEQUENCE;
+                    } else {
+                        // Back off the second &, treat first & as word
+                        token.type  = TOKEN_WORD;
+                        token.value = strdup("&");
+                    }
+                } else {
+                    // Single & operator controlled by job_control or background
+                    if (input->session->features.job_control) {
+                        token.type = TOKEN_BACKGROUND;
+                    } else {
+                        // Job control disabled, treat & as a normal word
+                        token.type  = TOKEN_WORD;
+                        token.value = strdup("&");
+                    }
+                }
             }
             break;
         case ';':
-            advance(input);
-            token.type = TOKEN_SEMICOLON;
+            // Check if sequences feature is enabled
+            if (!input->session || input->session->features.sequences) {
+                advance(input);
+                token.type = TOKEN_SEMICOLON;
+            } else {
+                // Sequences disabled, treat ; as a normal word
+                Dynamic word_value = read_single_word(input);
+                token.type         = TOKEN_WORD;
+                token.value        = dynamic_to_string(&word_value);
+                free_dynamic(&word_value);
+            }
             break;
         case '<':
-            advance(input);
-            char next_char = peek(input);
-            if (next_char == '<') {
+            // Check if redirections feature is enabled
+            if (!input->session || input->session->features.redirections) {
                 advance(input);
-                if (peek(input) == '<') { // <<< (here-string)
+                char next_char = peek(input);
+                if (next_char == '<') {
                     advance(input);
-                    token.type = TOKEN_HERESTRING;
-
-                    skip_whitespaces(input);
-
-                    // consume the word after <<<
-                    Dynamic word_value = {0};
-                    char    next       = peek(input);
-                    if (next == '"' || next == '\'') {
-                        word_value = read_quoted_word(input);
-                    } else {
-                        word_value = read_single_word(input);
-                    }
-                    token.value = dynamic_to_string(&word_value);
-                    free_dynamic(&word_value);
-                } else { // << (here-doc)
-                    bool ident_ignore = false;
-                    if (peek(input) == '-') { // <<- (here-doc with tab removal)
-                        ident_ignore = true;
+                    if (peek(input) == '<') { // <<< (here-string)
                         advance(input);
-                    }
+                        token.type = TOKEN_HERESTRING;
 
-                    token.type = TOKEN_HEREDOC;
-                    skip_whitespaces(input);
+                        skip_whitespaces(input);
 
-                    // consume the word after <<
-                    Dynamic word_value = {0};
-                    char    next       = peek(input);
-                    if (next == '"' || next == '\'') {
-                        word_value = read_quoted_word(input);
-                    } else {
-                        word_value = read_single_word(input);
-                    }
-                    char  *end_marker     = dynamic_to_string(&word_value);
-                    size_t end_marker_len = word_value.length;
-                    free_dynamic(&word_value);
+                        // consume the word after <<<
+                        Dynamic word_value = {0};
+                        char    next       = peek(input);
+                        if (next == '"' || next == '\'') {
+                            word_value = read_quoted_word(input);
+                        } else {
+                            word_value = read_single_word(input);
+                        }
+                        token.value = dynamic_to_string(&word_value);
+                        free_dynamic(&word_value);
+                    } else { // << (here-doc)
+                        bool ident_ignore = false;
+                        if (peek(input) ==
+                            '-') { // <<- (here-doc with tab removal)
+                            ident_ignore = true;
+                            advance(input);
+                        }
 
-                    Dynamic content_value = {0};
-                    init_dynamic(&content_value);
+                        token.type = TOKEN_HEREDOC;
+                        skip_whitespaces(input);
 
-                    // Skip to the next line
-                    char curr = peek(input);
-                    while (!is_at_end(input) && curr != '\n') {
-                        advance(input);
-                        curr = peek(input);
-                    }
-                    if (curr == '\n') {
-                        advance(input);
-                    }
+                        // consume the word after <<
+                        Dynamic word_value = {0};
+                        char    next       = peek(input);
+                        if (next == '"' || next == '\'') {
+                            word_value = read_quoted_word(input);
+                        } else {
+                            word_value = read_single_word(input);
+                        }
+                        char  *end_marker     = dynamic_to_string(&word_value);
+                        size_t end_marker_len = word_value.length;
+                        free_dynamic(&word_value);
 
-                    while (!is_at_end(input) &&
-                           strncmp(input->data + input->pos, end_marker,
-                                   end_marker_len) != 0) {
-                        char c = advance(input);
-                        dynamic_append(&content_value, c);
+                        Dynamic content_value = {0};
+                        init_dynamic(&content_value);
 
-                        if (c == '\n') {
-                            // If ident_ignore is set, remove leading whitespace
-                            if (ident_ignore) {
-                                skip_whitespaces(input);
+                        // Skip to the next line
+                        char curr = peek(input);
+                        while (!is_at_end(input) && curr != '\n') {
+                            advance(input);
+                            curr = peek(input);
+                        }
+                        if (curr == '\n') {
+                            advance(input);
+                        }
+
+                        while (!is_at_end(input) &&
+                               strncmp(input->data + input->pos, end_marker,
+                                       end_marker_len) != 0) {
+                            char c = advance(input);
+                            dynamic_append(&content_value, c);
+
+                            if (c == '\n') {
+                                // If ident_ignore is set, remove leading
+                                // whitespace
+                                if (ident_ignore) {
+                                    skip_whitespaces(input);
+                                }
                             }
                         }
-                    }
 
-                    // Consume the end marker
-                    for (size_t i = 0; i < end_marker_len && !is_at_end(input);
-                         i++) {
-                        advance(input);
-                    }
+                        // Consume the end marker
+                        for (size_t i = 0;
+                             i < end_marker_len && !is_at_end(input); i++) {
+                            advance(input);
+                        }
 
-                    free(end_marker);
-                    token.value = dynamic_to_string(&content_value);
-                    free_dynamic(&content_value);
+                        free(end_marker);
+                        token.value = dynamic_to_string(&content_value);
+                        free_dynamic(&content_value);
+                    }
+                } else if (next_char == '&') {
+                    // Handle fd duplication <&
+                    advance(input);
+                    token.type = TOKEN_FD_DUPLICATION;
+                } else if (next_char == '(') {
+                    // Handle process substitution <(
+                    if (input->session &&
+                        !input->session->features.command_substitution) {
+                        // Command substitution disabled, treat <( as word
+                        Dynamic word_value = read_single_word(input);
+                        token.type         = TOKEN_WORD;
+                        token.value        = dynamic_to_string(&word_value);
+                        free_dynamic(&word_value);
+                    } else {
+                        token.type  = TOKEN_PROCESS_SUBSTITUTION_IN;
+                        token.value = command_substitution(input);
+                    }
+                } else {
+                    token.type = TOKEN_REDIRECT_IN;
                 }
-            } else if (next_char == '&') {
-                // Handle fd duplication <&
-                advance(input);
-                token.type = TOKEN_FD_DUPLICATION;
-            } else if (next_char == '(') {
-                // Handle process substitution <(
-                token.type  = TOKEN_PROCESS_SUBSTITUTION_IN;
-                token.value = command_substitution(input);
             } else {
-                token.type = TOKEN_REDIRECT_IN;
+                // Redirections disabled, treat < as a normal word
+                Dynamic word_value = read_single_word(input);
+                token.type         = TOKEN_WORD;
+                token.value        = dynamic_to_string(&word_value);
+                free_dynamic(&word_value);
             }
             break;
         case '>': {
-            advance(input);
-            char next_char = peek(input);
-            if (next_char == '>') {
+            // Check if redirections feature is enabled
+            if (!input->session || input->session->features.redirections) {
                 advance(input);
-                token.type = TOKEN_REDIRECT_APPEND;
-            } else if (next_char == '&') {
-                advance(input);
-                token.type = TOKEN_REDIRECT_OUT_ERR;
-            } else if (next_char == '(') {
-                // Handle process substitution >(
-                token.type  = TOKEN_PROCESS_SUBSTITUTION_OUT;
-                token.value = command_substitution(input);
+                char next_char = peek(input);
+                if (next_char == '>') {
+                    advance(input);
+                    token.type = TOKEN_REDIRECT_APPEND;
+                } else if (next_char == '&') {
+                    advance(input);
+                    token.type = TOKEN_REDIRECT_OUT_ERR;
+                } else if (next_char == '(') {
+                    // Handle process substitution >(
+                    if (input->session &&
+                        !input->session->features.command_substitution) {
+                        // Command substitution disabled, treat >( as word
+                        Dynamic word_value = read_single_word(input);
+                        token.type         = TOKEN_WORD;
+                        token.value        = dynamic_to_string(&word_value);
+                        free_dynamic(&word_value);
+                    } else {
+                        token.type  = TOKEN_PROCESS_SUBSTITUTION_OUT;
+                        token.value = command_substitution(input);
+                    }
+                } else {
+                    token.type = TOKEN_REDIRECT_OUT;
+                }
             } else {
-                token.type = TOKEN_REDIRECT_OUT;
+                // Redirections disabled, treat > as a normal word
+                Dynamic word_value = read_single_word(input);
+                token.type         = TOKEN_WORD;
+                token.value        = dynamic_to_string(&word_value);
+                free_dynamic(&word_value);
             }
             break;
         }
         case '(':
-            advance(input);
-            token.type = TOKEN_LPAREN;
+            // Check if subshells feature is enabled
+            if (!input->session || input->session->features.subshells) {
+                advance(input);
+                token.type = TOKEN_LPAREN;
+            } else {
+                // Subshells disabled, treat ( as a normal word
+                Dynamic word_value = read_single_word(input);
+                token.type         = TOKEN_WORD;
+                token.value        = dynamic_to_string(&word_value);
+                free_dynamic(&word_value);
+            }
             break;
         case ')':
-            advance(input);
-            token.type = TOKEN_RPAREN;
+            // Check if subshells feature is enabled
+            if (!input->session || input->session->features.subshells) {
+                advance(input);
+                token.type = TOKEN_RPAREN;
+            } else {
+                // Subshells disabled, treat ) as a normal word
+                Dynamic word_value = read_single_word(input);
+                token.type         = TOKEN_WORD;
+                token.value        = dynamic_to_string(&word_value);
+                free_dynamic(&word_value);
+            }
             break;
         case '"':
         case '\'': {

@@ -138,6 +138,60 @@ class Features:
     def completion(self, value: bool) -> None:
         self._features.completion = value
 
+    @property
+    def pipes(self) -> bool:
+        """Enable/disable pipe operator (|)."""
+        return bool(self._features.pipes)
+
+    @pipes.setter
+    def pipes(self, value: bool) -> None:
+        self._features.pipes = value
+
+    @property
+    def redirections(self) -> bool:
+        """Enable/disable output redirections (>, <, >>, etc.)."""
+        return bool(self._features.redirections)
+
+    @redirections.setter
+    def redirections(self, value: bool) -> None:
+        self._features.redirections = value
+
+    @property
+    def sequences(self) -> bool:
+        """Enable/disable command sequences (;, &&, ||)."""
+        return bool(self._features.sequences)
+
+    @sequences.setter
+    def sequences(self, value: bool) -> None:
+        self._features.sequences = value
+
+    @property
+    def subshells(self) -> bool:
+        """Enable/disable subshells (parentheses)."""
+        return bool(self._features.subshells)
+
+    @subshells.setter
+    def subshells(self, value: bool) -> None:
+        self._features.subshells = value
+
+    @property
+    def command_substitution(self) -> bool:
+        """Enable/disable command substitution ($(...), <(...), >(...)."""
+        return bool(self._features.command_substitution)
+
+    @command_substitution.setter
+    def command_substitution(self, value: bool) -> None:
+        self._features.command_substitution = value
+
+    @property
+    def assignments(self) -> bool:
+        """Enable/disable variable assignments (VAR=value)."""
+        return bool(self._features.assignments)
+
+    @assignments.setter
+    def assignments(self, value: bool) -> None:
+        self._features.assignments = value
+
     def enable_all_expansions(self) -> None:
         """Enable all expansion features."""
         lib.features_enable_all_expansions(ffi.addressof(self._features))
@@ -169,6 +223,18 @@ class Features:
             enabled.append("prompt_expansion")
         if self.completion:
             enabled.append("completion")
+        if self.pipes:
+            enabled.append("pipes")
+        if self.redirections:
+            enabled.append("redirections")
+        if self.sequences:
+            enabled.append("sequences")
+        if self.subshells:
+            enabled.append("subshells")
+        if self.command_substitution:
+            enabled.append("command_substitution")
+        if self.assignments:
+            enabled.append("assignments")
         return f"Features({', '.join(enabled)})"
 
 

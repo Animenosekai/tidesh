@@ -27,4 +27,3 @@
 #include "session.h"
 
 const char *tidesh_compiler = __VERSION__;
-

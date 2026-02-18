@@ -162,6 +162,12 @@ int execute(ASTNode *node, Session *session);
 
 /* Handle combined output redirection and process substitution */
 static int handle_redirections(ASTNode *node, Session *session) {
+    if (!session->features.redirections) {
+        if (node->redirects) {
+            fprintf(stderr, "tidesh: redirections are disabled\n");
+            return -1;
+        }
+    }
     Redirection *redirect = node->redirects;
     while (redirect) {
         int fd_file = -1;
@@ -248,6 +254,10 @@ int execute(ASTNode *node, Session *session) {
     fflush(stderr);
 
     if (node->type == NODE_PIPE) {
+        if (!session->features.pipes) {
+            fprintf(stderr, "tidesh: pipes are disabled\n");
+            return 127;
+        }
         int fds[2];
         if (pipe(fds) < 0)
             return 1;
@@ -279,10 +289,18 @@ int execute(ASTNode *node, Session *session) {
         return exit_status;
     }
     if (node->type == NODE_SEQUENCE) {
+        if (!session->features.sequences) {
+            fprintf(stderr, "tidesh: sequences are disabled\n");
+            return 127;
+        }
         execute(node->left, session);
         return execute(node->right, session);
     }
     if (node->type == NODE_AND) {
+        if (!session->features.sequences) {
+            fprintf(stderr, "tidesh: sequences are disabled\n");
+            return 127;
+        }
         int st = execute(node->left, session);
         if (st == 0)
             return execute(node->right, session);
@@ -290,6 +308,10 @@ int execute(ASTNode *node, Session *session) {
         return st;
     }
     if (node->type == NODE_OR) {
+        if (!session->features.sequences) {
+            fprintf(stderr, "tidesh: sequences are disabled\n");
+            return 127;
+        }
         int st = execute(node->left, session);
         if (st != 0)
             return execute(node->right, session);
@@ -297,6 +319,10 @@ int execute(ASTNode *node, Session *session) {
         return st;
     }
     if (node->type == NODE_SUBSHELL) {
+        if (!session->features.subshells) {
+            fprintf(stderr, "tidesh: subshells are disabled\n");
+            return 127;
+        }
         pid_t pid = fork();
         if (pid == 0) {
             signal(SIGINT, SIG_DFL);
@@ -343,6 +369,14 @@ int execute(ASTNode *node, Session *session) {
 
         // Handle variable assignments without command
         if (argc == 0 && node->assignments) {
+            if (!session->features.assignments) {
+                fprintf(stderr, "tidesh: assignments are disabled\n");
+                if (argv)
+                    free(argv);
+                if (arg_is_sub)
+                    free(arg_is_sub);
+                return 127;
+            }
             for (size_t i = 0; i < node->assignments->count; i++) {
                 char *copy = strdup(node->assignments->items[i]);
                 char *eq   = strchr(copy, '=');
@@ -445,6 +479,10 @@ int execute(ASTNode *node, Session *session) {
             // Manage temporary Assignments (VAR=VAL cmd)
             // Note: We modify the Session only in the child process
             if (node->assignments) {
+                if (!session->features.assignments) {
+                    fprintf(stderr, "tidesh: assignments are disabled\n");
+                    exit(127);
+                }
                 for (size_t i = 0; i < node->assignments->count; i++) {
                     char *assign = strdup(node->assignments->items[i]);
                     char *eq     = strchr(assign, '=');
@@ -572,6 +610,11 @@ int execute_string(const char *cmd, Session *session) {
 
 /* This function is used to execute commands during command substitution */
 char *execute_string_stdout(const char *cmd, Session *session) {
+    if (!session->features.command_substitution) {
+        fprintf(stderr, "tidesh: command substitution is disabled\n");
+        return strdup("");
+    }
+
     // Create a pipe to capture stdout
     int pipe_fd[2];
     if (pipe(pipe_fd) == -1) {

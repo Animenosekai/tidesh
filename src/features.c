@@ -28,6 +28,34 @@ Features *init_features(Features *features) {
     features->prompt_expansion = true; // Custom prompt display
     features->completion       = true; // Tab completion
 
+    // Enable control flow and redirection features by default
+    features->pipes                = true;
+    features->redirections         = true;
+    features->sequences            = true;
+    features->subshells            = true;
+    features->command_substitution = true;
+    features->assignments          = true;
+
+    // Apply compile-time feature disables
+#ifdef TIDESH_DISABLE_PIPES
+    features->pipes = false;
+#endif
+#ifdef TIDESH_DISABLE_REDIRECTIONS
+    features->redirections = false;
+#endif
+#ifdef TIDESH_DISABLE_SEQUENCES
+    features->sequences = false;
+#endif
+#ifdef TIDESH_DISABLE_SUBSHELLS
+    features->subshells = false;
+#endif
+#ifdef TIDESH_DISABLE_COMMAND_SUBSTITUTION
+    features->command_substitution = false;
+#endif
+#ifdef TIDESH_DISABLE_ASSIGNMENTS
+    features->assignments = false;
+#endif
+
     return features;
 }
 
@@ -51,6 +79,14 @@ Features *init_features_minimal(Features *features) {
     // Disable advanced features
     features->prompt_expansion = false;
     features->completion       = false;
+
+    // Disable control flow and redirection features
+    features->pipes                = false;
+    features->redirections         = false;
+    features->sequences            = false;
+    features->subshells            = false;
+    features->command_substitution = false;
+    features->assignments          = false;
 
     return features;
 }

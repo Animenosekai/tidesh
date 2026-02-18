@@ -47,6 +47,12 @@ struct Features {
     bool directory_stack;
     bool prompt_expansion;
     bool completion;
+    bool pipes;
+    bool redirections;
+    bool sequences;
+    bool subshells;
+    bool command_substitution;
+    bool assignments;
 };
 
 struct Session {

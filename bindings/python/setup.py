@@ -107,6 +107,7 @@ sources = [
     "data/dynamic.c",
     "data/trie.c",
     "data/utf8.c",
+    "data/files.c",
     "expansions/aliases.c",
     "expansions/braces.c",
     "expansions/filenames.c",
@@ -137,6 +138,9 @@ sources = [
     "builtins/terminal.c",
     "builtins/unalias.c",
     "builtins/which.c",
+    "builtins/type.c",
+    "builtins/source.c",
+    "builtins/test.c",
 ]
 
 # Convert to relative paths for setup
