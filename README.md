@@ -38,6 +38,7 @@
     - [Aliases](#aliases)
     - [Directory Stack](#directory-stack)
     - [Hooks](#hooks)
+      - [Example](#example)
       - [Supported Hook Types](#supported-hook-types)
       - [Using Hooks](#using-hooks)
       - [Hook Context Variables](#hook-context-variables)
@@ -317,7 +318,43 @@ Keeps a stack of directories to facilitate easy navigation between multiple loca
 
 #### Hooks
 
-`tidesh` provides a comprehensive hook system that allows you to run custom scripts at specific points in the shell's lifecycle. Hooks are stored in a `.tidesh-hooks/` directory in the **current working directory** and are automatically executed when certain events occur.
+`tidesh` provides a comprehensive hook system that allows you to run custom scripts at specific points in the shell's lifecycle.
+
+Hooks are stored in a `.tidesh-hooks/` directory in the **current working directory** and are automatically executed when certain events occur.
+
+> [!NOTE]  
+> Hooks are somtimes called "tides" in the codebase, but they are the same concept.
+
+##### Example
+
+For example, this could be used to configure a project-specific environment when you `cd` into a directory:
+
+```bash
+# .tidesh-hooks/enter.sh
+# This hook runs when you enter a directory
+if [ -f .env ]; then
+    echo "Loading environment variables from .env"
+    export $(grep -v '^#' .env | xargs)
+fi
+```
+
+Kind of like an RC file, but for specific directories instead of the whole shell session. You can have different hooks for different events, such as before executing a command, after changing directories, or when a command fails.
+
+> [!TIP]  
+> The `enter` hooks of the filepath parents are executed when you `cd` into a directory. For example, if you have `.tidesh-hooks/enter.sh` in `/home/user/project` and you `cd /home/user/project/subdir`, the `enter` hook in `/home/user/project` will be executed.  
+> This allows you to have project-specific hooks that run whenever you enter the project directory or any of its subdirectories.
+>
+> ```fs
+> /
+> ├── home
+> │   ├── user
+> │   │   ├── project
+> │   │   │   ├── .tidesh-hooks
+> │   │   │   │   ├── enter.sh <━━━━━━━━━┓
+> │   │   │   ├── subdir                 ┃ Both will be executed
+> |   |   |   |   ├── .tidesh-hooks      ┃ when you `cd` into `subdir`
+> |   |   |   |   |   ├── enter.sh <━━━━━┛
+> ```
 
 ##### Supported Hook Types
 
@@ -387,20 +424,15 @@ The shell supports 29 specific hook types plus 1 wildcard hook:
 To create a hook, create an executable file in `.tidesh-hooks/` (in your current directory) with the hook name:
 
 ```bash
+# .tidesh-hooks/cd.sh
 # Example: Create a hook to show directory contents after cd
-mkdir -p .tidesh-hooks
-cat << 'EOF' > .tidesh-hooks/cd
-#!/bin/bash
 echo "Changed to: $PWD"
 ls -lh
-EOF
-chmod +x .tidesh-hooks/cd
 ```
 
 Hooks can be written in **any language** as long as they:
 
 1. Have a proper shebang (`#!/path/to/interpreter`) at the first line
-2. Are marked as executable (`chmod +x`)
 
 Examples:
 
@@ -421,7 +453,7 @@ print(f"Hook {hook_name} at {timestamp}")
 puts "Hook: #{ENV['TIDE_HOOK']} at #{ENV['TIDE_TIMESTAMP']}"
 ```
 
-If a hook does **not** have a shebang or is **not executable**, it will be sourced as a shell script instead.
+If a hook does **not** have a shebang, it will be sourced as a shell script instead.
 
 ##### Hook Context Variables
 
@@ -684,7 +716,7 @@ The `test` builtin (also available as `[`) evaluates conditional expressions:
 
 ```sh
 # String comparisons
-if test "$USER" = "root"
+if [ "$USER" = "root" ];
 then
     echo "Running as root"
 fi
