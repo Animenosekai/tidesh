@@ -15,10 +15,10 @@ Jobs *init_jobs(void) {
         return NULL;
     }
 
-    jobs->jobs     = NULL;
-    jobs->count    = 0;
-    jobs->capacity = 0;
-    jobs->pgid     = getpgrp(); // Shell's process group
+    jobs->jobs          = NULL;
+    jobs->count         = 0;
+    jobs->capacity      = 0;
+    jobs->pgid          = getpgrp(); // Shell's process group
     jobs->state_hook    = NULL;
     jobs->state_context = NULL;
 

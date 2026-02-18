@@ -9,14 +9,12 @@
 #include "data/array.h" /* Array */
 #include "environ.h"
 
-#if defined(__APPLE__)
-#include <mach-o/dyld.h> /* _NSGetExecutablePath */
-#endif
-
 typedef struct Environ {
     Array            *array;
     EnvironChangeHook change_hook;
     void             *change_context;
+    char old_value_buffer[1024]; /* Temporary storage for old values during
+                                   hooks */
 } Environ;
 
 static char *get_executable_path() {
@@ -107,10 +105,15 @@ void environ_set(Environ *env, char *key, char *value) {
     for (size_t i = 0; i < env->array->count; i++) {
         if (!strncmp(env->array->items[i], key, keylen) &&
             env->array->items[i][keylen] == '=') {
+            // Store old value in buffer before replacing
+            const char *old_val = env->array->items[i] + keylen + 1;
+            strncpy(env->old_value_buffer, old_val,
+                    sizeof(env->old_value_buffer) - 1);
+            env->old_value_buffer[sizeof(env->old_value_buffer) - 1] = '\0';
             array_set(env->array, i, newvar, true); // true = free old
             free(newvar);
             if (env->change_hook) {
-                env->change_hook(env->change_context, key);
+                env->change_hook(env->change_context, key, ENV_CHANGE_UPDATE);
             }
             return;
         }
@@ -120,7 +123,7 @@ void environ_set(Environ *env, char *key, char *value) {
     array_add(env->array, newvar);
     free(newvar);
     if (env->change_hook) {
-        env->change_hook(env->change_context, key);
+        env->change_hook(env->change_context, key, ENV_CHANGE_ADD);
     }
 }
 
@@ -132,6 +135,12 @@ void environ_set_change_hook(Environ *env, EnvironChangeHook hook,
     env->change_context = context;
 }
 
+const char *environ_get_old_value(Environ *env) {
+    if (!env)
+        return "";
+    return env->old_value_buffer;
+}
+
 bool environ_remove(Environ *env, char *key) {
     if (!env || !env->array)
         return false;
@@ -140,9 +149,14 @@ bool environ_remove(Environ *env, char *key) {
     for (size_t i = 0; i < env->array->count; i++) {
         if (!strncmp(env->array->items[i], key, keylen) &&
             env->array->items[i][keylen] == '=') {
+            // Store old value in buffer before removing
+            const char *old_val = env->array->items[i] + keylen + 1;
+            strncpy(env->old_value_buffer, old_val,
+                    sizeof(env->old_value_buffer) - 1);
+            env->old_value_buffer[sizeof(env->old_value_buffer) - 1] = '\0';
             array_remove(env->array, i);
             if (env->change_hook) {
-                env->change_hook(env->change_context, key);
+                env->change_hook(env->change_context, key, ENV_CHANGE_REMOVE);
             }
             return true;
         }

@@ -34,10 +34,10 @@ typedef void (*JobsStateHook)(void *context, const Job *job);
 
 /* Jobs list structure */
 typedef struct Jobs {
-    Job  *jobs;     // Array of jobs
-    int   count;    // Number of jobs
-    int   capacity; // Capacity of jobs array
-    pid_t pgid;     // Process group ID for the shell
+    Job          *jobs;          // Array of jobs
+    int           count;         // Number of jobs
+    int           capacity;      // Capacity of jobs array
+    pid_t         pgid;          // Process group ID for the shell
     JobsStateHook state_hook;    // Optional state change hook
     void         *state_context; // Hook context
 } Jobs;

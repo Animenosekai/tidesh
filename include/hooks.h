@@ -1,23 +1,37 @@
 /** hooks.h
  *
  * Hook name definitions for .tide scripts.
+ *
+ * GLOBAL HOOK CONTEXT (available to all hooks):
+ * - TIDE_HOOK: The specific hook name being executed (e.g., "cd", "before_cmd")
+ * - TIDE_TIMESTAMP: Unix timestamp when the hook fires (epoch seconds)
+ *
+ * Additional context variables are documented with each hook below.
  */
 
 #ifndef HOOKS_H
 #define HOOKS_H
 
+// Wildcard hook: called before any specific hook fires
+// Additional context: Same variables as the specific hook that will follow
+#define HOOK_ALL "*"
+
 // Fired when entering a directory from its parent or ancestor (not when
 // moving up from a child; see exit_child).
+// Additional context: TIDE_PARENT (parent directory path)
 #define HOOK_ENTER "enter"
 
 // Fired when moving up to a parent or ancestor directory (not when moving
 // down into a child; see enter_child).
+// Additional context: TIDE_PARENT (parent directory path)
 #define HOOK_EXIT "exit"
 
 // Fired when moving down into a child directory; complements enter.
+// Additional context: TIDE_PARENT (parent directory path)
 #define HOOK_ENTER_CHILD "enter_child"
 
 // Fired when moving up from a child into its parent; complements exit.
+// Additional context: TIDE_PARENT (parent directory path)
 #define HOOK_EXIT_CHILD "exit_child"
 
 // Fired before executing a command string (one per input line).
@@ -47,20 +61,39 @@
 // Fired after leaving a subshell (subshell node execution).
 #define HOOK_EXIT_SUBSHELL "exit_subshell"
 
-// Fired when an environment variable changes (set/remove).
-#define HOOK_ENV_CHANGE "env_change"
+// Fired when an environment variable is added.
+// Additional context: TIDE_ENV_KEY, TIDE_ENV_VALUE, TIDE_ENV_OLD_VALUE (empty
+// for new vars)
+#define HOOK_ADD_ENVIRON "add_environ"
+
+// Fired when an environment variable is removed.
+// Additional context: TIDE_ENV_KEY, TIDE_ENV_VALUE (empty), TIDE_ENV_OLD_VALUE
+// (previous value)
+#define HOOK_REMOVE_ENVIRON "remove_environ"
+
+// Fired when an environment variable changes value.
+// Additional context: TIDE_ENV_KEY, TIDE_ENV_VALUE (new value),
+// TIDE_ENV_OLD_VALUE (previous value)
+#define HOOK_CHANGE_ENVIRON "change_environ"
 
 // Fired when the working directory changes (any change).
+// Additional context: TIDE_PARENT (parent directory path)
 #define HOOK_CD "cd"
 
 // Fired when a command is not found in PATH.
 #define HOOK_CMD_NOT_FOUND "cmd_not_found"
 
-// Fired after adding or updating an alias.
-#define HOOK_ALIAS_ADD "alias_add"
+// Fired after adding an alias.
+// Additional context: TIDE_ALIAS_NAME, TIDE_ALIAS_VALUE
+#define HOOK_ADD_ALIAS "add_alias"
 
 // Fired after removing an alias.
-#define HOOK_ALIAS_REMOVE "alias_remove"
+// Additional context: TIDE_ALIAS_NAME, TIDE_ALIAS_VALUE (value before removal)
+#define HOOK_REMOVE_ALIAS "remove_alias"
+
+// Fired after updating an alias.
+// Additional context: TIDE_ALIAS_NAME, TIDE_ALIAS_VALUE (new value)
+#define HOOK_CHANGE_ALIAS "change_alias"
 
 // Fired when a foreground command is terminated by a signal.
 #define HOOK_SIGNAL "signal"

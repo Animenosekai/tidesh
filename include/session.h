@@ -9,6 +9,8 @@
 #ifndef SESSION_H
 #define SESSION_H
 
+#include <stddef.h> /* size_t */
+
 #include "data/trie.h"       /* Trie */
 #include "environ.h"         /* Environ */
 #include "features.h"        /* Features */
@@ -49,6 +51,11 @@ typedef struct Session {
     bool     hooks_disabled; // Prevent hook recursion during hook execution
 } Session;
 
+typedef struct HookEnvVar {
+    const char *key;
+    const char *value;
+} HookEnvVar;
+
 /**
  * Initialize a session with the given history file path
  *
@@ -80,6 +87,18 @@ void update_path(Session *session);
  * @param hook_name Hook script name (e.g., "cmd_pre")
  */
 void run_cwd_hook(Session *session, const char *hook_name);
+
+/**
+ * Run a hook script from the current working directory's .tide folder with
+ * temporary environment variables.
+ *
+ * @param session Pointer to Session
+ * @param hook_name Hook script name (e.g., "before_cmd")
+ * @param vars Extra environment variables to set for the hook
+ * @param var_count Number of variables in vars
+ */
+void run_cwd_hook_with_vars(Session *session, const char *hook_name,
+                            const HookEnvVar *vars, size_t var_count);
 
 /**
  * Free all resources used by a Session structure

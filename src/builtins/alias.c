@@ -5,7 +5,7 @@
 #include "builtins/alias.h"
 #include "data/array.h" /* Array, free_array */
 #include "data/trie.h"  /* trie_starting_with, trie_get, trie_set */
-#include "hooks.h"      /* HOOK_ALIAS_ADD */
+#include "hooks.h"      /* HOOK_ADD_ALIAS, HOOK_CHANGE_ALIAS */
 #include "session.h"    /* Session */
 
 #ifndef TIDESH_DISABLE_ALIASES
@@ -49,11 +49,20 @@ int builtin_alias(int argc, char **argv, Session *session) {
             name[name_len] = '\0';
             char *value    = eq + 1;
 
+            char *existing = trie_get(session->aliases, name);
             if (!trie_set(session->aliases, name, value)) {
                 fprintf(stderr, "alias: failed to set alias %s\n", name);
                 status = 1;
             } else {
-                run_cwd_hook(session, HOOK_ALIAS_ADD);
+                HookEnvVar alias_vars[] = {{"TIDE_ALIAS_NAME", name},
+                                           {"TIDE_ALIAS_VALUE", value}};
+                if (existing) {
+                    run_cwd_hook_with_vars(session, HOOK_CHANGE_ALIAS,
+                                           alias_vars, 2);
+                } else {
+                    run_cwd_hook_with_vars(session, HOOK_ADD_ALIAS, alias_vars,
+                                           2);
+                }
             }
             free(name);
         } else {

@@ -84,6 +84,34 @@ static char *trim_whitespace(const char *str) {
     return result;
 }
 
+static char *extract_first_word(const char *str) {
+    if (!str) {
+        return NULL;
+    }
+
+    const char *start = str;
+    while (*start && isspace((unsigned char)*start)) {
+        start++;
+    }
+    if (*start == '\0') {
+        return strdup("");
+    }
+
+    const char *end = start;
+    while (*end && !isspace((unsigned char)*end)) {
+        end++;
+    }
+
+    size_t len  = end - start;
+    char  *word = malloc(len + 1);
+    if (!word) {
+        return NULL;
+    }
+    memcpy(word, start, len);
+    word[len] = '\0';
+    return word;
+}
+
 char *find_in_path(const char *cmd, Session *session) {
     // If command contains a slash, treat it as a path
     if (strchr(cmd, '/'))
@@ -347,7 +375,10 @@ int execute(ASTNode *node, Session *session) {
         int exit_status = 0;
         if (WIFSIGNALED(st)) {
             exit_status = 128 + WTERMSIG(st);
-            run_cwd_hook(session, HOOK_SIGNAL);
+            char sig_buf[16];
+            snprintf(sig_buf, sizeof(sig_buf), "%d", WTERMSIG(st));
+            HookEnvVar sig_vars[] = {{"TIDE_SIGNAL", sig_buf}};
+            run_cwd_hook_with_vars(session, HOOK_SIGNAL, sig_vars, 1);
         } else {
             exit_status = WEXITSTATUS(st);
         }
@@ -488,12 +519,13 @@ int execute(ASTNode *node, Session *session) {
             }
         }
 
-        bool  is_external    = !is_builtin(cmd_name);
-        char *resolved_path  = NULL;
+        bool  is_external   = !is_builtin(cmd_name);
+        char *resolved_path = NULL;
         if (is_external) {
             resolved_path = find_in_path(cmd_name, session);
             if (!resolved_path) {
-                run_cwd_hook(session, HOOK_CMD_NOT_FOUND);
+                HookEnvVar nf_vars[] = {{"TIDE_CMD", cmd_name}};
+                run_cwd_hook_with_vars(session, HOOK_CMD_NOT_FOUND, nf_vars, 1);
 #ifdef PROJECT_NAME
                 fprintf(stderr, "%s: command not found: %s\n", PROJECT_NAME,
                         cmd_name);
@@ -509,7 +541,9 @@ int execute(ASTNode *node, Session *session) {
                 environ_set_exit_status(session->environ, 127);
                 return 127;
             }
-            run_cwd_hook(session, HOOK_BEFORE_EXEC);
+            HookEnvVar exec_vars[] = {{"TIDE_EXEC", resolved_path},
+                                      {"TIDE_ARGV0", argv[0]}};
+            run_cwd_hook_with_vars(session, HOOK_BEFORE_EXEC, exec_vars, 2);
         }
 
         pid_t pid = fork();
@@ -608,8 +642,8 @@ int execute(ASTNode *node, Session *session) {
             }
 
             // Find the command path if not already resolved
-            char *path = resolved_path ? resolved_path
-                                       : find_in_path(cmd_name, session);
+            char *path =
+                resolved_path ? resolved_path : find_in_path(cmd_name, session);
             if (!path) {
 #ifdef PROJECT_NAME
                 fprintf(stderr, "%s: command not found: %s\n", PROJECT_NAME,
@@ -637,6 +671,7 @@ int execute(ASTNode *node, Session *session) {
         }
 
         /* Parent Process */
+        char *argv0_copy = argv && argv[0] ? strdup(argv[0]) : NULL;
         for (int i = 0; i < argc; i++)
             free(argv[i]);
         if (argv)
@@ -646,16 +681,14 @@ int execute(ASTNode *node, Session *session) {
         if (cmd_name_trimmed)
             free(cmd_name_trimmed);
 
-        if (resolved_path) {
-            free(resolved_path);
-        }
-
         if (node->background) {
 #ifdef TIDESH_DISABLE_JOB_CONTROL
             fprintf(stderr,
                     "tidesh: background jobs disabled at compile time\n");
             kill(pid, SIGTERM);
             waitpid(pid, NULL, 0);
+            free(argv0_copy);
+            free(resolved_path);
             return 127;
 #else
             if (session->features.job_control) {
@@ -667,15 +700,32 @@ int execute(ASTNode *node, Session *session) {
                 printf("[%d] %d\n", job_id, pid);
                 environ_set_background_pid(session->environ, pid);
                 environ_set_exit_status(session->environ, 0);
-                run_cwd_hook(session, HOOK_BEFORE_JOB);
+                HookEnvVar job_vars[] = {{"TIDE_JOB_ID", ""},
+                                         {"TIDE_JOB_PID", ""},
+                                         {"TIDE_JOB_STATE", "running"}};
+                char       job_id_buf[16];
+                char       job_pid_buf[20];
+                snprintf(job_id_buf, sizeof(job_id_buf), "%d", job_id);
+                snprintf(job_pid_buf, sizeof(job_pid_buf), "%d", pid);
+                job_vars[0].value = job_id_buf;
+                job_vars[1].value = job_pid_buf;
+                run_cwd_hook_with_vars(session, HOOK_BEFORE_JOB, job_vars, 3);
                 if (is_external) {
-                    run_cwd_hook(session, HOOK_AFTER_EXEC);
+                    HookEnvVar exec_vars[] = {
+                        {"TIDE_EXEC", resolved_path ? resolved_path : ""},
+                        {"TIDE_ARGV0", argv0_copy ? argv0_copy : ""}};
+                    run_cwd_hook_with_vars(session, HOOK_AFTER_EXEC, exec_vars,
+                                           2);
                 }
+                free(argv0_copy);
+                free(resolved_path);
                 return 0;
             } else {
                 fprintf(stderr, "tidesh: background jobs not enabled\n");
                 kill(pid, SIGTERM);
                 waitpid(pid, NULL, 0);
+                free(argv0_copy);
+                free(resolved_path);
                 return 127;
             }
 #endif
@@ -685,14 +735,22 @@ int execute(ASTNode *node, Session *session) {
             int exit_status = 0;
             if (WIFSIGNALED(status)) {
                 exit_status = 128 + WTERMSIG(status);
-                run_cwd_hook(session, HOOK_SIGNAL);
+                char sig_buf[16];
+                snprintf(sig_buf, sizeof(sig_buf), "%d", WTERMSIG(status));
+                HookEnvVar sig_vars[] = {{"TIDE_SIGNAL", sig_buf}};
+                run_cwd_hook_with_vars(session, HOOK_SIGNAL, sig_vars, 1);
             } else {
                 exit_status = WEXITSTATUS(status);
             }
             environ_set_exit_status(session->environ, exit_status);
             if (is_external) {
-                run_cwd_hook(session, HOOK_AFTER_EXEC);
+                HookEnvVar exec_vars[] = {
+                    {"TIDE_EXEC", resolved_path ? resolved_path : ""},
+                    {"TIDE_ARGV0", argv0_copy ? argv0_copy : ""}};
+                run_cwd_hook_with_vars(session, HOOK_AFTER_EXEC, exec_vars, 2);
             }
+            free(argv0_copy);
+            free(resolved_path);
             return exit_status;
         }
     }
@@ -701,7 +759,10 @@ int execute(ASTNode *node, Session *session) {
 }
 
 int execute_string(const char *cmd, Session *session) {
-    run_cwd_hook(session, HOOK_BEFORE_CMD);
+    char      *cmd_word   = extract_first_word(cmd);
+    HookEnvVar cmd_vars[] = {{"TIDE_CMDLINE", cmd},
+                             {"TIDE_CMD", cmd_word ? cmd_word : ""}};
+    run_cwd_hook_with_vars(session, HOOK_BEFORE_CMD, cmd_vars, 2);
 
     LexerInput lexer_in = {0};
     init_lexer_input(&lexer_in, (char *)cmd, execute_string_stdout, session);
@@ -718,14 +779,22 @@ int execute_string(const char *cmd, Session *session) {
         }
 #endif
     } else {
-        run_cwd_hook(session, HOOK_SYNTAX_ERROR);
+        HookEnvVar syntax_vars[] = {{"TIDE_CMDLINE", cmd},
+                                    {"TIDE_CMD", cmd_word ? cmd_word : ""},
+                                    {"TIDE_ERROR", "SYNTAX_ERROR"}};
+        run_cwd_hook_with_vars(session, HOOK_SYNTAX_ERROR, syntax_vars, 3);
     }
 
-    run_cwd_hook(session, HOOK_AFTER_CMD);
+    run_cwd_hook_with_vars(session, HOOK_AFTER_CMD, cmd_vars, 2);
     if (result != 0) {
-        run_cwd_hook(session, HOOK_ERROR);
+        HookEnvVar error_vars[] = {{"TIDE_CMDLINE", cmd},
+                                   {"TIDE_CMD", cmd_word ? cmd_word : ""},
+                                   {"TIDE_ERROR", "CMD_FAIL"},
+                                   {"CMD_FAIL", "1"}};
+        run_cwd_hook_with_vars(session, HOOK_ERROR, error_vars, 4);
     }
 
+    free(cmd_word);
     free_lexer_input(&lexer_in);
     return result;
 }
