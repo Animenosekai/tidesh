@@ -11,9 +11,11 @@
 #include "environ.h"         /* environ_get, environ_set, environ_get_default */
 #include "execute.h"         /* execute_string */
 #include "features.h"        /* Features */
-#include "hooks.h"           /* HOOK_NAME_* */
+#include "hooks.h"           /* HOOK_* */
 #include "prompt/terminal.h" /* Terminal, terminal functions */
 #include "session.h"         /* Session, Environ, History, Trie, DirStack */
+
+static void session_env_change_hook(void *context, const char *key);
 
 Session *init_session(Session *session, char *history_path) {
     if (!session) {
@@ -92,6 +94,7 @@ Session *init_session(Session *session, char *history_path) {
     // Initialize working directories
     update_working_dir(session);
     // update_path(session); // Pretty slow
+    environ_set_change_hook(session->environ, session_env_change_hook, session);
     return session;
 }
 
@@ -234,6 +237,14 @@ static void run_dir_hook(Session *session, const char *dir,
     free(content);
 }
 
+static void session_env_change_hook(void *context, const char *key) {
+    (void)key;
+    Session *session = context;
+    if (!session)
+        return;
+    run_cwd_hook(session, HOOK_ENV_CHANGE);
+}
+
 void run_cwd_hook(Session *session, const char *hook_name) {
     if (!session || !session->current_working_dir)
         return;
@@ -275,7 +286,7 @@ static void run_parent_enter_hooks(Session *session, const char *path) {
     }
 
     for (size_t i = parents->count; i > 0; i--) {
-        run_dir_hook(session, parents->items[i - 1], HOOK_NAME_ENTER);
+        run_dir_hook(session, parents->items[i - 1], HOOK_ENTER);
     }
 
     free(cursor);
@@ -343,17 +354,15 @@ void update_working_dir(Session *session) {
             is_descendant_path(session->current_working_dir, current_value);
 
         if (moved_down) {
-            run_dir_hook(session, current_value, HOOK_NAME_ENTER_CHILD);
-            run_dir_hook(session, session->current_working_dir,
-                         HOOK_NAME_ENTER);
+            run_dir_hook(session, current_value, HOOK_ENTER_CHILD);
+            run_dir_hook(session, session->current_working_dir, HOOK_ENTER);
         } else if (moved_up) {
-            run_dir_hook(session, current_value, HOOK_NAME_EXIT);
+            run_dir_hook(session, current_value, HOOK_EXIT);
             run_dir_hook(session, session->current_working_dir,
-                         HOOK_NAME_EXIT_CHILD);
+                         HOOK_EXIT_CHILD);
         } else {
-            run_dir_hook(session, current_value, HOOK_NAME_EXIT);
-            run_dir_hook(session, session->current_working_dir,
-                         HOOK_NAME_ENTER);
+            run_dir_hook(session, current_value, HOOK_EXIT);
+            run_dir_hook(session, session->current_working_dir, HOOK_ENTER);
         }
     }
 }

@@ -6,14 +6,57 @@
 #ifndef HOOKS_H
 #define HOOKS_H
 
-#define HOOK_NAME_ENTER "enter"
-#define HOOK_NAME_EXIT "exit"
-#define HOOK_NAME_ENTER_CHILD "enter_child"
-#define HOOK_NAME_EXIT_CHILD "exit_child"
-#define HOOK_NAME_BEFORE_CMD "before_cmd"
-#define HOOK_NAME_AFTER_CMD "after_cmd"
-#define HOOK_NAME_SESSION_START "start"
-#define HOOK_NAME_SESSION_END "end"
-#define HOOK_NAME_BEFORE_RC "before_rc"
+// Fired when entering a directory from its parent or ancestor (not when
+// moving up from a child; see exit_child).
+#define HOOK_ENTER "enter"
+
+// Fired when moving up to a parent or ancestor directory (not when moving
+// down into a child; see enter_child).
+#define HOOK_EXIT "exit"
+
+// Fired when moving down into a child directory; complements enter.
+#define HOOK_ENTER_CHILD "enter_child"
+
+// Fired when moving up from a child into its parent; complements exit.
+#define HOOK_EXIT_CHILD "exit_child"
+
+// Fired before executing a command string (one per input line).
+#define HOOK_BEFORE_CMD "before_cmd"
+
+// Fired after executing a command string (one per input line).
+#define HOOK_AFTER_CMD "after_cmd"
+
+// Fired right before displaying the prompt (prompt lifecycle, not execution).
+#define HOOK_BEFORE_PROMPT "before_prompt"
+
+// Fired right after the prompt is displayed (prompt lifecycle, not execution).
+#define HOOK_AFTER_PROMPT "after_prompt"
+
+// Fired after a command completes with a non-zero exit status (post-cmd only).
+#define HOOK_ERROR "error"
+
+// Fired right before executing an external command (not for builtins).
+#define HOOK_BEFORE_EXEC "before_exec"
+
+// Fired right after an external command finishes (not for builtins).
+#define HOOK_AFTER_EXEC "after_exec"
+
+// Fired when entering a subshell (subshell node execution).
+#define HOOK_ENTER_SUBSHELL "enter_subshell"
+
+// Fired after leaving a subshell (subshell node execution).
+#define HOOK_EXIT_SUBSHELL "exit_subshell"
+
+// Fired when an environment variable changes (set/remove).
+#define HOOK_ENV_CHANGE "env_change"
+
+// Fired once per session after rc handling.
+#define HOOK_SESSION_START "start"
+
+// Fired once per session right before exit.
+#define HOOK_SESSION_END "end"
+
+// Fired right before reading the rc file.
+#define HOOK_BEFORE_RC "before_rc"
 
 #endif /* HOOKS_H */

@@ -14,7 +14,9 @@
 #endif
 
 typedef struct Environ {
-    Array *array;
+    Array            *array;
+    EnvironChangeHook change_hook;
+    void             *change_context;
 } Environ;
 
 static char *get_executable_path() {
@@ -84,6 +86,11 @@ void environ_set(Environ *env, char *key, char *value) {
     if (!env || !env->array)
         return;
 
+    char *existing = environ_get(env, key);
+    if (existing && strcmp(existing, value) == 0) {
+        return;
+    }
+
     size_t keylen = strlen(key);
     char  *newvar = malloc(keylen + 1 + strlen(value) + 1); // key=value\0
     if (!newvar) {
@@ -102,6 +109,9 @@ void environ_set(Environ *env, char *key, char *value) {
             env->array->items[i][keylen] == '=') {
             array_set(env->array, i, newvar, true); // true = free old
             free(newvar);
+            if (env->change_hook) {
+                env->change_hook(env->change_context, key);
+            }
             return;
         }
     }
@@ -109,6 +119,17 @@ void environ_set(Environ *env, char *key, char *value) {
     // Not found: append using array_add
     array_add(env->array, newvar);
     free(newvar);
+    if (env->change_hook) {
+        env->change_hook(env->change_context, key);
+    }
+}
+
+void environ_set_change_hook(Environ *env, EnvironChangeHook hook,
+                             void *context) {
+    if (!env)
+        return;
+    env->change_hook    = hook;
+    env->change_context = context;
 }
 
 bool environ_remove(Environ *env, char *key) {
@@ -120,6 +141,9 @@ bool environ_remove(Environ *env, char *key) {
         if (!strncmp(env->array->items[i], key, keylen) &&
             env->array->items[i][keylen] == '=') {
             array_remove(env->array, i);
+            if (env->change_hook) {
+                env->change_hook(env->change_context, key);
+            }
             return true;
         }
     }
@@ -160,6 +184,9 @@ Environ *init_environ(Environ *env) {
         free(env);
         return NULL;
     }
+
+    env->change_hook    = NULL;
+    env->change_context = NULL;
 
     // Copy variables from global environ
     for (size_t i = 0; environ[i]; i++) {

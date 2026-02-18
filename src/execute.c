@@ -16,7 +16,7 @@
 #include "environ.h" /* environ_get, environ_set, environ_set_exit_status, environ_set_last_arg, environ_set_background_pid, environ_to_array */
 #include "execute.h" /* execute, execute_string, execute_string_stdout, find_in_path, get_command_info, CommandInfo, COMMAND_* */
 #include "expand.h"  /* full_expansion */
-#include "hooks.h"   /* HOOK_NAME_* */
+#include "hooks.h"   /* HOOK_* */
 #include "jobs.h"    /* jobs_add, jobs_update */
 #include "session.h" /* Session */
 
@@ -335,6 +335,7 @@ int execute(ASTNode *node, Session *session) {
             fprintf(stderr, "tidesh: subshells are disabled\n");
             return 127;
         }
+        run_cwd_hook(session, HOOK_ENTER_SUBSHELL);
         pid_t pid = fork();
         if (pid == 0) {
             signal(SIGINT, SIG_DFL);
@@ -345,6 +346,7 @@ int execute(ASTNode *node, Session *session) {
         waitpid(pid, &st, 0);
         int exit_status = WEXITSTATUS(st);
         environ_set_exit_status(session->environ, exit_status);
+        run_cwd_hook(session, HOOK_EXIT_SUBSHELL);
         return exit_status;
     }
 #endif
@@ -478,6 +480,11 @@ int execute(ASTNode *node, Session *session) {
                 environ_set_exit_status(session->environ, st);
                 return st;
             }
+        }
+
+        bool is_external = !is_builtin(cmd_name);
+        if (is_external) {
+            run_cwd_hook(session, HOOK_BEFORE_EXEC);
         }
 
         pid_t pid = fork();
@@ -628,6 +635,9 @@ int execute(ASTNode *node, Session *session) {
                 printf("[%d] %d\n", job_id, pid);
                 environ_set_background_pid(session->environ, pid);
                 environ_set_exit_status(session->environ, 0);
+                if (is_external) {
+                    run_cwd_hook(session, HOOK_AFTER_EXEC);
+                }
                 return 0;
             } else {
                 fprintf(stderr, "tidesh: background jobs not enabled\n");
@@ -641,6 +651,9 @@ int execute(ASTNode *node, Session *session) {
             waitpid(pid, &status, 0);
             int exit_status = WEXITSTATUS(status);
             environ_set_exit_status(session->environ, exit_status);
+            if (is_external) {
+                run_cwd_hook(session, HOOK_AFTER_EXEC);
+            }
             return exit_status;
         }
     }
@@ -649,7 +662,7 @@ int execute(ASTNode *node, Session *session) {
 }
 
 int execute_string(const char *cmd, Session *session) {
-    run_cwd_hook(session, HOOK_NAME_BEFORE_CMD);
+    run_cwd_hook(session, HOOK_BEFORE_CMD);
 
     LexerInput lexer_in = {0};
     init_lexer_input(&lexer_in, (char *)cmd, execute_string_stdout, session);
@@ -667,7 +680,10 @@ int execute_string(const char *cmd, Session *session) {
 #endif
     }
 
-    run_cwd_hook(session, HOOK_NAME_AFTER_CMD);
+    run_cwd_hook(session, HOOK_AFTER_CMD);
+    if (result != 0) {
+        run_cwd_hook(session, HOOK_ERROR);
+    }
 
     free_lexer_input(&lexer_in);
     return result;

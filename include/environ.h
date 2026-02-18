@@ -15,6 +15,8 @@
 // Declare Environ as an opaque struct
 typedef struct Environ Environ;
 
+typedef void (*EnvironChangeHook)(void *context, const char *key);
+
 /**
  * Initialize the environment variables
  *
@@ -60,6 +62,16 @@ char *environ_get_default(Environ *env, char *key, char *default_value);
  * @param value Value to set
  */
 void environ_set(Environ *env, char *key, char *value);
+
+/**
+ * Register a hook that runs when environment variables change.
+ *
+ * @param env Pointer to Environ
+ * @param hook Hook function to call on changes
+ * @param context User context passed to the hook
+ */
+void environ_set_change_hook(Environ *env, EnvironChangeHook hook,
+                             void *context);
 
 /**
  * Removes a variable `key` from the environment
