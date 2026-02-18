@@ -151,13 +151,21 @@ The `Makefile` provides several utility commands:
 | `eval` | Execute arguments as a command |
 | `exit` | Exit the shell |
 | `export` | Set environment variables |
+| `features` | Show or manage feature flags |
 | `help` | Show the help message |
 | `history` | Show or manage command history |
+| `hooks` | Show or manage hooks |
 | `info` | Show shell and build information |
+| `jobs` | List background jobs |
+| `fg` | Bring a job to the foreground |
+| `bg` | Continue a stopped job in background |
 | `popd` | Pop directory from stack and change to it |
 | `printenv` | Print environment variables |
 | `pushd` | Push directory onto stack or swap stack entries |
 | `pwd` | Print the current working directory |
+| `source` | Execute commands from a file |
+| `type` | Show the type of a command |
+| `test` | Evaluate conditional expressions |
 | `terminal` | Show or manage terminal settings |
 | `unalias` | Remove command aliases |
 | `which` | Locate a command in PATH |

@@ -36,25 +36,7 @@ Features *init_features(Features *features) {
     features->command_substitution = true;
     features->assignments          = true;
 
-    // Apply compile-time feature disables
-#ifdef TIDESH_DISABLE_PIPES
-    features->pipes = false;
-#endif
-#ifdef TIDESH_DISABLE_REDIRECTIONS
-    features->redirections = false;
-#endif
-#ifdef TIDESH_DISABLE_SEQUENCES
-    features->sequences = false;
-#endif
-#ifdef TIDESH_DISABLE_SUBSHELLS
-    features->subshells = false;
-#endif
-#ifdef TIDESH_DISABLE_COMMAND_SUBSTITUTION
-    features->command_substitution = false;
-#endif
-#ifdef TIDESH_DISABLE_ASSIGNMENTS
-    features->assignments = false;
-#endif
+    features_apply_compile_time_disables(features);
 
     return features;
 }
@@ -111,4 +93,47 @@ void features_disable_all_expansions(Features *features) {
     features->tilde_expansion    = false;
     features->brace_expansion    = false;
     features->filename_expansion = false;
+}
+
+void features_apply_compile_time_disables(Features *features) {
+    if (features == NULL) {
+        return;
+    }
+
+#ifdef TIDESH_DISABLE_EXPANSIONS
+    features->variable_expansion = false;
+    features->tilde_expansion    = false;
+    features->brace_expansion    = false;
+    features->filename_expansion = false;
+#endif
+#ifdef TIDESH_DISABLE_ALIASES
+    features->alias_expansion = false;
+#endif
+#ifdef TIDESH_DISABLE_JOB_CONTROL
+    features->job_control = false;
+#endif
+#ifdef TIDESH_DISABLE_HISTORY
+    features->history = false;
+#endif
+#ifdef TIDESH_DISABLE_DIRSTACK
+    features->directory_stack = false;
+#endif
+#ifdef TIDESH_DISABLE_PIPES
+    features->pipes = false;
+#endif
+#ifdef TIDESH_DISABLE_REDIRECTIONS
+    features->redirections = false;
+#endif
+#ifdef TIDESH_DISABLE_SEQUENCES
+    features->sequences = false;
+#endif
+#ifdef TIDESH_DISABLE_SUBSHELLS
+    features->subshells = false;
+#endif
+#ifdef TIDESH_DISABLE_COMMAND_SUBSTITUTION
+    features->command_substitution = false;
+#endif
+#ifdef TIDESH_DISABLE_ASSIGNMENTS
+    features->assignments = false;
+#endif
 }

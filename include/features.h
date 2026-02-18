@@ -92,4 +92,11 @@ void features_enable_all_expansions(Features *features);
  */
 void features_disable_all_expansions(Features *features);
 
+/**
+ * Apply compile-time feature disables to a Features struct.
+ *
+ * @param features Pointer to Features struct to modify
+ */
+void features_apply_compile_time_disables(Features *features);
+
 #endif /* FEATURES_H */

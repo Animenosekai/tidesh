@@ -12,6 +12,7 @@
 #include "builtins/eval.h"     /* builtin_eval */
 #include "builtins/exit.h"     /* builtin_exit */
 #include "builtins/export.h"   /* builtin_export */
+#include "builtins/features.h" /* builtin_features */
 #include "builtins/help.h"     /* builtin_help */
 #include "builtins/hooks.h"    /* builtin_hooks */
 #include "builtins/info.h"     /* builtin_info */
@@ -42,7 +43,7 @@
 
 const char *builtins[] = {"exit",    "pwd",     "clear", "help",     "printenv",
                           "which",   "export",  "eval",  "terminal", "info",
-                          "source",  "type",    "test",  "hooks",
+                          "source",  "type",    "test",  "hooks",    "features",
 #ifndef TIDESH_DISABLE_ALIASES
                           "alias",   "unalias",
 #endif
@@ -70,6 +71,8 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
 #endif
     if (strcmp(name, "help") == 0)
         return builtin_help;
+    if (strcmp(name, "features") == 0)
+        return builtin_features;
     if (strcmp(name, "hooks") == 0)
         return builtin_hooks;
     if (strcmp(name, "printenv") == 0)
@@ -126,7 +129,7 @@ bool is_special_builtin(const char *name) {
         strcmp(name, "info") == 0 || strcmp(name, "eval") == 0 ||
         strcmp(name, "terminal") == 0 || strcmp(name, "source") == 0 ||
         strcmp(name, ".") == 0 || strcmp(name, "type") == 0 ||
-        strcmp(name, "hooks") == 0) {
+        strcmp(name, "hooks") == 0 || strcmp(name, "features") == 0) {
         return true;
     }
 #ifndef TIDESH_DISABLE_ALIASES

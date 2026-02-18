@@ -16,6 +16,8 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool alias    = false;
     bool unalias  = false;
     bool help     = false;
+    bool features = false;
+    bool hooks    = false;
     bool history  = false;
     bool info     = false;
     bool printenv = false;
@@ -48,6 +50,10 @@ int builtin_help(int argc, char **argv, Session *session) {
             unalias = true;
         else if (strcmp(argv[i], "help") == 0)
             help = true;
+        else if (strcmp(argv[i], "features") == 0)
+            features = true;
+        else if (strcmp(argv[i], "hooks") == 0)
+            hooks = true;
 #ifndef TIDESH_DISABLE_HISTORY
         else if (strcmp(argv[i], "history") == 0)
             history = true;
@@ -84,10 +90,10 @@ int builtin_help(int argc, char **argv, Session *session) {
 #endif
     }
 
-    bool all =
-        !(cd || clear || exit || export || eval || alias || unalias || help ||
-          history || info || printenv || pwd || pushd || popd || terminal ||
-          which || source || type || test || jobs || fg || bg);
+    bool all = !(cd || clear || exit || export || eval || alias || unalias ||
+                 help || features || hooks || history || info || printenv ||
+                 pwd || pushd || popd || terminal || which || source || type ||
+                 test || jobs || fg || bg);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -133,6 +139,24 @@ int builtin_help(int argc, char **argv, Session *session) {
     if (all || help)
         printf("  %s%-9s %s%-14s%s - Show this help message\n", command_clr,
                "help", argument_clr, "", reset);
+
+    if (all || features)
+        printf("  %s%-9s %s%-14s%s - Show or manage feature flags\n",
+               command_clr, "features", argument_clr, "[subcommand]", reset);
+
+    if (all || features)
+        printf("                             %sSubcommands: list, status, "
+               "enable, disable%s\n",
+               subcommand_clr, reset);
+
+    if (all || hooks)
+        printf("  %s%-9s %s%-14s%s - Show or manage hooks\n", command_clr,
+               "hooks", argument_clr, "[subcommand]", reset);
+
+    if (all || hooks)
+        printf("                             %sSubcommands: list, enable, "
+               "disable, status, run, path, types%s\n",
+               subcommand_clr, reset);
 
 #ifndef TIDESH_DISABLE_HISTORY
     if (all || history)
@@ -191,8 +215,9 @@ int builtin_help(int argc, char **argv, Session *session) {
             "  %s%-9s %s%-14s%s - Execute commands from a file (shorthand)\n",
             command_clr, ".", argument_clr, "<file>", reset);
 
-    printf("  %s%-9s %s%-14s%s - Show the type of a command\n", command_clr,
-           "type", argument_clr, "[command...]", reset);
+    if (all || type)
+        printf("  %s%-9s %s%-14s%s - Show the type of a command\n", command_clr,
+               "type", argument_clr, "[command...]", reset);
 
     if (all || test)
         printf("  %s%-9s %s%-14s%s - Evaluate conditional expressions\n",
