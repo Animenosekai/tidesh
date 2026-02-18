@@ -12,6 +12,15 @@
 #ifndef HOOKS_H
 #define HOOKS_H
 
+#include <stddef.h> /* size_t */
+
+typedef struct Session Session;
+
+typedef struct HookEnvVar {
+    const char *key;
+    const char *value;
+} HookEnvVar;
+
 // Wildcard hook: called before any specific hook fires
 // Additional context: Same variables as the specific hook that will follow
 #define HOOK_ALL "*"
@@ -115,5 +124,46 @@
 
 // Fired right before reading the rc file.
 #define HOOK_BEFORE_RC "before_rc"
+
+/**
+ * Run a hook script from the current working directory's .tide folder.
+ *
+ * @param session Pointer to Session
+ * @param hook_name Hook script name (e.g., "cmd_pre")
+ */
+void run_cwd_hook(Session *session, const char *hook_name);
+
+/**
+ * Run a hook script from the current working directory's .tide folder with
+ * temporary environment variables.
+ *
+ * @param session Pointer to Session
+ * @param hook_name Hook script name (e.g., "before_cmd")
+ * @param vars Extra environment variables to set for the hook
+ * @param var_count Number of variables in vars
+ */
+void run_cwd_hook_with_vars(Session *session, const char *hook_name,
+                            const HookEnvVar *vars, size_t var_count);
+
+/**
+ * Run a hook script from the specified directory's .tide folder with
+ * temporary environment variables.
+ *
+ * @param session Pointer to Session
+ * @param dir Directory to search for .tide hooks
+ * @param hook_name Hook script name (e.g., "cd")
+ * @param vars Extra environment variables to set for the hook
+ * @param var_count Number of variables in vars
+ */
+void run_dir_hook_with_vars(Session *session, const char *dir,
+                            const char *hook_name, const HookEnvVar *vars,
+                            size_t var_count);
+
+/**
+ * Register session-level hook callbacks (env changes, job state changes).
+ *
+ * @param session Pointer to Session
+ */
+void hooks_register_session(Session *session);
 
 #endif /* HOOKS_H */
