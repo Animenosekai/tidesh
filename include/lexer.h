@@ -48,30 +48,56 @@ void free_lexer_input(LexerInput *input);
 /* The types of token a shell might encounter */
 typedef enum TokenType {
     TOKEN_WORD,
-    TOKEN_IO_NUMBER,  // e.g., n>..., n<...
-    TOKEN_COMMENT,    // # ...
+    TOKEN_COMMENT, // # ...
+
+#ifndef TIDESH_DISABLE_REDIRECTIONS
+    TOKEN_IO_NUMBER, // e.g., n>..., n<...
+#endif
+
+#ifndef TIDESH_DISABLE_ASSIGNMENTS
     TOKEN_ASSIGNMENT, // VAR=VALUE
+#endif
 
+#ifndef TIDESH_DISABLE_PIPES
     TOKEN_PIPE, // |
+#endif
 
-    TOKEN_REDIRECT_IN,             // <
-    TOKEN_FD_DUPLICATION,          // <&
-    TOKEN_PROCESS_SUBSTITUTION_IN, // <(
-    TOKEN_HEREDOC,                 // <<
-    TOKEN_HERESTRING,              // <<<
+#ifndef TIDESH_DISABLE_REDIRECTIONS
+    TOKEN_REDIRECT_IN,    // <
+    TOKEN_FD_DUPLICATION, // <&
+    TOKEN_HEREDOC,        // <<
+    TOKEN_HERESTRING,     // <<<
 
-    TOKEN_REDIRECT_OUT,             // >
-    TOKEN_REDIRECT_APPEND,          // >>
-    TOKEN_REDIRECT_OUT_ERR,         // >&
+    TOKEN_REDIRECT_OUT,     // >
+    TOKEN_REDIRECT_APPEND,  // >>
+    TOKEN_REDIRECT_OUT_ERR, // >&
+#endif
+
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
+    TOKEN_PROCESS_SUBSTITUTION_IN,  // <(
     TOKEN_PROCESS_SUBSTITUTION_OUT, // >(
+#endif
 
+#ifndef TIDESH_DISABLE_JOB_CONTROL
     TOKEN_BACKGROUND, // &
-    TOKEN_SEQUENCE,   // &&
-    TOKEN_OR,         // ||
+#endif
 
+#ifndef TIDESH_DISABLE_SEQUENCES
+    TOKEN_SEQUENCE, // &&
+#endif
+
+#ifndef TIDESH_DISABLE_PIPES
+    TOKEN_OR, // ||
+#endif
+
+#ifndef TIDESH_DISABLE_SEQUENCES
     TOKEN_SEMICOLON, // ;
-    TOKEN_LPAREN,    // (
-    TOKEN_RPAREN,    // )
+#endif
+
+#ifndef TIDESH_DISABLE_SUBSHELLS
+    TOKEN_LPAREN, // (
+    TOKEN_RPAREN, // )
+#endif
 
     TOKEN_EOL, // end of command (real newline)
     TOKEN_EOF  // end of file

@@ -63,6 +63,7 @@ void free_lexer_token(LexerToken *token) {
     }
 }
 
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
 /* Handle command substitution $(...) or <(...) or >(...) */
 static char *command_substitution(LexerInput *input) {
     char    c       = advance(input); // Consume `(`
@@ -106,6 +107,7 @@ static char *command_substitution(LexerInput *input) {
     free_dynamic(&command);
     return result_command;
 }
+#endif /* TIDESH_DISABLE_COMMAND_SUBSTITUTION */
 
 /* Read a single unquoted word from the input */
 static Dynamic read_single_word(LexerInput *input) {
@@ -125,12 +127,17 @@ static Dynamic read_single_word(LexerInput *input) {
             continue;
         }
         if (!escaped && c == '$' && peek_next(input) == '(') {
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
             advance(input); // consume '$'
             char *command      = command_substitution(input);
             char *substitution = input->execute(command, input->session);
             free(command);
             dynamic_extend(&word_value, substitution);
             free(substitution);
+#else
+            dynamic_append(&word_value, c);
+            advance(input);
+#endif
             c = peek(input);
             continue;
         }
@@ -168,12 +175,17 @@ static Dynamic read_quoted_word(LexerInput *input) {
             continue;
         }
         if (!escaped && c == '$' && peek_next(input) == '(') {
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
             advance(input); // consume '$'
             char *command      = command_substitution(input);
             char *substitution = input->execute(command, input->session);
             free(command);
             dynamic_extend(&word_value, substitution);
             free(substitution);
+#else
+            dynamic_append(&word_value, c);
+            advance(input);
+#endif
             c = peek(input);
             continue;
         }
@@ -240,6 +252,7 @@ LexerToken lexer_next_token(LexerInput *input) {
     }
 
     switch (c) {
+#ifndef TIDESH_DISABLE_PIPES
         case '|':
             // Check if pipes feature is enabled
             if (!input->session || input->session->features.pipes) {
@@ -258,20 +271,32 @@ LexerToken lexer_next_token(LexerInput *input) {
                 free_dynamic(&word_value);
             }
             break;
+#endif
         case '&':
             // Check if sequences or job_control feature is enabled
             if (!input->session) {
                 advance(input);
                 if (peek(input) == '&') {
+#ifndef TIDESH_DISABLE_SEQUENCES
                     advance(input);
                     token.type = TOKEN_SEQUENCE;
+#else
+                    token.type  = TOKEN_WORD;
+                    token.value = strdup("&");
+#endif
                 } else {
+#ifndef TIDESH_DISABLE_JOB_CONTROL
                     token.type = TOKEN_BACKGROUND;
+#else
+                    token.type  = TOKEN_WORD;
+                    token.value = strdup("&");
+#endif
                 }
             } else {
                 advance(input);
                 if (peek(input) == '&') {
                     // && operator controlled by sequences
+#ifndef TIDESH_DISABLE_SEQUENCES
                     if (input->session->features.sequences) {
                         advance(input);
                         token.type = TOKEN_SEQUENCE;
@@ -280,8 +305,14 @@ LexerToken lexer_next_token(LexerInput *input) {
                         token.type  = TOKEN_WORD;
                         token.value = strdup("&");
                     }
+#else
+                    // Sequences disabled, treat & as a normal word
+                    token.type  = TOKEN_WORD;
+                    token.value = strdup("&");
+#endif
                 } else {
                     // Single & operator controlled by job_control or background
+#ifndef TIDESH_DISABLE_JOB_CONTROL
                     if (input->session->features.job_control) {
                         token.type = TOKEN_BACKGROUND;
                     } else {
@@ -289,10 +320,16 @@ LexerToken lexer_next_token(LexerInput *input) {
                         token.type  = TOKEN_WORD;
                         token.value = strdup("&");
                     }
+#else
+                    // Job control disabled, treat & as a normal word
+                    token.type  = TOKEN_WORD;
+                    token.value = strdup("&");
+#endif
                 }
             }
             break;
         case ';':
+#ifndef TIDESH_DISABLE_SEQUENCES
             // Check if sequences feature is enabled
             if (!input->session || input->session->features.sequences) {
                 advance(input);
@@ -304,8 +341,16 @@ LexerToken lexer_next_token(LexerInput *input) {
                 token.value        = dynamic_to_string(&word_value);
                 free_dynamic(&word_value);
             }
+#else
+            // Sequences disabled, treat ; as a normal word
+            Dynamic word_value = read_single_word(input);
+            token.type         = TOKEN_WORD;
+            token.value        = dynamic_to_string(&word_value);
+            free_dynamic(&word_value);
+#endif
             break;
         case '<':
+#ifndef TIDESH_DISABLE_REDIRECTIONS
             // Check if redirections feature is enabled
             if (!input->session || input->session->features.redirections) {
                 advance(input);
@@ -395,6 +440,7 @@ LexerToken lexer_next_token(LexerInput *input) {
                     token.type = TOKEN_FD_DUPLICATION;
                 } else if (next_char == '(') {
                     // Handle process substitution <(
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
                     if (input->session &&
                         !input->session->features.command_substitution) {
                         // Command substitution disabled, treat <( as word
@@ -406,6 +452,13 @@ LexerToken lexer_next_token(LexerInput *input) {
                         token.type  = TOKEN_PROCESS_SUBSTITUTION_IN;
                         token.value = command_substitution(input);
                     }
+#else
+                    // Command substitution disabled, treat <( as word
+                    Dynamic word_value = read_single_word(input);
+                    token.type         = TOKEN_WORD;
+                    token.value        = dynamic_to_string(&word_value);
+                    free_dynamic(&word_value);
+#endif
                 } else {
                     token.type = TOKEN_REDIRECT_IN;
                 }
@@ -416,8 +469,16 @@ LexerToken lexer_next_token(LexerInput *input) {
                 token.value        = dynamic_to_string(&word_value);
                 free_dynamic(&word_value);
             }
+#else
+            // Redirections disabled, treat < as a normal word
+            Dynamic word_value = read_single_word(input);
+            token.type         = TOKEN_WORD;
+            token.value        = dynamic_to_string(&word_value);
+            free_dynamic(&word_value);
+#endif
             break;
         case '>': {
+#ifndef TIDESH_DISABLE_REDIRECTIONS
             // Check if redirections feature is enabled
             if (!input->session || input->session->features.redirections) {
                 advance(input);
@@ -430,6 +491,7 @@ LexerToken lexer_next_token(LexerInput *input) {
                     token.type = TOKEN_REDIRECT_OUT_ERR;
                 } else if (next_char == '(') {
                     // Handle process substitution >(
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
                     if (input->session &&
                         !input->session->features.command_substitution) {
                         // Command substitution disabled, treat >( as word
@@ -441,6 +503,13 @@ LexerToken lexer_next_token(LexerInput *input) {
                         token.type  = TOKEN_PROCESS_SUBSTITUTION_OUT;
                         token.value = command_substitution(input);
                     }
+#else
+                    // Command substitution disabled, treat >( as word
+                    Dynamic word_value = read_single_word(input);
+                    token.type         = TOKEN_WORD;
+                    token.value        = dynamic_to_string(&word_value);
+                    free_dynamic(&word_value);
+#endif
                 } else {
                     token.type = TOKEN_REDIRECT_OUT;
                 }
@@ -451,9 +520,17 @@ LexerToken lexer_next_token(LexerInput *input) {
                 token.value        = dynamic_to_string(&word_value);
                 free_dynamic(&word_value);
             }
+#else
+            // Redirections disabled, treat > as a normal word
+            Dynamic word_value = read_single_word(input);
+            token.type         = TOKEN_WORD;
+            token.value        = dynamic_to_string(&word_value);
+            free_dynamic(&word_value);
+#endif
             break;
         }
         case '(':
+#ifndef TIDESH_DISABLE_SUBSHELLS
             // Check if subshells feature is enabled
             if (!input->session || input->session->features.subshells) {
                 advance(input);
@@ -465,8 +542,16 @@ LexerToken lexer_next_token(LexerInput *input) {
                 token.value        = dynamic_to_string(&word_value);
                 free_dynamic(&word_value);
             }
+#else
+            // Subshells disabled, treat ( as a normal word
+            Dynamic word_value = read_single_word(input);
+            token.type         = TOKEN_WORD;
+            token.value        = dynamic_to_string(&word_value);
+            free_dynamic(&word_value);
+#endif
             break;
         case ')':
+#ifndef TIDESH_DISABLE_SUBSHELLS
             // Check if subshells feature is enabled
             if (!input->session || input->session->features.subshells) {
                 advance(input);
@@ -478,6 +563,13 @@ LexerToken lexer_next_token(LexerInput *input) {
                 token.value        = dynamic_to_string(&word_value);
                 free_dynamic(&word_value);
             }
+#else
+            // Subshells disabled, treat ) as a normal word
+            Dynamic word_value = read_single_word(input);
+            token.type         = TOKEN_WORD;
+            token.value        = dynamic_to_string(&word_value);
+            free_dynamic(&word_value);
+#endif
             break;
         case '"':
         case '\'': {
@@ -515,6 +607,7 @@ LexerToken lexer_next_token(LexerInput *input) {
             while (!is_at_end(input) && c != ' ' && c != '\t' && c != '\n' &&
                    c != '\r' && c != '|' && c != '&' && c != ';' && c != '(' &&
                    c != ')' && c != '#') {
+#ifndef TIDESH_DISABLE_REDIRECTIONS
                 if (is_io_number && (c < '0' || c > '9')) {
                     if (c == '>' || c == '<') {
                         token.type = TOKEN_IO_NUMBER;
@@ -526,8 +619,10 @@ LexerToken lexer_next_token(LexerInput *input) {
                 if (!is_io_number && (c == '>' || c == '<')) {
                     break;
                 }
+#endif
 
                 if (!escaped && c == '$' && peek_next(input) == '(') {
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
                     advance(input); // consume '$'
                     char *command = command_substitution(input);
                     char *substitution =
@@ -535,6 +630,10 @@ LexerToken lexer_next_token(LexerInput *input) {
                     free(command);
                     dynamic_extend(&word_value, substitution);
                     free(substitution);
+#else
+                    dynamic_append(&word_value, c);
+                    advance(input);
+#endif
                     c = peek(input);
                     continue;
                 }
@@ -548,6 +647,7 @@ LexerToken lexer_next_token(LexerInput *input) {
 
                 if (!escaped && !is_io_number && c == '=' &&
                     word_value.length > 0) {
+#ifndef TIDESH_DISABLE_ASSIGNMENTS
                     // Assignment detected
                     advance(input);
                     c          = peek(input);
@@ -562,6 +662,11 @@ LexerToken lexer_next_token(LexerInput *input) {
                         free_dynamic(&unquoted_value);
                     }
                     break;
+#else
+                    // Assignments disabled, treat = as part of the word
+                    dynamic_append(&word_value, c);
+                    advance(input);
+#endif
                 }
 
                 escaped = false;

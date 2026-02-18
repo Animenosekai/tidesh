@@ -162,6 +162,7 @@ int execute(ASTNode *node, Session *session);
 
 /* Handle combined output redirection and process substitution */
 static int handle_redirections(ASTNode *node, Session *session) {
+#ifndef TIDESH_DISABLE_REDIRECTIONS
     if (!session->features.redirections) {
         if (node->redirects) {
             fprintf(stderr, "tidesh: redirections are disabled\n");
@@ -171,6 +172,7 @@ static int handle_redirections(ASTNode *node, Session *session) {
     Redirection *redirect = node->redirects;
     while (redirect) {
         int fd_file = -1;
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
         if (redirect->type == TOKEN_HEREDOC ||
             redirect->type == TOKEN_HERESTRING) {
             int pipe_fds[2];
@@ -218,6 +220,7 @@ static int handle_redirections(ASTNode *node, Session *session) {
                 }
             }
         } else {
+#endif
             int flags = O_WRONLY | O_CREAT;
             if (redirect->type == TOKEN_REDIRECT_APPEND)
                 flags |= O_APPEND;
@@ -228,7 +231,9 @@ static int handle_redirections(ASTNode *node, Session *session) {
                 flags = O_RDONLY;
 
             fd_file = open(redirect->target, flags, RW_R__R__);
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
         }
+#endif
 
         if (fd_file < 0) {
             fprintf(stderr, "Error opening redirection target: %s\n",
@@ -243,6 +248,7 @@ static int handle_redirections(ASTNode *node, Session *session) {
         close(fd_file);
         redirect = redirect->next;
     }
+#endif /* TIDESH_DISABLE_REDIRECTIONS */
     return 0;
 }
 
@@ -253,6 +259,7 @@ int execute(ASTNode *node, Session *session) {
     fflush(stdout);
     fflush(stderr);
 
+#ifndef TIDESH_DISABLE_PIPES
     if (node->type == NODE_PIPE) {
         if (!session->features.pipes) {
             fprintf(stderr, "tidesh: pipes are disabled\n");
@@ -288,6 +295,8 @@ int execute(ASTNode *node, Session *session) {
         environ_set_exit_status(session->environ, exit_status);
         return exit_status;
     }
+#endif
+#ifndef TIDESH_DISABLE_SEQUENCES
     if (node->type == NODE_SEQUENCE) {
         if (!session->features.sequences) {
             fprintf(stderr, "tidesh: sequences are disabled\n");
@@ -318,6 +327,8 @@ int execute(ASTNode *node, Session *session) {
         environ_set_exit_status(session->environ, st);
         return st;
     }
+#endif
+#ifndef TIDESH_DISABLE_SUBSHELLS
     if (node->type == NODE_SUBSHELL) {
         if (!session->features.subshells) {
             fprintf(stderr, "tidesh: subshells are disabled\n");
@@ -335,6 +346,7 @@ int execute(ASTNode *node, Session *session) {
         environ_set_exit_status(session->environ, exit_status);
         return exit_status;
     }
+#endif
 
     if (node->type == NODE_COMMAND) {
         // Expand arguments
@@ -369,6 +381,7 @@ int execute(ASTNode *node, Session *session) {
 
         // Handle variable assignments without command
         if (argc == 0 && node->assignments) {
+#ifndef TIDESH_DISABLE_ASSIGNMENTS
             if (!session->features.assignments) {
                 fprintf(stderr, "tidesh: assignments are disabled\n");
                 if (argv)
@@ -386,6 +399,7 @@ int execute(ASTNode *node, Session *session) {
                 }
                 free(copy);
             }
+#endif
             if (argv)
                 free(argv);
             if (arg_is_sub)
@@ -436,6 +450,7 @@ int execute(ASTNode *node, Session *session) {
             // Handle process substitution in argv
             for (int i = 0; i < argc; i++) {
                 if (arg_is_sub && arg_is_sub[i] != 0) {
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
                     bool  is_in = (arg_is_sub[i] == 1);
                     char *cmd   = argv[i];
 
@@ -468,6 +483,7 @@ int execute(ASTNode *node, Session *session) {
                         free(argv[i]);
                         argv[i] = strdup(buf);
                     }
+#endif
                 }
             }
 
@@ -479,6 +495,7 @@ int execute(ASTNode *node, Session *session) {
             // Manage temporary Assignments (VAR=VAL cmd)
             // Note: We modify the Session only in the child process
             if (node->assignments) {
+#ifndef TIDESH_DISABLE_ASSIGNMENTS
                 if (!session->features.assignments) {
                     fprintf(stderr, "tidesh: assignments are disabled\n");
                     exit(127);
@@ -492,6 +509,10 @@ int execute(ASTNode *node, Session *session) {
                     }
                     free(assign);
                 }
+#else
+                fprintf(stderr, "tidesh: assignments are disabled\n");
+                exit(127);
+#endif
             }
 
             // Create environment array

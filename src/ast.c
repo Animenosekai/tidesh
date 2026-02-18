@@ -141,7 +141,9 @@ ASTNode *parse(LexerInput *lexer, Session *session) {
 static ASTNode *parse_sequence(Parser *parser, Session *session) {
     // Skip leading newlines, semicolons, and comments
     while (parser_peek(parser)->type == TOKEN_EOL ||
+#ifndef TIDESH_DISABLE_SEQUENCES
            parser_peek(parser)->type == TOKEN_SEMICOLON ||
+#endif
            parser_peek(parser)->type == TOKEN_COMMENT) {
         parser_skip(parser);
     }
@@ -163,17 +165,23 @@ static ASTNode *parse_sequence(Parser *parser, Session *session) {
             continue;
         }
 
+#ifndef TIDESH_DISABLE_JOB_CONTROL
         if (token->type == TOKEN_BACKGROUND) {
             parser_skip(parser);
             left->background = true;
             token            = parser_peek(parser);
             if (token->type == TOKEN_EOF || token->type == TOKEN_EOL ||
-                token->type == TOKEN_SEMICOLON || token->type == TOKEN_RPAREN ||
-                token->type == TOKEN_COMMENT) {
+#ifndef TIDESH_DISABLE_SEQUENCES
+                token->type == TOKEN_SEMICOLON ||
+#endif
+                token->type == TOKEN_RPAREN || token->type == TOKEN_COMMENT) {
                 continue;
             }
-        } else if (token->type == TOKEN_SEMICOLON || token->type == TOKEN_EOL ||
-                   token->type == TOKEN_COMMENT) {
+        } else
+#endif
+#ifndef TIDESH_DISABLE_SEQUENCES
+            if (token->type == TOKEN_SEMICOLON || token->type == TOKEN_EOL ||
+                token->type == TOKEN_COMMENT) {
             parser_skip(parser);
             token = parser_peek(parser);
             if (token->type == TOKEN_EOF || token->type == TOKEN_EOL ||
@@ -181,17 +189,23 @@ static ASTNode *parse_sequence(Parser *parser, Session *session) {
                 token->type == TOKEN_COMMENT) {
                 continue;
             }
-        } else {
+        } else
+#endif
+        {
             break;
         }
 
         ASTNode *right = parse_and_or(parser, session);
         if (!right)
             break;
+#ifndef TIDESH_DISABLE_SEQUENCES
         ASTNode *node = init_ast(NULL, NODE_SEQUENCE);
         node->left    = left;
         node->right   = right;
         left          = node;
+#else
+        left = right;
+#endif
     }
 
     return left;
@@ -203,6 +217,7 @@ static ASTNode *parse_and_or(Parser *parser, Session *session) {
     if (!left)
         return NULL;
 
+#ifndef TIDESH_DISABLE_SEQUENCES
     while (true) {
         LexerToken *token = parser_peek(parser);
         NodeType    type;
@@ -224,6 +239,7 @@ static ASTNode *parse_and_or(Parser *parser, Session *session) {
         node->right   = right;
         left          = node;
     }
+#endif
 
     return left;
 }
@@ -233,6 +249,7 @@ static ASTNode *parse_pipeline(Parser *parser, Session *session) {
     ASTNode *left = parse_command(parser, session);
     if (!left)
         return NULL;
+#ifndef TIDESH_DISABLE_PIPES
     LexerToken *token = parser_peek(parser);
     if (token->type == TOKEN_PIPE) {
         parser_skip(parser);
@@ -241,6 +258,7 @@ static ASTNode *parse_pipeline(Parser *parser, Session *session) {
         node->right   = parse_pipeline(parser, session);
         return node;
     }
+#endif
     return left;
 }
 
@@ -259,6 +277,7 @@ static void add_argument(ASTNode *node, char *arg, int sub_type) {
 /* Parse a single command (with possible redirections and assignments) */
 static ASTNode *parse_command(Parser *parser, Session *session) {
     LexerToken *peek = parser_peek(parser);
+#ifndef TIDESH_DISABLE_SUBSHELLS
     if (peek->type == TOKEN_LPAREN) {
         parser_skip(parser);
         ASTNode   *subshell_body = parse_sequence(parser, session);
@@ -274,6 +293,7 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
         subshell->left    = subshell_body;
         return subshell;
     }
+#endif
 
     ASTNode *cmd        = init_ast(NULL, NODE_COMMAND);
     bool     first_word = true;
@@ -281,6 +301,7 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
     while (true) {
         LexerToken *token = parser_peek(parser);
 
+#ifndef TIDESH_DISABLE_REDIRECTIONS
         int fd = -1;
         if (token->type == TOKEN_IO_NUMBER) {
             LexerToken io_token = parser_next(parser);
@@ -366,7 +387,9 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
             cmd->redirects = redirect;
             continue;
         }
+#endif /* TIDESH_DISABLE_REDIRECTIONS */
 
+#ifndef TIDESH_DISABLE_ASSIGNMENTS
         if (token->type == TOKEN_ASSIGNMENT) {
             LexerToken assign = parser_next(parser);
             size_t     len    = strlen(assign.value) + strlen(assign.extra) + 2;
@@ -384,8 +407,10 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
             free(full);
             free_lexer_token(&assign);
             continue;
+#endif /* TIDESH_DISABLE_ASSIGNMENTS */
         }
 
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
         if (token->type == TOKEN_WORD ||
             token->type == TOKEN_PROCESS_SUBSTITUTION_IN ||
             token->type == TOKEN_PROCESS_SUBSTITUTION_OUT) {
@@ -423,6 +448,7 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
             free_lexer_token(&word);
             first_word = false;
             continue;
+#endif /* TIDESH_DISABLE_COMMAND_SUBSTITUTION */
         }
         break;
     }

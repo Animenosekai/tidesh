@@ -14,11 +14,17 @@
 /* The type of AST nodes */
 typedef enum NodeType {
     NODE_COMMAND,
+#ifndef TIDESH_DISABLE_PIPES
     NODE_PIPE,
+#endif
+#ifndef TIDESH_DISABLE_SEQUENCES
     NODE_AND,
     NODE_OR,
     NODE_SEQUENCE,
+#endif
+#ifndef TIDESH_DISABLE_SUBSHELLS
     NODE_SUBSHELL
+#endif
 } NodeType;
 
 /* Descibes an I/O redirection */
