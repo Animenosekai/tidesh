@@ -68,3 +68,6 @@ docs/out/*
 # History files
 .history
 test_files/
+
+# Tide
+.tide/

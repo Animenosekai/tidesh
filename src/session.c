@@ -1,12 +1,15 @@
-#include <dirent.h> /* DIR, opendir, readdir, closedir */
-#include <limits.h> /* PATH_MAX */
-#include <stdio.h>  /* snprintf */
-#include <stdlib.h> /* malloc, free */
-#include <string.h> /* strdup, strcmp */
-#include <unistd.h> /* getcwd */
+#include <dirent.h>   /* DIR, opendir, readdir, closedir */
+#include <limits.h>   /* PATH_MAX */
+#include <stdio.h>    /* snprintf */
+#include <stdlib.h>   /* malloc, free */
+#include <string.h>   /* strdup, strcmp */
+#include <sys/stat.h> /* stat, S_ISREG */
+#include <unistd.h>   /* getcwd */
 
 #include "data/array.h"      /* array_add, free_array */
+#include "data/files.h"      /* read_all */
 #include "environ.h"         /* environ_get, environ_set, environ_get_default */
+#include "execute.h"         /* execute_string */
 #include "features.h"        /* Features */
 #include "prompt/terminal.h" /* Terminal, terminal functions */
 #include "session.h"         /* Session, Environ, History, Trie, DirStack */
@@ -153,6 +156,75 @@ static void init_previous_working_dir(Session *session) {
     }
 }
 
+static size_t trim_trailing_slash_len(const char *path, size_t len) {
+    while (len > 1 && path[len - 1] == '/') {
+        len--;
+    }
+    return len;
+}
+
+static bool is_descendant_path(const char *parent, const char *child) {
+    if (!parent || !child)
+        return false;
+
+    size_t parent_len = trim_trailing_slash_len(parent, strlen(parent));
+    size_t child_len  = trim_trailing_slash_len(child, strlen(child));
+
+    if (parent_len >= child_len)
+        return false;
+
+    if (strncmp(parent, child, parent_len) != 0)
+        return false;
+
+    if (parent_len == 1 && parent[0] == '/') {
+        return true;
+    }
+
+    return child[parent_len] == '/';
+}
+
+static void run_dir_hook(Session *session, const char *dir,
+                         const char *hook_name) {
+    if (!session || !dir || !hook_name)
+        return;
+
+    char hook_path[PATH_MAX];
+    int  written =
+        snprintf(hook_path, sizeof(hook_path), "%s/.tide/%s", dir, hook_name);
+    if (written <= 0 || (size_t)written >= sizeof(hook_path))
+        return;
+
+    struct stat st;
+    if (stat(hook_path, &st) != 0 || !S_ISREG(st.st_mode))
+        return;
+
+    FILE *hook_file = fopen(hook_path, "r");
+    if (!hook_file) {
+        fprintf(stderr, "tidesh: could not open hook: %s\n", hook_path);
+        return;
+    }
+
+    char *content = read_all(hook_file);
+    fclose(hook_file);
+    if (!content) {
+        fprintf(stderr, "tidesh: could not read hook: %s\n", hook_path);
+        return;
+    }
+
+#ifndef TIDESH_DISABLE_HISTORY
+    bool was_disabled          = session->history->disabled;
+    session->history->disabled = true;
+#endif
+
+    execute_string(content, session);
+
+#ifndef TIDESH_DISABLE_HISTORY
+    session->history->disabled = was_disabled;
+#endif
+
+    free(content);
+}
+
 void update_working_dir(Session *session) {
     const char *current_value = session->current_working_dir;
     char       *cwd           = getcwd(NULL, 0);
@@ -185,6 +257,7 @@ void update_working_dir(Session *session) {
 
     if (!session->previous_working_dir) {
         init_previous_working_dir(session);
+        run_dir_hook(session, session->current_working_dir, "enter");
         return;
     }
 
@@ -203,6 +276,24 @@ void update_working_dir(Session *session) {
     session->previous_working_dir = (char *)current_value;
     if (session->previous_working_dir) {
         environ_set(session->environ, "OLDPWD", session->previous_working_dir);
+    }
+
+    if (current_value && session->current_working_dir) {
+        bool moved_down =
+            is_descendant_path(current_value, session->current_working_dir);
+        bool moved_up =
+            is_descendant_path(session->current_working_dir, current_value);
+
+        if (moved_down) {
+            run_dir_hook(session, current_value, "enter_child");
+            run_dir_hook(session, session->current_working_dir, "enter");
+        } else if (moved_up) {
+            run_dir_hook(session, current_value, "exit");
+            run_dir_hook(session, session->current_working_dir, "exit_child");
+        } else {
+            run_dir_hook(session, current_value, "exit");
+            run_dir_hook(session, session->current_working_dir, "enter");
+        }
     }
 }
 
