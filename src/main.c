@@ -6,9 +6,12 @@
 #include <string.h> /* strcmp, strdup */
 #include <unistd.h> /* getuid */
 
-#include "ast.h" /* parse */
+#include "ast.h"        /* parse */
+#include "data/array.h" /* array_pop, free_array */
 #include "data/trie.h"
+#include "environ.h" /* environ_get */
 #include "execute.h" /* execute */
+#include "expand.h"  /* full_expansion */
 #include "lexer.h"   /* free_lexer_token, LexerInput, LexerToken, TOKEN_* */
 #include "prompt.h"
 #include "prompt/ansi.h" /* ansi_apply */
@@ -68,6 +71,34 @@ static char *read_all(FILE *f) {
     }
     content[size] = '\0';
     return content;
+}
+
+static char *expand_prompt(const char *prompt, Session *session) {
+    if (!prompt) {
+        return NULL;
+    }
+
+    char *input = strdup(prompt);
+    if (!input) {
+        return NULL;
+    }
+
+    Array *expanded = full_expansion(input, session);
+    free(input);
+    if (!expanded) {
+        return NULL;
+    }
+
+    char *result = NULL;
+    if (expanded->count > 0) {
+        result = array_pop(expanded, 0);
+    } else {
+        result = strdup("");
+    }
+
+    free_array(expanded);
+    free(expanded);
+    return result;
 }
 
 static void print_usage(const char *prog_name, bool colors) {
@@ -327,34 +358,61 @@ int main(int argc, char **argv) {
 
     // Interactive shell loop
     while (true) {
-        const char *applied_prompt =
-            session->terminal->supports_colors
-                ? ansi_apply(PS1, "", ANSI_MAGENTA, NULL)
-                : PS1;
-        bool ps1_should_free = false;
-        if (applied_prompt && session->terminal->supports_colors) {
-            ps1_should_free = true;
+        char       *ps1_env     = environ_get(session->environ, "PS1");
+        const char *raw_prompt  = ps1_env ? ps1_env : PS1;
+        bool        ps1_default = ps1_env == NULL;
+
+        char *expanded_prompt = expand_prompt(raw_prompt, session);
+        if (!expanded_prompt) {
+            expanded_prompt = strdup(raw_prompt);
         }
 
-        const char *applied_continuation_prompt =
-            session->terminal->supports_colors
-                ? ansi_apply(PS2, "", ANSI_WHITE, NULL)
-                : PS2;
+        const char *applied_prompt  = expanded_prompt;
+        bool        ps1_should_free = false;
+
+        if (session->terminal->supports_colors && ps1_default) {
+            const char *colored =
+                ansi_apply(expanded_prompt, "", ANSI_MAGENTA, NULL);
+            if (colored) {
+                applied_prompt  = colored;
+                ps1_should_free = true;
+            }
+        }
+
+        char       *ps2_env = environ_get(session->environ, "PS2");
+        const char *raw_continuation_prompt = ps2_env ? ps2_env : PS2;
+        bool        ps2_default             = ps2_env == NULL;
+
+        char *expanded_continuation_prompt =
+            expand_prompt(raw_continuation_prompt, session);
+        if (!expanded_continuation_prompt) {
+            expanded_continuation_prompt = strdup(raw_continuation_prompt);
+        }
+
+        const char *applied_continuation_prompt = expanded_continuation_prompt;
 
         bool ps2_should_free = false;
-        if (applied_continuation_prompt && session->terminal->supports_colors) {
-            ps2_should_free = true;
+        if (session->terminal->supports_colors && ps2_default) {
+            const char *colored =
+                ansi_apply(expanded_continuation_prompt, "", ANSI_WHITE, NULL);
+            if (colored) {
+                applied_continuation_prompt = colored;
+                ps2_should_free             = true;
+            }
         }
 
         char *input = prompt(applied_prompt, applied_continuation_prompt,
                              session, should_return);
 
-        if (ps1_should_free) {
+        if (ps1_should_free && applied_prompt != expanded_prompt) {
             free((void *)applied_prompt);
         }
-        if (ps2_should_free) {
+        if (ps2_should_free &&
+            applied_continuation_prompt != expanded_continuation_prompt) {
             free((void *)applied_continuation_prompt);
         }
+        free(expanded_prompt);
+        free(expanded_continuation_prompt);
 
         if (input == NULL) {
             // Usually indicates Ctrl + C or Ctrl + D or EOF

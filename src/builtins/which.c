@@ -16,9 +16,9 @@ int builtin_which(int argc, char **argv, Session *session) {
 
     int exit_status = 0;
     for (int i = 1; i < argc; i++) {
-        char *cmd_name  = argv[i];
-        CommandInfo info = get_command_info(cmd_name, session);
-        
+        char       *cmd_name = argv[i];
+        CommandInfo info     = get_command_info(cmd_name, session);
+
         switch (info.type) {
             case COMMAND_ALIAS:
                 printf("%s: aliased to %s\n", cmd_name, info.path);
@@ -38,7 +38,7 @@ int builtin_which(int argc, char **argv, Session *session) {
                 exit_status = 1;
                 break;
         }
-        
+
         if (info.path) {
             free(info.path);
         }
