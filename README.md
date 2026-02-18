@@ -37,12 +37,31 @@
     - [Command History](#command-history)
     - [Aliases](#aliases)
     - [Directory Stack](#directory-stack)
+    - [Hooks](#hooks)
+      - [Supported Hook Types](#supported-hook-types)
+      - [Using Hooks](#using-hooks)
+      - [Hook Context Variables](#hook-context-variables)
+      - [The `hooks` Builtin](#the-hooks-builtin)
+    - [Feature Flags](#feature-flags)
+      - [Runtime Feature Flags](#runtime-feature-flags)
+      - [The `features` Builtin](#the-features-builtin)
+      - [Compile-Time Feature Flags](#compile-time-feature-flags)
   - [Expansion Features](#expansion-features)
     - [Variable Expansion](#variable-expansion)
     - [Tilde Expansion](#tilde-expansion)
     - [Brace Expansion](#brace-expansion)
     - [Filename Expansion (Globbing)](#filename-expansion-globbing)
     - [Command Substitution](#command-substitution)
+  - [Control Flow](#control-flow)
+    - [Conditional Statements](#conditional-statements)
+      - [Basic Syntax](#basic-syntax)
+      - [If-Else](#if-else)
+      - [If-Elif-Else](#if-elif-else)
+      - [Using `test` or `[` for Conditions](#using-test-or--for-conditions)
+      - [Combining with Logical Operators](#combining-with-logical-operators)
+      - [Multi-line Formatting](#multi-line-formatting)
+      - [Nested Conditionals](#nested-conditionals)
+      - [Notes](#notes)
   - [Lexical Analysis](#lexical-analysis)
     - [Token Types](#token-types)
     - [String Processing](#string-processing)
@@ -219,7 +238,13 @@ Individual suite targets like `make test/lexer`, `make test/ast`, or `make test/
 ### Installation
 
 ```bash
-make build/python
+make clean/python build/python
+```
+
+This will create a Python wheel file in the `dist/` directory. You can install it using pip:
+
+```bash
+pip install bindings/python/dist/*.whl
 ```
 
 ### Usage
@@ -290,6 +315,272 @@ Keeps a stack of directories to facilitate easy navigation between multiple loca
 - `popd` - Pop directory from stack and change to it
 - `pushd +N` - Swap current directory with Nth directory in stack
 
+#### Hooks
+
+`tidesh` provides a comprehensive hook system that allows you to run custom scripts at specific points in the shell's lifecycle. Hooks are stored in a `.tidesh-hooks/` directory in the **current working directory** and are automatically executed when certain events occur.
+
+##### Supported Hook Types
+
+The shell supports 29 specific hook types plus 1 wildcard hook:
+
+**Session Lifecycle**:
+
+- `start` - Executed once per session after RC file handling
+- `end` - Executed once per session right before exit
+- `before_rc` - Executed right before reading the RC file
+
+**Directory Navigation**:
+
+- `cd` - Fired when the working directory changes (any change)
+- `enter` - Fired when entering a directory from its parent or ancestor
+- `exit` - Fired when moving up to a parent or ancestor directory
+- `enter_child` - Fired when moving down into a child directory
+- `exit_child` - Fired when moving up from a child into its parent
+
+**Command Execution**:
+
+- `before_cmd` - Fired before executing a command string (one per input line)
+- `after_cmd` - Fired after executing a command string (one per input line)
+- `before_exec` - Fired right before executing an external command (not for builtins)
+- `after_exec` - Fired right after an external command finishes (not for builtins)
+- `cmd_not_found` - Fired when a command is not found in PATH
+
+**Subshells**:
+
+- `enter_subshell` - Fired when entering a subshell
+- `exit_subshell` - Fired after leaving a subshell
+
+**Prompt Lifecycle**:
+
+- `before_prompt` - Fired right before displaying the prompt
+- `after_prompt` - Fired right after the prompt is displayed
+
+**Environment Variables**:
+
+- `add_environ` - Fired when an environment variable is added
+- `remove_environ` - Fired when an environment variable is removed
+- `change_environ` - Fired when an environment variable changes value
+
+**Aliases**:
+
+- `add_alias` - Fired after adding an alias
+- `remove_alias` - Fired after removing an alias
+- `change_alias` - Fired after updating an alias
+
+**Background Jobs**:
+
+- `before_job` - Fired right before starting a background job
+- `after_job` - Fired after a background job finishes or is killed
+
+**Error Handling**:
+
+- `error` - Fired after a command completes with a non-zero exit status
+- `syntax_error` - Fired when the command line fails to parse due to syntax error
+- `signal` - Fired when a foreground command is terminated by a signal
+
+**Special**:
+
+- `*` - Wildcard hook called before any specific hook fires
+
+##### Using Hooks
+
+To create a hook, create an executable file in `.tidesh-hooks/` (in your current directory) with the hook name:
+
+```bash
+# Example: Create a hook to show directory contents after cd
+mkdir -p .tidesh-hooks
+cat << 'EOF' > .tidesh-hooks/cd
+#!/bin/bash
+echo "Changed to: $PWD"
+ls -lh
+EOF
+chmod +x .tidesh-hooks/cd
+```
+
+Hooks can be written in **any language** as long as they:
+
+1. Have a proper shebang (`#!/path/to/interpreter`) at the first line
+2. Are marked as executable (`chmod +x`)
+
+Examples:
+
+```bash
+# Bash hook
+#!/bin/bash
+echo "Hook fired: $TIDE_HOOK at $TIDE_TIMESTAMP"
+
+# Python hook
+#!/usr/bin/env python3
+import os
+hook_name = os.getenv('TIDE_HOOK')
+timestamp = os.getenv('TIDE_TIMESTAMP')
+print(f"Hook {hook_name} at {timestamp}")
+
+# Ruby hook
+#!/usr/bin/env ruby
+puts "Hook: #{ENV['TIDE_HOOK']} at #{ENV['TIDE_TIMESTAMP']}"
+```
+
+If a hook does **not** have a shebang or is **not executable**, it will be sourced as a shell script instead.
+
+##### Hook Context Variables
+
+All hooks receive these global environment variables:
+
+- `TIDE_HOOK` - The specific hook name being executed (e.g., "cd", "before_cmd")
+- `TIDE_TIMESTAMP` - Unix timestamp when the hook fires (epoch seconds)
+
+Additional context variables are provided for specific hooks:
+
+| Hook | Context Variables |
+| :--- | :--- |
+| Directory hooks | `TIDE_PARENT` - Parent directory path |
+| Environment hooks | `TIDE_ENV_KEY`, `TIDE_ENV_VALUE`, `TIDE_ENV_OLD_VALUE` |
+| Alias hooks | `TIDE_ALIAS_NAME`, `TIDE_ALIAS_VALUE` |
+
+##### The `hooks` Builtin
+
+The `hooks` builtin provides comprehensive hook management:
+
+| Command | Description |
+| :--- | :--- |
+| `hooks` or `hooks list` | List all hook files in current directory's `.tidesh-hooks/` |
+| `hooks enable` | Enable hook execution for this session |
+| `hooks disable` | Disable hook execution for this session |
+| `hooks status` | Show whether hooks are enabled or disabled |
+| `hooks run <hook_name>` | Manually execute a specific hook |
+| `hooks path` | Display the hooks directory path (`.tidesh-hooks/` in current dir) |
+| `hooks types` | List all available hook types |
+
+Example usage:
+
+```sh
+# List available hooks in current directory
+hooks list
+
+# Show hook status
+hooks status
+
+# Disable hooks temporarily
+hooks disable
+
+# Run a hook manually
+hooks run cd
+
+# Re-enable hooks
+hooks enable
+
+# Show all supported hook types
+hooks types
+```
+
+#### Feature Flags
+
+`tidesh` provides a flexible feature flag system that allows you to enable or disable shell features at **runtime** or **compile-time** for improved performance when certain features are not needed.
+
+##### Runtime Feature Flags
+
+Runtime features can be toggled on/off per session using the `features` builtin. All features are **enabled by default**.
+
+**Expansion Features**:
+
+- `variable_expansion` - Variable expansion (`$VAR`, `${VAR}`)
+- `tilde_expansion` - Tilde expansion (`~`, `~user`)
+- `brace_expansion` - Brace expansion (`{a,b,c}`, `{1..10}`)
+- `filename_expansion` - Globbing (`*`, `?`, `[...]`)
+- `alias_expansion` - Alias substitution
+
+**Shell Features**:
+
+- `job_control` - Background jobs, `fg`, `bg`, `jobs` commands
+- `history` - Command history
+- `directory_stack` - `pushd`, `popd`, `dirs` commands
+
+**Control Flow & Redirection**:
+
+- `pipes` - Pipe operator `|`
+- `redirections` - Input/output redirection (`>`, `<`, `>>`, etc.)
+- `sequences` - Command sequences (`;`, `&&`, `||`)
+- `subshells` - Subshells `( ... )`
+- `command_substitution` - Command substitution (`$(...)`, `<(...)`)
+- `assignments` - Variable assignments (`VAR=value`)
+
+**Future Features** (not yet implemented):
+
+- `prompt_expansion` - Prompt customization
+- `completion` - Tab completion
+
+##### The `features` Builtin
+
+Manage runtime feature flags with the `features` builtin:
+
+| Command | Description |
+| :--- | :--- |
+| `features` or `features list` | List all features and their status |
+| `features status [name]` | Show status for a specific feature or all |
+| `features enable <name\|all>` | Enable a feature or all features |
+| `features disable <name\|all>` | Disable a feature or all features |
+| `features enable expansions` | Enable all expansion features |
+| `features disable expansions` | Disable all expansion features |
+
+Example usage:
+
+```sh
+# List all features and their status
+features
+
+# Disable brace expansion for this session
+features disable brace_expansion
+
+# Enable all expansion features
+features enable expansions
+
+# Disable all features for minimal mode
+features disable all
+
+# Re-enable everything
+features enable all
+
+# Check status of a specific feature
+features status pipes
+```
+
+##### Compile-Time Feature Flags
+
+For maximum performance and minimal binary size, you can disable features at **compile time** using preprocessor flags. Once disabled at compile time, these features cannot be enabled at runtime.
+
+Available compile-time flags:
+
+| Flag | Description |
+| :--- | :--- |
+| `TIDESH_DISABLE_JOB_CONTROL` | Disable background jobs, `fg`, `bg`, `jobs` |
+| `TIDESH_DISABLE_HISTORY` | Disable command history |
+| `TIDESH_DISABLE_ALIASES` | Disable `alias`/`unalias` |
+| `TIDESH_DISABLE_DIRSTACK` | Disable `pushd`, `popd`, `dirs` |
+| `TIDESH_DISABLE_EXPANSIONS` | Disable all expansions |
+| `TIDESH_DISABLE_PIPES` | Disable pipe operator `\|` |
+| `TIDESH_DISABLE_REDIRECTIONS` | Disable redirections `>`, `<`, `>>` |
+| `TIDESH_DISABLE_SEQUENCES` | Disable `;`, `&&`, `\|\|` operators |
+| `TIDESH_DISABLE_SUBSHELLS` | Disable subshells `( ... )` |
+| `TIDESH_DISABLE_COMMAND_SUBSTITUTION` | Disable `$(...)` |
+| `TIDESH_DISABLE_ASSIGNMENTS` | Disable `VAR=value` assignments |
+| `TIDESH_DISABLE_CONDITIONALS` | Disable `if/then/elif/else/fi` statements |
+
+Build with compile-time flags:
+
+```sh
+# Build without job control and history
+make EXTRA_CFLAGS="-DTIDESH_DISABLE_JOB_CONTROL -DTIDESH_DISABLE_HISTORY"
+
+# Build with no history
+make build/no-history
+
+# Build minimal shell (no expansions, no job control)
+make build/minimal
+```
+
+When features are disabled at compile-time, the `features` builtin will show them as "disabled (compile-time)" and they cannot be enabled at runtime.
+
 ### Expansion Features
 
 #### Variable Expansion
@@ -345,6 +636,139 @@ It supports various command substitution mechanisms:
 - **Input substitution**: `<(command)` for reading command output as a file
 - **Output substitution**: `>(command)` for writing to command input
 
+### Control Flow
+
+#### Conditional Statements
+
+`tidesh` supports full if/then/elif/else/fi conditional statements, similar to bash and other POSIX-compatible shells.
+
+##### Basic Syntax
+
+```sh
+if command1
+then
+    command2
+fi
+```
+
+The `if` statement executes `command1` and checks its exit status. If the exit status is 0 (success), the commands in the `then` block are executed.
+
+##### If-Else
+
+```sh
+if test -f myfile.txt
+then
+    echo "File exists"
+else
+    echo "File does not exist"
+fi
+```
+
+##### If-Elif-Else
+
+```sh
+if test "$VAR" = "foo"
+then
+    echo "VAR is foo"
+elif test "$VAR" = "bar"
+then
+    echo "VAR is bar"
+else
+    echo "VAR is something else"
+fi
+```
+
+##### Using `test` or `[` for Conditions
+
+The `test` builtin (also available as `[`) evaluates conditional expressions:
+
+```sh
+# String comparisons
+if test "$USER" = "root"
+then
+    echo "Running as root"
+fi
+
+# Numeric comparisons
+if test "$COUNT" -gt 10
+then
+    echo "Count is greater than 10"
+fi
+
+# File tests
+if test -d /tmp
+then
+    echo "/tmp is a directory"
+fi
+
+# Using [ ] syntax (same as test)
+if [ -f "$FILE" ]
+then
+    echo "File exists"
+fi
+```
+
+##### Combining with Logical Operators
+
+Conditionals work seamlessly with `&&` and `||` operators:
+
+```sh
+if test -f file1.txt && test -f file2.txt
+then
+    echo "Both files exist"
+fi
+
+if command1 || command2
+then
+    echo "At least one command succeeded"
+fi
+```
+
+##### Multi-line Formatting
+
+Conditionals support flexible formatting with newlines or semicolons:
+
+```sh
+# Compact format
+if test -f file.txt; then echo "exists"; fi
+
+# Multi-line format
+if test -f file.txt
+then
+    echo "File exists"
+    cat file.txt
+fi
+
+# Multiple commands in blocks
+if pwd | grep -q "/tmp"
+then
+    echo "In temp directory"
+    ls -la
+    echo "Done listing"
+fi
+```
+
+##### Nested Conditionals
+
+```sh
+if test -d /etc
+then
+    if test -f /etc/passwd
+    then
+        echo "Found passwd file"
+    fi
+fi
+```
+
+##### Notes
+
+- Conditions are evaluated based on the **exit status** of commands (0 = success/true, non-zero = failure/false)
+- The `then` keyword is required and must be on a new line or after a semicolon
+- The `fi` keyword closes the conditional block
+- Conditionals can be disabled at compile-time with `TIDESH_DISABLE_CONDITIONALS`
+- Any command can be used as a condition, not just `test`
+- Multiple commands can be included in each block (then/elif/else)
+
 ### Lexical Analysis
 
 #### Token Types
@@ -356,6 +780,7 @@ It supports various command substitution mechanisms:
   - Logical operators: `&&`, `||`
   - Background: `&`
   - Sequential: `;`
+- **Conditional keywords**: `if`, `then`, `elif`, `else`, `fi`
 - **Advanced I/O**:
   - Here-documents: `<<`
   - Here-strings: `<<<`
