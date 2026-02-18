@@ -13,6 +13,7 @@
 #include "builtins/exit.h"     /* builtin_exit */
 #include "builtins/export.h"   /* builtin_export */
 #include "builtins/help.h"     /* builtin_help */
+#include "builtins/hooks.h"    /* builtin_hooks */
 #include "builtins/info.h"     /* builtin_info */
 #include "builtins/printenv.h" /* builtin_printenv */
 #include "builtins/pwd.h"      /* builtin_pwd */
@@ -41,7 +42,7 @@
 
 const char *builtins[] = {"exit",    "pwd",     "clear", "help",     "printenv",
                           "which",   "export",  "eval",  "terminal", "info",
-                          "source",  "type",    "test",
+                          "source",  "type",    "test",  "hooks",
 #ifndef TIDESH_DISABLE_ALIASES
                           "alias",   "unalias",
 #endif
@@ -69,6 +70,8 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
 #endif
     if (strcmp(name, "help") == 0)
         return builtin_help;
+    if (strcmp(name, "hooks") == 0)
+        return builtin_hooks;
     if (strcmp(name, "printenv") == 0)
         return builtin_printenv;
     if (strcmp(name, "which") == 0)

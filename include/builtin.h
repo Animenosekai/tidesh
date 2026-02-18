@@ -17,6 +17,7 @@
 #include "builtins/fg.h"
 #include "builtins/help.h"
 #include "builtins/history.h"
+#include "builtins/hooks.h"
 #include "builtins/info.h"
 #include "builtins/jobs.h"
 #include "builtins/popd.h"
