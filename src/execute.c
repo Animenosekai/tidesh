@@ -1,3 +1,4 @@
+#include <ctype.h> /* isspace */
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h> /* PATH_MAX */
@@ -18,6 +19,39 @@
 #include "session.h"
 
 #define RW_R__R__ 0644
+
+/* Trim leading and trailing whitespace from a string */
+static char *trim_whitespace(const char *str) {
+    if (!str) {
+        return NULL;
+    }
+
+    // Find the first non-whitespace character
+    const char *start = str;
+    while (*start && isspace((unsigned char)*start)) {
+        start++;
+    }
+
+    // If the entire string is whitespace, return empty string
+    if (*start == '\0') {
+        return strdup("");
+    }
+
+    // Find the last non-whitespace character
+    const char *end = start;
+    while (*end && !isspace((unsigned char)*end)) {
+        end++;
+    }
+
+    // Create a new string with the trimmed content
+    size_t len    = end - start;
+    char  *result = malloc(len + 1);
+    if (result) {
+        strncpy(result, start, len);
+        result[len] = '\0';
+    }
+    return result;
+}
 
 char *find_in_path(const char *cmd, Session *session) {
     // If command contains a slash, treat it as a path
@@ -301,7 +335,10 @@ int execute(ASTNode *node, Session *session) {
             return 0;
         }
 
-        const char *cmd_name = argv[0];
+        const char *cmd_name_raw     = argv[0];
+        char       *cmd_name_trimmed = trim_whitespace(cmd_name_raw);
+        const char *cmd_name =
+            cmd_name_trimmed ? cmd_name_trimmed : cmd_name_raw;
         environ_set_last_arg(session->environ, argv[argc - 1]);
 
         // Special builtins should be executed in the main process
@@ -314,6 +351,8 @@ int execute(ASTNode *node, Session *session) {
                     free(argv[i]);
                 free(argv);
                 free(arg_is_sub);
+                if (cmd_name_trimmed)
+                    free(cmd_name_trimmed);
                 environ_set_exit_status(session->environ, st);
                 return st;
             }
@@ -436,6 +475,8 @@ int execute(ASTNode *node, Session *session) {
             free(argv);
         if (arg_is_sub)
             free(arg_is_sub);
+        if (cmd_name_trimmed)
+            free(cmd_name_trimmed);
 
         if (node->background) {
             printf("[%d] %d\n", 1, pid);
