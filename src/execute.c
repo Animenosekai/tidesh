@@ -16,9 +16,39 @@
 #include "environ.h" /* environ_get, environ_set, environ_set_exit_status, environ_set_last_arg, environ_set_background_pid, environ_to_array */
 #include "execute.h" /* execute, execute_string, execute_string_stdout, find_in_path, get_command_info, CommandInfo, COMMAND_* */
 #include "expand.h"  /* full_expansion */
+#include "jobs.h"    /* jobs_add, jobs_update */
 #include "session.h" /* Session */
 
 #define RW_R__R__ 0644
+
+/* Build a command string from argv for display */
+static char *build_command_string(char **argv, int argc) {
+    if (!argv || argc == 0) {
+        return NULL;
+    }
+
+    size_t total_len = 0;
+    for (int i = 0; i < argc; i++) {
+        total_len += strlen(argv[i]) + 1; // +1 for space or null terminator
+    }
+
+    char *cmd = malloc(total_len);
+    if (!cmd) {
+        return NULL;
+    }
+
+    cmd[0]         = '\0';
+    size_t current = 0;
+    for (int i = 0; i < argc; i++) {
+        if (i > 0) {
+            cmd[current++] = ' ';
+        }
+        strcpy(cmd + current, argv[i]);
+        current += strlen(argv[i]);
+    }
+
+    return cmd;
+}
 
 /* Trim leading and trailing whitespace from a string */
 static char *trim_whitespace(const char *str) {
@@ -479,7 +509,12 @@ int execute(ASTNode *node, Session *session) {
             free(cmd_name_trimmed);
 
         if (node->background) {
-            printf("[%d] %d\n", 1, pid);
+            char *cmd_str = build_command_string(argv, argc);
+            int   job_id  = jobs_add(session->jobs, pid, cmd_str, JOB_RUNNING);
+            if (cmd_str) {
+                free(cmd_str);
+            }
+            printf("[%d] %d\n", job_id, pid);
             environ_set_background_pid(session->environ, pid);
             environ_set_exit_status(session->environ, 0);
             return 0;

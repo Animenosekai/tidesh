@@ -61,6 +61,13 @@ Session *init_session(Session *session, char *history_path) {
         return NULL;
     }
 
+    session->jobs = init_jobs();
+    if (!session->jobs) {
+        free_session(session);
+        free(session);
+        return NULL;
+    }
+
     session->current_working_dir  = NULL;
     session->previous_working_dir = NULL;
     session->exit_requested       = false;
@@ -75,8 +82,14 @@ void free_session(Session *session) {
     if (!session)
         return;
 
+    // Free working directories (session owns these)
     free(session->current_working_dir);
     free(session->previous_working_dir);
+
+    if (session->dirstack) {
+        free_dirstack(session->dirstack);
+        free(session->dirstack);
+    };
 
     if (session->environ) {
         free_environ(session->environ);
@@ -98,14 +111,14 @@ void free_session(Session *session) {
         free(session->path_commands);
     }
 
-    if (session->dirstack) {
-        free_dirstack(session->dirstack);
-        free(session->dirstack);
-    }
-
     if (session->terminal) {
         free_terminal(session->terminal, session);
         free(session->terminal);
+    }
+
+    if (session->jobs) {
+        free_jobs(session->jobs);
+        free(session->jobs);
     }
 }
 
@@ -143,8 +156,9 @@ void update_working_dir(Session *session) {
     }
 
     if (!session->dirstack->stack->count) {
-        // Initialize dirstack with current dir
-        array_add(session->dirstack->stack, session->current_working_dir);
+        // Initialize dirstack with current dir (make a copy)
+        array_add(session->dirstack->stack,
+                  strdup(session->current_working_dir));
     }
 
     if (!session->previous_working_dir) {

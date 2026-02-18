@@ -8,14 +8,17 @@
 
 // Builtins
 #include "builtins/alias.h"
+#include "builtins/bg.h"
 #include "builtins/cd.h"
 #include "builtins/clear.h"
 #include "builtins/eval.h"
 #include "builtins/exit.h"
 #include "builtins/export.h"
+#include "builtins/fg.h"
 #include "builtins/help.h"
 #include "builtins/history.h"
 #include "builtins/info.h"
+#include "builtins/jobs.h"
 #include "builtins/popd.h"
 #include "builtins/printenv.h"
 #include "builtins/pushd.h"

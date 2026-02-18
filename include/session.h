@@ -13,6 +13,7 @@
 #include "dirstack.h"        /* DirStack */
 #include "environ.h"         /* Environ */
 #include "history.h"         /* History */
+#include "jobs.h"            /* Jobs */
 #include "prompt/terminal.h" /* Terminal */
 
 typedef struct Session {
@@ -24,6 +25,7 @@ typedef struct Session {
     Trie     *path_commands;        // Commands found in PATH
     DirStack *dirstack;             // Directory stack
     Terminal *terminal;             // Terminal information
+    Jobs     *jobs;                 // Background jobs
     bool      exit_requested;       // Flag to indicate if shell should exit
 } Session;
 

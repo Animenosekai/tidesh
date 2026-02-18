@@ -5,14 +5,17 @@
 
 #include "builtin.h" /* get_builtin, is_builtin, is_special_builtin, builtins */
 #include "builtins/alias.h"    /* builtin_alias */
+#include "builtins/bg.h"       /* builtin_bg */
 #include "builtins/cd.h"       /* builtin_cd */
 #include "builtins/clear.h"    /* builtin_clear */
 #include "builtins/eval.h"     /* builtin_eval */
 #include "builtins/exit.h"     /* builtin_exit */
 #include "builtins/export.h"   /* builtin_export */
+#include "builtins/fg.h"       /* builtin_fg */
 #include "builtins/help.h"     /* builtin_help */
 #include "builtins/history.h"  /* builtin_history */
 #include "builtins/info.h"     /* builtin_info */
+#include "builtins/jobs.h"     /* builtin_jobs */
 #include "builtins/popd.h"     /* builtin_popd */
 #include "builtins/printenv.h" /* builtin_printenv */
 #include "builtins/pushd.h"    /* builtin_pushd */
@@ -26,9 +29,10 @@
 #include "session.h"           /* Session */
 
 const char *builtins[] = {
-    "cd",    "exit",   "pwd",    "clear",   "history", "help",     "printenv",
-    "which", "export", "alias",  "unalias", "eval",    "terminal", "info",
-    "pushd", "popd",   "source", "type",    "test",    NULL};
+    "cd",       "exit",  "pwd",    "clear", "history", "help",
+    "printenv", "which", "export", "alias", "unalias", "eval",
+    "terminal", "info",  "pushd",  "popd",  "source",  "type",
+    "test",     "jobs",  "fg",     "bg",    NULL};
 
 int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
     if (strcmp(name, "cd") == 0)
@@ -73,6 +77,12 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_test;
     if (strcmp(name, "[") == 0)
         return builtin_test;
+    if (strcmp(name, "jobs") == 0)
+        return builtin_jobs;
+    if (strcmp(name, "fg") == 0)
+        return builtin_fg;
+    if (strcmp(name, "bg") == 0)
+        return builtin_bg;
     return NULL;
 }
 
