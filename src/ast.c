@@ -24,6 +24,9 @@ static ASTNode *init_ast(ASTNode *node, NodeType type) {
     node->left        = NULL;
     node->right       = NULL;
     node->background  = false;
+#ifndef TIDESH_DISABLE_CONDITIONALS
+    node->branches    = NULL;
+#endif
     return node;
 }
 
@@ -63,9 +66,10 @@ static void free_conditional_branches(ConditionalBranch *branch) {
 
     if (branch->next) {
         free_conditional_branches(branch->next);
-        free(branch->next);
         branch->next = NULL;
     }
+
+    free(branch);
 }
 #endif
 
@@ -115,10 +119,10 @@ void free_ast(ASTNode *node) {
 #ifndef TIDESH_DISABLE_CONDITIONALS
     if (node->branches) {
         free_conditional_branches(node->branches);
-        free(node->branches);
         node->branches = NULL;
     }
 #endif
+
 }
 
 /* A command parser */

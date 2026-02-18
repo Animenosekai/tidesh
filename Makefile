@@ -6,7 +6,7 @@
 
 # Compiler and flags
 CC ?= clang
-CFLAGS = -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=unused-but-set-variable -Wno-error=comment $(EXTRA_CFLAGS)
+CFLAGS = -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=unused-but-set-variable -Wno-error=comment -std=gnu11 $(EXTRA_CFLAGS)
 DEBUGFLAGS = -Wall -Wextra -Werror -fsanitize=address -g
 RELEASEFLAGS = -O3 -DNDEBUG
 TESTINGFLAGS = -DTESTING -Itests/snow/ -DSNOW_ENABLED
