@@ -158,19 +158,27 @@ static ASTNode *parse_sequence(Parser *parser, Session *session) {
     while (true) {
         LexerToken *token = parser_peek(parser);
 
+        if (token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+            continue;
+        }
+
         if (token->type == TOKEN_BACKGROUND) {
             parser_skip(parser);
             left->background = true;
             token            = parser_peek(parser);
             if (token->type == TOKEN_EOF || token->type == TOKEN_EOL ||
-                token->type == TOKEN_SEMICOLON || token->type == TOKEN_RPAREN) {
+                token->type == TOKEN_SEMICOLON || token->type == TOKEN_RPAREN ||
+                token->type == TOKEN_COMMENT) {
                 continue;
             }
-        } else if (token->type == TOKEN_SEMICOLON || token->type == TOKEN_EOL) {
+        } else if (token->type == TOKEN_SEMICOLON || token->type == TOKEN_EOL ||
+                   token->type == TOKEN_COMMENT) {
             parser_skip(parser);
             token = parser_peek(parser);
             if (token->type == TOKEN_EOF || token->type == TOKEN_EOL ||
-                token->type == TOKEN_SEMICOLON || token->type == TOKEN_RPAREN) {
+                token->type == TOKEN_SEMICOLON || token->type == TOKEN_RPAREN ||
+                token->type == TOKEN_COMMENT) {
                 continue;
             }
         } else {

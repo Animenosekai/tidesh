@@ -95,6 +95,31 @@ describe(ast) {
         free(session);
     }
 
+    it("should parse sequence with comment between commands") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "pwd\n# comment\nls", NULL, session);
+        ASTNode *ast = parse(lexer, session);
+
+        assertneq(ast, NULL);
+        asserteq(ast->type, NODE_SEQUENCE);
+        assert(!ast->background);
+        assertneq(ast->left, NULL);
+        assertneq(ast->right, NULL);
+        asserteq(ast->left->type, NODE_COMMAND);
+        asserteq(ast->right->type, NODE_COMMAND);
+        asserteq_str(ast->left->argv[0], "pwd");
+        asserteq_str(ast->right->argv[0], "ls");
+
+        free_ast(ast);
+        free(ast);
+        free_lexer_input(lexer);
+        free(lexer);
+        free_session(session);
+        free(session);
+    }
+
     it("should parse AND operator") {
         Session *session = init_session(NULL, "/tmp/test_history");
         

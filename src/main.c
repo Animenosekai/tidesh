@@ -162,7 +162,9 @@ int main(int argc, char **argv) {
         } else if (strcmp(argv[i], "--cd") == 0 && i + 1 < argc) {
             startup_cd = argv[++i];
             continue;
-        } else if (strcmp(argv[i], "--rc") == 0 && i + 1 < argc) {
+        } else if ((strcmp(argv[i], "--rc") == 0 ||
+                    strcmp(argv[i], "--tideshrc") == 0) &&
+                   i + 1 < argc) {
             custom_rc_path = argv[++i];
             continue;
         } else if (strcmp(argv[i], "--history") == 0 && i + 1 < argc) {
