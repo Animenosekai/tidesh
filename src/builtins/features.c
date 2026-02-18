@@ -8,7 +8,7 @@
 #include <string.h> /* strcmp */
 
 #include "builtins/features.h"
-#include "features.h"
+#include "feature-flags.h"
 #include "session.h"
 
 #ifdef TIDESH_DISABLE_EXPANSIONS

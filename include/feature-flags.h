@@ -1,4 +1,4 @@
-/** features.h
+/** feature-flags.h
  *
  * Feature flags for conditional compilation and runtime configuration.
  * This module allows users to enable/disable shell features for improved

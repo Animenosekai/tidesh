@@ -5,7 +5,7 @@
 
 #include <stddef.h> /* NULL */
 
-#include "features.h" /* Features */
+#include "feature-flags.h" /* Features */
 
 Features *init_features(Features *features) {
     if (features == NULL) {

@@ -20,7 +20,7 @@
 #include "environ.h"
 #include "execute.h"
 #include "expand.h"
-#include "features.h"
+#include "feature-flags.h"
 #include "history.h"
 #include "hooks.h"
 #include "jobs.h"

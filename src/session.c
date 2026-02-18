@@ -8,7 +8,7 @@
 
 #include "data/array.h"      /* array_add, free_array */
 #include "environ.h"         /* environ_get, environ_set, environ_get_default */
-#include "features.h"        /* Features */
+#include "feature-flags.h"        /* Features */
 #include "hooks.h"           /* HOOK_* */
 #include "prompt/terminal.h" /* Terminal, terminal functions */
 #include "session.h"         /* Session, Environ, History, Trie, DirStack */

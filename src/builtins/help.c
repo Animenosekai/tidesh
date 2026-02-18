@@ -3,7 +3,7 @@
 #include <string.h>  /* strcmp */
 
 #include "builtins/help.h"
-#include "features.h"    /* TIDESH_DISABLE_* */
+#include "feature-flags.h"    /* TIDESH_DISABLE_* */
 #include "prompt/ansi.h" /* ANSI color constants */
 #include "session.h"     /* Session */
 

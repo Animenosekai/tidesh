@@ -13,7 +13,7 @@
 
 #include "data/trie.h"       /* Trie */
 #include "environ.h"         /* Environ */
-#include "features.h"        /* Features */
+#include "feature-flags.h"        /* Features */
 #include "prompt/terminal.h" /* Terminal */
 
 #ifndef TIDESH_DISABLE_HISTORY

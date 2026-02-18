@@ -9,7 +9,7 @@
 #include "data/trie.h"
 #include "execute.h"
 #include "expand.h"
-#include "features.h"
+#include "feature-flags.h"
 #include "session.h"
 #include "snow/snow.h"
 
