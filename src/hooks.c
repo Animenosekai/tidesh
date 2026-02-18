@@ -1,8 +1,9 @@
+#include <dirent.h>   /* DIR, opendir, readdir, closedir */
 #include <limits.h>   /* PATH_MAX */
 #include <stdbool.h>  /* bool */
 #include <stdio.h>    /* snprintf, fprintf */
 #include <stdlib.h>   /* malloc, free, realloc */
-#include <string.h>   /* strdup */
+#include <string.h>   /* strdup, strcmp, strncmp, strlen, strrchr */
 #include <sys/stat.h> /* stat, S_ISREG */
 #include <time.h>     /* time */
 
@@ -28,6 +29,98 @@ typedef struct HookEnvBackup {
     char *old_value;
     bool  had_value;
 } HookEnvBackup;
+
+static bool hook_name_matches(const char *filename, const char *hook_name,
+                              bool *is_exact) {
+    if (!filename || !hook_name || !is_exact)
+        return false;
+
+    if (strcmp(filename, hook_name) == 0) {
+        *is_exact = true;
+        return true;
+    }
+
+    const char *dot = strrchr(filename, '.');
+    if (!dot || dot == filename)
+        return false;
+
+    size_t base_len = (size_t)(dot - filename);
+    size_t hook_len = strlen(hook_name);
+    if (base_len != hook_len)
+        return false;
+
+    if (strncmp(filename, hook_name, base_len) == 0) {
+        *is_exact = false;
+        return true;
+    }
+
+    return false;
+}
+
+static bool find_hook_file(const char *dir, const char *hook_name,
+                           char *out_path, size_t out_size) {
+    if (!dir || !hook_name || !out_path || out_size == 0)
+        return false;
+
+    char hooks_dir[PATH_MAX];
+    int  written =
+        snprintf(hooks_dir, sizeof(hooks_dir), "%s/.tidesh-hooks", dir);
+    if (written <= 0 || (size_t)written >= sizeof(hooks_dir))
+        return false;
+
+    DIR *dir_handle = opendir(hooks_dir);
+    if (!dir_handle)
+        return false;
+
+    char best_path[PATH_MAX] = {0};
+    char best_name[PATH_MAX] = {0};
+    bool have_best           = false;
+
+    struct dirent *entry;
+    while ((entry = readdir(dir_handle)) != NULL) {
+        const char *name = entry->d_name;
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+            continue;
+
+        bool is_exact = false;
+        if (!hook_name_matches(name, hook_name, &is_exact))
+            continue;
+
+        char candidate_path[PATH_MAX];
+        written = snprintf(candidate_path, sizeof(candidate_path), "%s/%s",
+                           hooks_dir, name);
+        if (written <= 0 || (size_t)written >= sizeof(candidate_path))
+            continue;
+
+        struct stat st;
+        if (stat(candidate_path, &st) != 0 || !S_ISREG(st.st_mode))
+            continue;
+
+        if (is_exact) {
+            strncpy(out_path, candidate_path, out_size - 1);
+            out_path[out_size - 1] = '\0';
+            closedir(dir_handle);
+            return true;
+        }
+
+        if (!have_best || strcmp(name, best_name) < 0) {
+            strncpy(best_name, name, sizeof(best_name) - 1);
+            best_name[sizeof(best_name) - 1] = '\0';
+            strncpy(best_path, candidate_path, sizeof(best_path) - 1);
+            best_path[sizeof(best_path) - 1] = '\0';
+            have_best                        = true;
+        }
+    }
+
+    closedir(dir_handle);
+
+    if (!have_best)
+        return false;
+
+    strncpy(out_path, best_path, out_size - 1);
+    out_path[out_size - 1] = '\0';
+    return true;
+}
 
 static void hook_env_backup_add(HookEnvBackup **backups, size_t *count,
                                 const char *key, const char *value,
@@ -88,66 +181,54 @@ void run_dir_hook_with_vars(Session *session, const char *dir,
 
     // Try to run wildcard "*" hook first
     char wildcard_hook_path[PATH_MAX];
-    int  written = snprintf(wildcard_hook_path, sizeof(wildcard_hook_path),
-                            "%s/.tide/*", dir);
-    if (written > 0 && (size_t)written < sizeof(wildcard_hook_path)) {
-        struct stat st;
-        if (stat(wildcard_hook_path, &st) == 0 && S_ISREG(st.st_mode)) {
-            FILE *hook_file = fopen(wildcard_hook_path, "r");
-            if (hook_file) {
-                char *content = read_all(hook_file);
-                fclose(hook_file);
-                if (content) {
-                    bool hooks_were_disabled = session->hooks_disabled;
-                    session->hooks_disabled  = true;
+    if (find_hook_file(dir, HOOK_ALL, wildcard_hook_path,
+                       sizeof(wildcard_hook_path))) {
+        FILE *hook_file = fopen(wildcard_hook_path, "r");
+        if (hook_file) {
+            char *content = read_all(hook_file);
+            fclose(hook_file);
+            if (content) {
+                bool hooks_were_disabled = session->hooks_disabled;
+                session->hooks_disabled  = true;
 
-                    HookEnvBackup *backups      = NULL;
-                    size_t         backup_count = 0;
+                HookEnvBackup *backups      = NULL;
+                size_t         backup_count = 0;
 
-                    // Set TIDE_HOOK to the actual hook name (not "*")
-                    hook_env_backup_add(&backups, &backup_count, "TIDE_HOOK",
-                                        hook_name, session);
-                    hook_env_backup_add(&backups, &backup_count,
-                                        "TIDE_TIMESTAMP", timestamp_str,
-                                        session);
+                // Set TIDE_HOOK to the actual hook name (not "*")
+                hook_env_backup_add(&backups, &backup_count, "TIDE_HOOK",
+                                    hook_name, session);
+                hook_env_backup_add(&backups, &backup_count, "TIDE_TIMESTAMP",
+                                    timestamp_str, session);
 
-                    for (size_t i = 0; i < var_count; i++) {
-                        if (!vars[i].key || !vars[i].value)
-                            continue;
-                        hook_env_backup_add(&backups, &backup_count,
-                                            vars[i].key, vars[i].value,
-                                            session);
-                    }
-
-#ifndef TIDESH_DISABLE_HISTORY
-                    bool was_disabled          = session->history->disabled;
-                    session->history->disabled = true;
-#endif
-
-                    execute_string(content, session);
-
-                    hook_env_restore(session, backups, backup_count);
-                    session->hooks_disabled = hooks_were_disabled;
-
-#ifndef TIDESH_DISABLE_HISTORY
-                    session->history->disabled = was_disabled;
-#endif
-
-                    free(content);
+                for (size_t i = 0; i < var_count; i++) {
+                    if (!vars[i].key || !vars[i].value)
+                        continue;
+                    hook_env_backup_add(&backups, &backup_count, vars[i].key,
+                                        vars[i].value, session);
                 }
+
+#ifndef TIDESH_DISABLE_HISTORY
+                bool was_disabled          = session->history->disabled;
+                session->history->disabled = true;
+#endif
+
+                execute_string(content, session);
+
+                hook_env_restore(session, backups, backup_count);
+                session->hooks_disabled = hooks_were_disabled;
+
+#ifndef TIDESH_DISABLE_HISTORY
+                session->history->disabled = was_disabled;
+#endif
+
+                free(content);
             }
         }
     }
 
     // Now run the specific hook
     char hook_path[PATH_MAX];
-    written =
-        snprintf(hook_path, sizeof(hook_path), "%s/.tide/%s", dir, hook_name);
-    if (written <= 0 || (size_t)written >= sizeof(hook_path))
-        return;
-
-    struct stat st;
-    if (stat(hook_path, &st) != 0 || !S_ISREG(st.st_mode))
+    if (!find_hook_file(dir, hook_name, hook_path, sizeof(hook_path)))
         return;
 
     FILE *hook_file = fopen(hook_path, "r");

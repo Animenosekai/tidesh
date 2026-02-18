@@ -70,4 +70,4 @@ docs/out/*
 test_files/
 
 # Tide
-.tide/
+.tidesh-hooks/

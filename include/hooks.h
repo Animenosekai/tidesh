@@ -1,6 +1,6 @@
 /** hooks.h
  *
- * Hook name definitions for .tide scripts.
+ * Hook name definitions for .tidesh-hooks scripts.
  *
  * GLOBAL HOOK CONTEXT (available to all hooks):
  * - TIDE_HOOK: The specific hook name being executed (e.g., "cd", "before_cmd")
@@ -126,7 +126,7 @@ typedef struct HookEnvVar {
 #define HOOK_BEFORE_RC "before_rc"
 
 /**
- * Run a hook script from the current working directory's .tide folder.
+ * Run a hook script from the current working directory's .tidesh-hooks folder.
  *
  * @param session Pointer to Session
  * @param hook_name Hook script name (e.g., "cmd_pre")
@@ -134,8 +134,8 @@ typedef struct HookEnvVar {
 void run_cwd_hook(Session *session, const char *hook_name);
 
 /**
- * Run a hook script from the current working directory's .tide folder with
- * temporary environment variables.
+ * Run a hook script from the current working directory's .tidesh-hooks folder
+ * with temporary environment variables.
  *
  * @param session Pointer to Session
  * @param hook_name Hook script name (e.g., "before_cmd")
@@ -146,11 +146,11 @@ void run_cwd_hook_with_vars(Session *session, const char *hook_name,
                             const HookEnvVar *vars, size_t var_count);
 
 /**
- * Run a hook script from the specified directory's .tide folder with
+ * Run a hook script from the specified directory's .tidesh-hooks folder with
  * temporary environment variables.
  *
  * @param session Pointer to Session
- * @param dir Directory to search for .tide hooks
+ * @param dir Directory to search for .tidesh-hooks hooks
  * @param hook_name Hook script name (e.g., "cd")
  * @param vars Extra environment variables to set for the hook
  * @param var_count Number of variables in vars
