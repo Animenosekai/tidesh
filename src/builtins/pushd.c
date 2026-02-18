@@ -1,11 +1,10 @@
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <ctype.h>  /* isdigit */
+#include <stdio.h>  /* printf */
+#include <stdlib.h> /* atoi */
 
 #include "builtins/pushd.h"
-#include "dirstack.h"
-#include "session.h"
+#include "dirstack.h" /* dirstack_swap, dirstack_pushd */
+#include "session.h"  /* Session, update_working_dir */
 
 static bool is_numeric(const char *str) {
     if (!str || *str == '\0')

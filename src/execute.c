@@ -1,22 +1,22 @@
-#include <ctype.h> /* isspace */
-#include <errno.h>
-#include <fcntl.h>
-#include <limits.h> /* PATH_MAX */
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#include <ctype.h>    /* isspace */
+#include <errno.h>    /* errno */
+#include <fcntl.h>    /* open, O_WRONLY, O_CREAT, O_APPEND, O_TRUNC, O_RDONLY */
+#include <limits.h>   /* PATH_MAX */
+#include <signal.h>   /* signal, SIGINT, SIGQUIT, SIG_DFL */
+#include <stdio.h>    /* fprintf, stderr, printf, perror, fflush, stdout */
+#include <stdlib.h>   /* malloc, free, realloc, strdup, calloc, exit */
+#include <string.h>   /* strcmp, strchr, strlen, strncpy, strtok, snprintf */
+#include <sys/wait.h> /* waitpid, WEXITSTATUS */
+#include <unistd.h> /* fork, access, X_OK, dup2, close, write, execve, pipe, STDOUT_FILENO, STDIN_FILENO, STDERR_FILENO, read */
 
-#include "ast.h"
-#include "builtin.h"
-#include "data/array.h"
-#include "data/trie.h"
-#include "environ.h" /* environ_set, environ_to_array */
-#include "execute.h"
-#include "expand.h"
-#include "session.h"
+#include "ast.h"        /* ASTNode, NODE_*, parse, free_ast */
+#include "builtin.h"    /* is_special_builtin, get_builtin, is_builtin */
+#include "data/array.h" /* Array, free_array, init_array, array_add */
+#include "data/trie.h"  /* trie_get */
+#include "environ.h" /* environ_get, environ_set, environ_set_exit_status, environ_set_last_arg, environ_set_background_pid, environ_to_array */
+#include "execute.h" /* execute, execute_string, execute_string_stdout, find_in_path, get_command_info, CommandInfo, COMMAND_* */
+#include "expand.h"  /* full_expansion */
+#include "session.h" /* Session */
 
 #define RW_R__R__ 0644
 

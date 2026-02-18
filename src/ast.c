@@ -1,13 +1,13 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdio.h>  /* fprintf, NULL */
+#include <stdlib.h> /* malloc, free, realloc, atoi, calloc */
+#include <string.h> /* strlen, strdup, snprintf */
 
-#include "ast.h"
-#include "data/dynamic.h"
-#include "expand.h"
-#include "expansions/aliases.h"
-#include "lexer.h"
-#include "session.h"
+#include "ast.h" /* ASTNode, NodeType, Redirection, free_ast, free_redirects, parse */
+#include "data/dynamic.h" /* Dynamic, init_dynamic, dynamic_extend, dynamic_append, dynamic_to_string, free_dynamic */
+#include "expand.h"       /* full_expansion */
+#include "expansions/aliases.h" /* alias_expansion */
+#include "lexer.h" /* LexerInput, LexerToken, lexer_next_token, free_lexer_token, TOKEN_* */
+#include "session.h" /* Session */
 
 /* Create a new AST node of given type */
 static ASTNode *init_ast(ASTNode *node, NodeType type) {

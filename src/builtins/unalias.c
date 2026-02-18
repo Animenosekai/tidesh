@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <string.h>
+#include <stdio.h> /* fprintf */
 
 #include "builtins/unalias.h"
-#include "data/trie.h"
-#include "session.h"
+#include "data/trie.h" /* trie_delete_key */
+#include "session.h"   /* Session */
 
 int builtin_unalias(int argc, char **argv, Session *session) {
     if (argc == 1) {

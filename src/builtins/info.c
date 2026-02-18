@@ -1,11 +1,11 @@
-#include <stdbool.h>
-#include <stdio.h>
-#include <unistd.h> /* getpid */
+#include <stdbool.h> /* bool */
+#include <stdio.h>   /* printf */
+#include <unistd.h>  /* getpid, getppid */
 
 #include "builtins/info.h"
-#include "environ.h" /* environ_get_default */
-#include "prompt/ansi.h"
-#include "session.h" /* Session */
+#include "environ.h"     /* environ_get_default */
+#include "prompt/ansi.h" /* ANSI color constants */
+#include "session.h"     /* Session */
 
 int builtin_info(int argc, char **argv, Session *session) {
     (void)argc;

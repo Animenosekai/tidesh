@@ -1,5 +1,5 @@
-#include "prompt/keyboard.h"
-#include "prompt/ansi.h"
+#include "prompt/keyboard.h" /* Key, keyboard_parse, KEY_* */
+#include "prompt/ansi.h"     /* ANSI_ESCAPE, ANSI_CSI */
 
 #include <ctype.h>  /* tolower */
 #include <stdlib.h> /* NULL */

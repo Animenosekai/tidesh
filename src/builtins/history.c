@@ -1,9 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdio.h>  /* printf, fprintf */
+#include <stdlib.h> /* strtoul, free, strdup */
+#include <string.h> /* strcmp */
 
 #include "builtins/history.h"
-#include "history.h" /* History, HistoryEntry */
+#include "history.h" /* History, HistoryEntry, history_clear, history_enforce_limit, history_save */
 #include "session.h" /* Session */
 
 int builtin_history(int argc, char **argv, Session *session) {

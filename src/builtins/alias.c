@@ -1,11 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdio.h>  /* printf, fprintf, perror */
+#include <stdlib.h> /* malloc, free */
+#include <string.h> /* strchr, strncpy */
 
 #include "builtins/alias.h"
-#include "data/array.h"
-#include "data/trie.h"
-#include "session.h"
+#include "data/array.h" /* Array, free_array */
+#include "data/trie.h"  /* trie_starting_with, trie_get, trie_set */
+#include "session.h"    /* Session */
 
 int builtin_alias(int argc, char **argv, Session *session) {
     if (argc == 1) {

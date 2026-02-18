@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <string.h>
+#include <stdio.h>  /* printf, fprintf */
+#include <string.h> /* strcmp */
 
 #include "builtins/terminal.h"
 #include "environ.h"         /* environ_get */

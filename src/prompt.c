@@ -1,19 +1,19 @@
-#include <errno.h>   // errno
-#include <stdbool.h> // bool
-#include <stddef.h>  // size_t
-#include <stdio.h>   // NULL
-#include <stdlib.h>  // malloc, free
-#include <string.h>  // strchr, strdup
-#include <unistd.h>  // read, STDIN_FILENO
+#include <errno.h>   /* errno, EINTR */
+#include <stdbool.h> /* bool, true, false */
+#include <stddef.h>  /* size_t, NULL */
+#include <stdio.h>   /* NULL */
+#include <stdlib.h>  /* malloc, free */
+#include <string.h>  /* strchr, strdup, strlen */
+#include <unistd.h>  /* read, STDIN_FILENO */
 
-#include "data/dynamic.h"
-#include "data/utf8.h"
-#include "history.h" // history_reset_state
-#include "prompt/completion.h"
-#include "prompt/cursor.h"
-#include "prompt/keyboard.h"
-#include "prompt/terminal.h"
-#include "session.h"
+#include "data/dynamic.h" /* dynamic_extend, dynamic_append, dynamic_to_string */
+#include "data/utf8.h"    /* utf8_strlen */
+#include "history.h" /* history_reset_state, history_get_previous, history_get_next */
+#include "prompt/completion.h" /* completion_apply */
+#include "prompt/cursor.h" /* Cursor, CursorPosition, init_cursor, free_cursor, cursor_* functions, visible_length */
+#include "prompt/keyboard.h" /* Key, keyboard_parse, KEY_* */
+#include "prompt/terminal.h" /* terminal_setup, terminal_restore, terminal_write_check_newline, terminal_write, terminal_newline_checked, terminal_check_resize */
+#include "session.h"         /* Session */
 
 #define PROMPT_BUFFER_SIZE 256
 

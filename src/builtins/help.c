@@ -1,10 +1,10 @@
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
+#include <stdbool.h> /* bool, true, false */
+#include <stdio.h>   /* printf */
+#include <string.h>  /* strcmp */
 
 #include "builtins/help.h"
-#include "prompt/ansi.h"
-#include "session.h" /* Session */
+#include "prompt/ansi.h" /* ANSI color constants */
+#include "session.h"     /* Session */
 
 int builtin_help(int argc, char **argv, Session *session) {
     bool cd       = false;

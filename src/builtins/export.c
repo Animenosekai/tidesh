@@ -2,9 +2,9 @@
 #include <string.h> /* strchr */
 
 #include "builtins/export.h"
-#include "builtins/printenv.h"
-#include "environ.h" /* environ_set, environ_get */
-#include "session.h" /* Session */
+#include "builtins/printenv.h" /* builtin_printenv */
+#include "environ.h"           /* environ_set, environ_get */
+#include "session.h"           /* Session */
 
 int builtin_export(int argc, char **argv, Session *session) {
     if (argc == 1) {

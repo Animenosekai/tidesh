@@ -1,12 +1,12 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdio.h>  /* fprintf, fopen, fclose, FILE */
+#include <stdlib.h> /* free */
 
-#include "builtins/source.h"
-#include "data/array.h"
-#include "data/files.h"
-#include "execute.h"
-#include "expand.h"
-#include "session.h"
+#include "builtins/source.h" /* builtin_source */
+#include "data/array.h"      /* Array, free_array, array_pop */
+#include "data/files.h"      /* read_all */
+#include "execute.h"         /* execute_string */
+#include "expand.h"          /* full_expansion */
+#include "session.h"         /* Session */
 
 int builtin_source(int argc, char **argv, Session *session) {
     if (argc < 2) {

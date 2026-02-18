@@ -1,12 +1,11 @@
 #include <stdbool.h> /* bool */
-#include <stdio.h>   /* printf */
-#include <stdlib.h>  /* malloc, free */
+#include <stdio.h>   /* printf, fprintf */
+#include <stdlib.h>  /* free */
 
-#include "builtin.h" /* is_builtin */
+#include "builtin.h" /* get_builtin */
 #include "builtins/which.h"
-#include "data/trie.h" /* trie_get */
-#include "execute.h"   /* find_in_path */
-#include "session.h"   /* Session */
+#include "execute.h" /* get_command_info, CommandInfo, COMMAND_* */
+#include "session.h" /* Session */
 
 int builtin_which(int argc, char **argv, Session *session) {
     if (argc < 2) {

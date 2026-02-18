@@ -1,9 +1,9 @@
-#include <stdlib.h>
-#include <string.h>
+#include <stdlib.h> /* malloc, free */
+#include <string.h> /* strlen, strcat */
 
 #include "builtins/eval.h"
-#include "execute.h"
-#include "session.h"
+#include "execute.h" /* execute_string */
+#include "session.h" /* Session */
 
 int builtin_eval(int argc, char **argv, Session *session) {
     if (argc < 2) {

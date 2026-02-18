@@ -1,8 +1,8 @@
 #include <stdio.h>  /* printf */
-#include <stdlib.h> /* malloc, free */
+#include <stdlib.h> /* free */
 
 #include "builtins/printenv.h"
-#include "environ.h" /* environ_to_array */
+#include "environ.h" /* environ_to_array, environ_get, free_array */
 #include "session.h" /* Session */
 
 int builtin_printenv(int argc, char **argv, Session *session) {

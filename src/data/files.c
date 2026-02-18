@@ -1,7 +1,7 @@
-#include <stdlib.h>
-#include <string.h>
+#include <stdlib.h> /* malloc, realloc, free, size_t */
+#include <string.h> /* memcpy */
 
-#include "data/files.h"
+#include "data/files.h" /* read_all, FILE */
 
 char *read_all(FILE *f) {
     size_t capacity = 1024;

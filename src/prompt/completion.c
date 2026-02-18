@@ -1,20 +1,20 @@
-#include <ctype.h>
-#include <dirent.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <ctype.h>   /* isspace */
+#include <dirent.h>  /* DIR, opendir, closedir, readdir, struct dirent */
+#include <limits.h>  /* PATH_MAX */
+#include <stdbool.h> /* bool, true, false */
+#include <stdio.h>   /* printf, fflush, stdout, snprintf */
+#include <stdlib.h>  /* malloc, free, realloc, NULL */
+#include <string.h> /* strlen, strcmp, strncmp, strdup, strndup, strncpy, strcpy, strcat, strchr, strrchr */
+#include <sys/stat.h> /* struct stat, stat, S_ISDIR */
+#include <unistd.h>   /* access, R_OK */
 
-#include "builtin.h"
-#include "data/array.h"
-#include "data/dynamic.h"
-#include "data/trie.h"
-#include "environ.h"
-#include "prompt/completion.h"
-#include "prompt/cursor.h"
+#include "builtin.h" /* builtins */
+#include "data/array.h" /* Array, init_array, array_add, array_extend, free_array */
+#include "data/dynamic.h"      /* dynamic_to_string */
+#include "data/trie.h"         /* trie_starting_with */
+#include "environ.h"           /* update_path */
+#include "prompt/completion.h" /* completion_apply */
+#include "prompt/cursor.h"     /* Cursor, cursor_insert */
 
 /* Check if a character is a word delimiter in shell */
 bool is_shell_delimiter(char c) {

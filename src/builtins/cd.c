@@ -3,7 +3,7 @@
 
 #include "builtins/cd.h"
 #include "environ.h" /* environ_get_default */
-#include "session.h" /* update_working_dir, Session */
+#include "session.h" /* Session, update_working_dir */
 
 int builtin_cd(int argc, char **argv, Session *session) {
     char *dir = NULL;

@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdio.h> /* printf */
 
 #include "builtins/popd.h"
-#include "dirstack.h"
-#include "session.h"
+#include "dirstack.h" /* dirstack_popd */
+#include "session.h"  /* Session, update_working_dir */
 
 int builtin_popd(int argc, char **argv, Session *session) {
     (void)argc;

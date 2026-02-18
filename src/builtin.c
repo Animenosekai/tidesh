@@ -1,27 +1,27 @@
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdbool.h> /* bool, true, false */
+#include <stdio.h>   /* NULL */
+#include <stdlib.h>  /* NULL */
+#include <string.h>  /* strcmp */
 
-#include "builtin.h"
-#include "builtins/alias.h"
-#include "builtins/cd.h"
-#include "builtins/clear.h"
-#include "builtins/eval.h"
-#include "builtins/exit.h"
-#include "builtins/export.h"
-#include "builtins/help.h"
-#include "builtins/history.h"
-#include "builtins/info.h"
-#include "builtins/popd.h"
-#include "builtins/printenv.h"
-#include "builtins/pushd.h"
-#include "builtins/pwd.h"
-#include "builtins/source.h"
-#include "builtins/terminal.h"
-#include "builtins/unalias.h"
-#include "builtins/which.h"
-#include "session.h"
+#include "builtin.h" /* get_builtin, is_builtin, is_special_builtin, builtins */
+#include "builtins/alias.h"    /* builtin_alias */
+#include "builtins/cd.h"       /* builtin_cd */
+#include "builtins/clear.h"    /* builtin_clear */
+#include "builtins/eval.h"     /* builtin_eval */
+#include "builtins/exit.h"     /* builtin_exit */
+#include "builtins/export.h"   /* builtin_export */
+#include "builtins/help.h"     /* builtin_help */
+#include "builtins/history.h"  /* builtin_history */
+#include "builtins/info.h"     /* builtin_info */
+#include "builtins/popd.h"     /* builtin_popd */
+#include "builtins/printenv.h" /* builtin_printenv */
+#include "builtins/pushd.h"    /* builtin_pushd */
+#include "builtins/pwd.h"      /* builtin_pwd */
+#include "builtins/source.h"   /* builtin_source */
+#include "builtins/terminal.h" /* builtin_terminal */
+#include "builtins/unalias.h"  /* builtin_unalias */
+#include "builtins/which.h"    /* builtin_which */
+#include "session.h"           /* Session */
 
 const char *builtins[] = {
     "cd",       "exit",  "pwd",    "clear", "history", "help",
