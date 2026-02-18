@@ -17,6 +17,7 @@
 #include "builtins/printenv.h"
 #include "builtins/pushd.h"
 #include "builtins/pwd.h"
+#include "builtins/source.h"
 #include "builtins/terminal.h"
 #include "builtins/unalias.h"
 #include "builtins/which.h"
@@ -25,7 +26,7 @@
 const char *builtins[] = {
     "cd",       "exit",  "pwd",    "clear", "history", "help",
     "printenv", "which", "export", "alias", "unalias", "eval",
-    "terminal", "info",  "pushd",  "popd",  NULL};
+    "terminal", "info",  "pushd",  "popd",  "source",  NULL};
 
 int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
     if (strcmp(name, "cd") == 0)
@@ -60,6 +61,10 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_pushd;
     if (strcmp(name, "popd") == 0)
         return builtin_popd;
+    if (strcmp(name, "source") == 0)
+        return builtin_source;
+    if (strcmp(name, ".") == 0)
+        return builtin_source;
     return NULL;
 }
 
@@ -71,5 +76,6 @@ bool is_special_builtin(const char *name) {
             strcmp(name, "info") == 0 || strcmp(name, "alias") == 0 ||
             strcmp(name, "unalias") == 0 || strcmp(name, "eval") == 0 ||
             strcmp(name, "terminal") == 0 || strcmp(name, "pushd") == 0 ||
-            strcmp(name, "popd") == 0);
+            strcmp(name, "popd") == 0 || strcmp(name, "source") == 0 ||
+            strcmp(name, ".") == 0);
 }

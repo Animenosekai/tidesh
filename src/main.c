@@ -8,6 +8,7 @@
 
 #include "ast.h"        /* parse */
 #include "data/array.h" /* array_pop, free_array */
+#include "data/files.h" /* read_all */
 #include "data/trie.h"
 #include "environ.h" /* environ_get */
 #include "execute.h" /* execute */
@@ -44,33 +45,6 @@ bool should_return(char *input, Session *session) {
     free_lexer_input(&lexer_input);
 
     return last_type == TOKEN_EOL;
-}
-
-/* Read the entire content of a file into a dynamically allocated string */
-static char *read_all(FILE *f) {
-    size_t capacity = 1024;
-    size_t size     = 0;
-    char  *content  = malloc(capacity);
-    if (!content)
-        return NULL;
-
-    char   buffer[1024];
-    size_t n;
-    while ((n = fread(buffer, 1, sizeof(buffer), f)) > 0) {
-        if (size + n + 1 > capacity) {
-            capacity *= 2;
-            char *new_content = realloc(content, capacity);
-            if (!new_content) {
-                free(content);
-                return NULL;
-            }
-            content = new_content;
-        }
-        memcpy(content + size, buffer, n);
-        size += n;
-    }
-    content[size] = '\0';
-    return content;
 }
 
 static char *expand_prompt(const char *prompt, Session *session) {

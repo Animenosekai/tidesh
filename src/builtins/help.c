@@ -23,6 +23,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool popd     = false;
     bool terminal = false;
     bool which    = false;
+    bool source   = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -57,11 +58,13 @@ int builtin_help(int argc, char **argv, Session *session) {
             terminal = true;
         else if (strcmp(argv[i], "which") == 0)
             which = true;
+        else if (strcmp(argv[i], "source") == 0 || strcmp(argv[i], ".") == 0)
+            source = true;
     }
 
     bool all = !(cd || clear || exit || export || eval || alias || unalias ||
                  help || history || info || printenv || pwd || pushd || popd ||
-                 terminal || which);
+                 terminal || which || source);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -151,5 +154,14 @@ int builtin_help(int argc, char **argv, Session *session) {
     if (all || which)
         printf("  %s%-9s %s%-14s%s - Locate a command in PATH\n", command_clr,
                "which", argument_clr, "[command]", reset);
+
+    if (all || source)
+        printf("  %s%-9s %s%-14s%s - Execute commands from a file\n",
+               command_clr, "source", argument_clr, "<file>", reset);
+
+    if (all || source)
+        printf(
+            "  %s%-9s %s%-14s%s - Execute commands from a file (shorthand)\n",
+            command_clr, ".", argument_clr, "<file>", reset);
     return 0;
 }
