@@ -183,66 +183,62 @@ void run_dir_hook_with_vars(Session *session, const char *dir,
     char wildcard_hook_path[PATH_MAX];
     if (find_hook_file(dir, HOOK_ALL, wildcard_hook_path,
                        sizeof(wildcard_hook_path))) {
-        FILE *hook_file = fopen(wildcard_hook_path, "r");
-        if (hook_file) {
-            char *content = read_all(hook_file);
-            fclose(hook_file);
-            if (content) {
-                bool hooks_were_disabled = session->hooks_disabled;
-                session->hooks_disabled  = true;
+        bool hooks_were_disabled = session->hooks_disabled;
+        session->hooks_disabled  = true;
 
-                HookEnvBackup *backups      = NULL;
-                size_t         backup_count = 0;
+        HookEnvBackup *backups      = NULL;
+        size_t         backup_count = 0;
 
-                // Set TIDE_HOOK to the actual hook name (not "*")
-                hook_env_backup_add(&backups, &backup_count, "TIDE_HOOK",
-                                    hook_name, session);
-                hook_env_backup_add(&backups, &backup_count, "TIDE_TIMESTAMP",
-                                    timestamp_str, session);
+        // Set TIDE_HOOK to the actual hook name (not "*")
+        hook_env_backup_add(&backups, &backup_count, "TIDE_HOOK", hook_name,
+                            session);
+        hook_env_backup_add(&backups, &backup_count, "TIDE_TIMESTAMP",
+                            timestamp_str, session);
 
-                for (size_t i = 0; i < var_count; i++) {
-                    if (!vars[i].key || !vars[i].value)
-                        continue;
-                    hook_env_backup_add(&backups, &backup_count, vars[i].key,
-                                        vars[i].value, session);
+        for (size_t i = 0; i < var_count; i++) {
+            if (!vars[i].key || !vars[i].value)
+                continue;
+            hook_env_backup_add(&backups, &backup_count, vars[i].key,
+                                vars[i].value, session);
+        }
+
+#ifndef TIDESH_DISABLE_HISTORY
+        bool was_disabled          = session->history->disabled;
+        session->history->disabled = true;
+#endif
+
+        // Check if hook has shebang - execute as script if it does
+        if (has_shebang(wildcard_hook_path)) {
+            // Build command: hook_path
+            char cmd[PATH_MAX + 16];
+            snprintf(cmd, sizeof(cmd), "%s", wildcard_hook_path);
+            execute_string(cmd, session);
+        } else {
+            // Read and source hook content
+            FILE *hook_file = fopen(wildcard_hook_path, "r");
+            if (hook_file) {
+                char *content = read_all(hook_file);
+                fclose(hook_file);
+                if (content) {
+                    // Source the content (shebang is treated as a comment)
+                    execute_string(content, session);
+                    free(content);
                 }
-
-#ifndef TIDESH_DISABLE_HISTORY
-                bool was_disabled          = session->history->disabled;
-                session->history->disabled = true;
-#endif
-
-                execute_string(content, session);
-
-                hook_env_restore(session, backups, backup_count);
-                session->hooks_disabled = hooks_were_disabled;
-
-#ifndef TIDESH_DISABLE_HISTORY
-                session->history->disabled = was_disabled;
-#endif
-
-                free(content);
             }
         }
+
+        hook_env_restore(session, backups, backup_count);
+        session->hooks_disabled = hooks_were_disabled;
+
+#ifndef TIDESH_DISABLE_HISTORY
+        session->history->disabled = was_disabled;
+#endif
     }
 
     // Now run the specific hook
     char hook_path[PATH_MAX];
     if (!find_hook_file(dir, hook_name, hook_path, sizeof(hook_path)))
         return;
-
-    FILE *hook_file = fopen(hook_path, "r");
-    if (!hook_file) {
-        fprintf(stderr, "tidesh: could not open hook: %s\n", hook_path);
-        return;
-    }
-
-    char *content = read_all(hook_file);
-    fclose(hook_file);
-    if (!content) {
-        fprintf(stderr, "tidesh: could not read hook: %s\n", hook_path);
-        return;
-    }
 
     bool hooks_were_disabled = session->hooks_disabled;
     session->hooks_disabled  = true;
@@ -266,7 +262,41 @@ void run_dir_hook_with_vars(Session *session, const char *dir,
     session->history->disabled = true;
 #endif
 
-    execute_string(content, session);
+    // Check if hook has shebang - execute as script if it does
+    if (has_shebang(hook_path)) {
+        // Build command: hook_path
+        char cmd[PATH_MAX + 16];
+        snprintf(cmd, sizeof(cmd), "%s", hook_path);
+        execute_string(cmd, session);
+    } else {
+        // Read and source hook content
+        FILE *hook_file = fopen(hook_path, "r");
+        if (!hook_file) {
+            fprintf(stderr, "tidesh: could not open hook: %s\n", hook_path);
+            hook_env_restore(session, backups, backup_count);
+            session->hooks_disabled = hooks_were_disabled;
+#ifndef TIDESH_DISABLE_HISTORY
+            session->history->disabled = was_disabled;
+#endif
+            return;
+        }
+
+        char *content = read_all(hook_file);
+        fclose(hook_file);
+        if (!content) {
+            fprintf(stderr, "tidesh: could not read hook: %s\n", hook_path);
+            hook_env_restore(session, backups, backup_count);
+            session->hooks_disabled = hooks_were_disabled;
+#ifndef TIDESH_DISABLE_HISTORY
+            session->history->disabled = was_disabled;
+#endif
+            return;
+        }
+
+        // Source the content (shebang is treated as a comment)
+        execute_string(content, session);
+        free(content);
+    }
 
     hook_env_restore(session, backups, backup_count);
     session->hooks_disabled = hooks_were_disabled;
@@ -274,8 +304,6 @@ void run_dir_hook_with_vars(Session *session, const char *dir,
 #ifndef TIDESH_DISABLE_HISTORY
     session->history->disabled = was_disabled;
 #endif
-
-    free(content);
 }
 
 void run_cwd_hook(Session *session, const char *hook_name) {

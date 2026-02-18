@@ -8,6 +8,8 @@
 #ifndef EXECUTE_H
 #define EXECUTE_H
 
+#include <stdbool.h> /* bool */
+
 #include "ast.h"
 #include "lexer.h"
 #include "session.h"
@@ -39,6 +41,14 @@ typedef struct CommandInfo {
  * @return A CommandInfo struct containing the command type and path/expansion
  */
 CommandInfo get_command_info(const char *cmd, Session *session);
+
+/**
+ * Check if a file has a shebang line.
+ *
+ * @param path The path to the file to check
+ * @return true if the file starts with #!, false otherwise
+ */
+bool has_shebang(const char *path);
 
 /**
  * Find the full path of a command by searching the PATH environment variable.

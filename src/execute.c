@@ -3,6 +3,7 @@
 #include <fcntl.h>    /* open, O_WRONLY, O_CREAT, O_APPEND, O_TRUNC, O_RDONLY */
 #include <limits.h>   /* PATH_MAX */
 #include <signal.h>   /* signal, SIGINT, SIGQUIT, SIG_DFL */
+#include <stdbool.h>  /* bool, true, false */
 #include <stdio.h>    /* fprintf, stderr, printf, perror, fflush, stdout */
 #include <stdlib.h>   /* malloc, free, realloc, strdup, calloc, exit */
 #include <string.h>   /* strcmp, strchr, strlen, strncpy, strtok, snprintf */
@@ -110,6 +111,102 @@ static char *extract_first_word(const char *str) {
     memcpy(word, start, len);
     word[len] = '\0';
     return word;
+}
+
+/**
+ * Check if a file has a shebang line.
+ *
+ * @param path The path to the file to check
+ * @return true if the file starts with #!, false otherwise
+ */
+bool has_shebang(const char *path) {
+    if (!path) {
+        return false;
+    }
+
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        return false;
+    }
+
+    char   first_two[2];
+    size_t read = fread(first_two, 1, 2, f);
+    fclose(f);
+
+    return (read == 2 && first_two[0] == '#' && first_two[1] == '!');
+}
+
+/**
+ * Parse a shebang line from a script file.
+ * Returns the interpreter and arguments if found, NULL otherwise.
+ *
+ * @param path The path to the script file
+ * @param interp_argc Pointer to store the number of interpreter arguments
+ * (including interpreter itself)
+ * @param interp_argv Pointer to store the interpreter argument array
+ * @return true if shebang found and parsed, false otherwise
+ */
+static bool parse_shebang(const char *path, int *interp_argc,
+                          char ***interp_argv) {
+    if (!path || !interp_argc || !interp_argv) {
+        return false;
+    }
+
+    *interp_argc = 0;
+    *interp_argv = NULL;
+
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        return false;
+    }
+
+    char line[1024];
+    if (!fgets(line, sizeof(line), f)) {
+        fclose(f);
+        return false;
+    }
+    fclose(f);
+
+    // Check if it starts with #!
+    if (line[0] != '#' || line[1] != '!') {
+        return false;
+    }
+
+    // Skip the #! and any whitespace
+    char *p = line + 2;
+    while (*p && isspace((unsigned char)*p)) {
+        p++;
+    }
+
+    if (*p == '\0' || *p == '\n') {
+        return false;
+    }
+
+    // Remove trailing newline
+    char *newline = strchr(p, '\n');
+    if (newline) {
+        *newline = '\0';
+    }
+
+    // Parse the interpreter and optional arguments
+    // Split by whitespace
+    char **args = NULL;
+    int    argc = 0;
+
+    char *token = strtok(p, " \t");
+    while (token) {
+        args         = realloc(args, (argc + 1) * sizeof(char *));
+        args[argc++] = strdup(token);
+        token        = strtok(NULL, " \t");
+    }
+
+    if (argc == 0) {
+        return false;
+    }
+
+    *interp_argc = argc;
+    *interp_argv = args;
+    return true;
 }
 
 char *find_in_path(const char *cmd, Session *session) {
@@ -652,6 +749,55 @@ int execute(ASTNode *node, Session *session) {
                 fprintf(stderr, "tidesh: command not found: %s\n", cmd_name);
 #endif
                 exit(127);
+            }
+
+            // Check for shebang in the script file
+            int    interp_argc = 0;
+            char **interp_argv = NULL;
+            if (parse_shebang(path, &interp_argc, &interp_argv)) {
+                // Script has a shebang, execute with the interpreter
+                // Build new argv: [interpreter, interp_args..., script_path,
+                // original_args...]
+                int new_argc =
+                    interp_argc + argc; // interpreter + args + original args
+                char **new_argv = malloc((new_argc + 1) * sizeof(char *));
+
+                int idx = 0;
+                // Add interpreter and its arguments
+                for (int i = 0; i < interp_argc; i++) {
+                    new_argv[idx++] = interp_argv[i];
+                }
+                // Add the script path
+                new_argv[idx++] = strdup(path);
+                // Add original arguments (skip argv[0] which is the script
+                // name)
+                for (int i = 1; i < argc; i++) {
+                    new_argv[idx++] = strdup(argv[i]);
+                }
+                new_argv[idx] = NULL;
+
+                // Execute with the interpreter
+                execve(interp_argv[0], new_argv, envp);
+
+                // If we arrived here, execve failed
+                perror("execve");
+
+                // Clean up
+                for (int i = 0; i < idx; i++) {
+                    free(new_argv[i]);
+                }
+                free(new_argv);
+                free(interp_argv);
+                if (envp)
+                    free(envp);
+                if (env_array) {
+                    free_array(env_array);
+                    free(env_array);
+                }
+                if (path && path != resolved_path) {
+                    free(path);
+                }
+                exit(126);
             }
 
             execve(path, argv, envp);
