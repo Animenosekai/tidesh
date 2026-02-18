@@ -86,7 +86,7 @@ static char *expand_prompt(const char *prompt, Session *session) {
     Array *expanded = full_expansion(input, session);
     free(input);
     if (!expanded) {
-        return NULL;
+        return strdup(prompt);
     }
 
     char *result = NULL;

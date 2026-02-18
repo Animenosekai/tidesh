@@ -19,9 +19,9 @@ __license__ = "MIT License"
 __copyright__ = f"Copyright {__year__}, {__module__}"
 
 __raw_version__ = "1.0"
-__version__ = "1.0-adfe12f"
-__git_version__ = "adfe12f"
-__build_date__ = datetime.datetime.strptime("2026-02-17", "%Y-%m-%d")
+__version__ = "1.0-fb293cb"
+__git_version__ = "fb293cb"
+__build_date__ = datetime.datetime.strptime("2026-02-18", "%Y-%m-%d")
 __build_type__: typing.Literal["debug", "release"] = "release"
 __platform__: typing.Literal["linux", "macos", "windows"] = "macos"
 __brief__ = "A lightweight but fully-featured shell"

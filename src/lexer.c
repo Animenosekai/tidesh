@@ -116,6 +116,14 @@ static Dynamic read_single_word(LexerInput *input) {
     bool escaped = false;
     while (!is_at_end(input) && c != ' ' && c != '\t' && c != '\n' &&
            c != '\r') {
+        if (!escaped && c == '\\' && peek_next(input) == '$') {
+            advance(input); // consume '\\'
+            dynamic_append(&word_value, '\\');
+            advance(input); // consume '$'
+            dynamic_append(&word_value, '$');
+            c = peek(input);
+            continue;
+        }
         if (!escaped && c == '$' && peek_next(input) == '(') {
             advance(input); // consume '$'
             char *command      = command_substitution(input);
@@ -151,6 +159,14 @@ static Dynamic read_quoted_word(LexerInput *input) {
     char c          = peek(input);
 
     while (!is_at_end(input) && c != quote_char) {
+        if (!escaped && c == '\\' && peek_next(input) == '$') {
+            advance(input); // consume '\\'
+            dynamic_append(&word_value, '\\');
+            advance(input); // consume '$'
+            dynamic_append(&word_value, '$');
+            c = peek(input);
+            continue;
+        }
         if (!escaped && c == '$' && peek_next(input) == '(') {
             advance(input); // consume '$'
             char *command      = command_substitution(input);

@@ -188,6 +188,11 @@ Array *variable_expansion(char *input, Session *session) {
     bool has_split = false;
 
     while (input[i]) {
+        if (input[i] == '\\' && input[i + 1] == '$') {
+            dynamic_append(&buffer, '$');
+            i += 2;
+            continue;
+        }
         if (input[i] == '$') {
             i++; // Skip $
 
