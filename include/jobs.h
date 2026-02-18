@@ -7,6 +7,8 @@
 #ifndef JOBS_H
 #define JOBS_H
 
+#ifndef TIDESH_DISABLE_JOB_CONTROL
+
 #include <stdbool.h>
 #include <sys/types.h>
 
@@ -117,5 +119,7 @@ void jobs_notify(Jobs *jobs);
  * @param jobs Pointer to Jobs to free
  */
 void free_jobs(Jobs *jobs);
+
+#endif /* TIDESH_DISABLE_JOB_CONTROL */
 
 #endif /* JOBS_H */

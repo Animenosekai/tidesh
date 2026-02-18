@@ -29,12 +29,16 @@ int builtin_eval(int argc, char **argv, Session *session) {
     }
 
     // Temporarily disable history to avoid double logging
+#ifndef TIDESH_DISABLE_HISTORY
     bool was_disabled          = session->history->disabled;
     session->history->disabled = true;
+#endif
 
     int status = execute_string(cmd, session);
 
+#ifndef TIDESH_DISABLE_HISTORY
     session->history->disabled = was_disabled;
+#endif
     free(cmd);
     return status;
 }

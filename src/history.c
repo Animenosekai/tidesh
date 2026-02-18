@@ -7,6 +7,8 @@
 #include "history.h"       /* History, HistoryEntry */
 #include "prompt/cursor.h" /* visible_length */
 
+#ifndef TIDESH_DISABLE_HISTORY
+
 #define DEFAULT_HISTORY_LIMIT 1000
 
 /* Resets the history navigation pointer to the bottom (NULL) */
@@ -439,3 +441,5 @@ char *history_last_command_starting_with(History *history, char *prefix) {
     }
     return NULL;
 }
+
+#endif /* TIDESH_DISABLE_HISTORY */

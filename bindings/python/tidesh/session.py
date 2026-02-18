@@ -12,7 +12,7 @@ from ._tidesh import ffi, lib
 from .ast import ASTNode
 from .exceptions import CommandNotFoundError, ParseError, SessionError
 from .lexer import Lexer
-from .state import Aliases, DirectoryStack, Environ, History, Jobs, Terminal
+from .state import Aliases, DirectoryStack, Environ, Features, History, Jobs, Terminal
 
 if typing.TYPE_CHECKING:
     import types
@@ -74,6 +74,8 @@ class Session:
         Terminal properties and capabilities.
     jobs : Jobs
         Background job control manager.
+    features : Features
+        Runtime feature flags for conditional features.
     """
 
     _session: typing.Any
@@ -107,6 +109,8 @@ class Session:
         """The terminal properties and capabilities for this session."""
         self.jobs = Jobs(self._session.jobs)
         """The background job control manager for this session."""
+        self.features = Features(self._session.features)
+        """The runtime feature flags for this session."""
 
     def tokenize(self, command: str) -> typing.Iterable[Token]:
         """

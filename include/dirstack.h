@@ -10,6 +10,8 @@
 #ifndef DIRSTACK_H
 #define DIRSTACK_H
 
+#ifndef TIDESH_DISABLE_DIRSTACK
+
 #include "data/array.h" /* Array */
 #include <stdbool.h>    /* bool */
 #include <stddef.h>     /* size_t */
@@ -69,5 +71,7 @@ char *dirstack_peek(const DirStack *directory_stack, size_t n);
  * @param directory_stack The directory stack to free
  */
 void free_dirstack(DirStack *directory_stack);
+
+#endif /* TIDESH_DISABLE_DIRSTACK */
 
 #endif /* DIRSTACK_H */

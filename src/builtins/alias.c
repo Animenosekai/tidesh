@@ -7,7 +7,14 @@
 #include "data/trie.h"  /* trie_starting_with, trie_get, trie_set */
 #include "session.h"    /* Session */
 
+#ifndef TIDESH_DISABLE_ALIASES
+
 int builtin_alias(int argc, char **argv, Session *session) {
+    if (!session->features.alias_expansion) {
+        fprintf(stderr, "tidesh: aliases not enabled\n");
+        return 127;
+    }
+
     if (argc == 1) {
         Array *keys = trie_starting_with(session->aliases, "");
         if (keys) {
@@ -60,3 +67,5 @@ int builtin_alias(int argc, char **argv, Session *session) {
 
     return status;
 }
+
+#endif

@@ -5,6 +5,8 @@
 #include <sys/wait.h> /* waitpid, WNOHANG, WUNTRACED, WCONTINUED */
 #include <unistd.h>   /* getpgrp */
 
+#ifndef TIDESH_DISABLE_JOB_CONTROL
+
 #include "jobs.h"
 
 Jobs *init_jobs(void) {
@@ -242,3 +244,5 @@ void free_jobs(Jobs *jobs) {
         free(jobs->jobs);
     }
 }
+
+#endif /* TIDESH_DISABLE_JOB_CONTROL */

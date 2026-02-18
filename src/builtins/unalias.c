@@ -4,6 +4,8 @@
 #include "data/trie.h" /* trie_delete_key */
 #include "session.h"   /* Session */
 
+#ifndef TIDESH_DISABLE_ALIASES
+
 int builtin_unalias(int argc, char **argv, Session *session) {
     if (argc == 1) {
         fprintf(stderr, "unalias: usage: unalias name [name ...]\n");
@@ -20,3 +22,5 @@ int builtin_unalias(int argc, char **argv, Session *session) {
 
     return status;
 }
+
+#endif

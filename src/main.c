@@ -218,7 +218,9 @@ int main(int argc, char **argv) {
 
     if (!no_fin) {
         // Set alias 'fin' to 'exit'
+#ifndef TIDESH_DISABLE_ALIASES
         trie_set(session->aliases, "fin", "exit");
+#endif
     }
 
     if (disable_colors) {
@@ -227,9 +229,11 @@ int main(int argc, char **argv) {
         session->terminal->supports_colors = true;
     }
 
+#ifndef TIDESH_DISABLE_HISTORY
     if (disable_history) {
         session->history->disabled = true;
     }
+#endif
 
     if (startup_cd) {
         if (chdir(startup_cd) == 0) {
@@ -253,10 +257,14 @@ int main(int argc, char **argv) {
             char *content = read_all(rc_file);
             if (content) {
                 // Temporarily disable history for .tideshrc commands
+#ifndef TIDESH_DISABLE_HISTORY
                 bool was_disabled          = session->history->disabled;
                 session->history->disabled = true;
                 execute_string(content, session);
                 session->history->disabled = was_disabled;
+#else
+                execute_string(content, session);
+#endif
 
                 free(content);
             }
@@ -270,10 +278,14 @@ int main(int argc, char **argv) {
     // If an eval command is provided, execute it
     if (eval_command) {
         // Temporarily disable history for eval commands
+#ifndef TIDESH_DISABLE_HISTORY
         bool was_disabled          = session->history->disabled;
         session->history->disabled = true;
         int exit_status            = execute_string(eval_command, session);
         session->history->disabled = was_disabled;
+#else
+        int exit_status = execute_string(eval_command, session);
+#endif
 
         if (!keep_alive && !script_path) {
             free_session(session);
@@ -295,10 +307,14 @@ int main(int argc, char **argv) {
             char *content = read_all(f);
             if (content) {
                 // Temporarily disable history for script commands
+#ifndef TIDESH_DISABLE_HISTORY
                 bool was_disabled          = session->history->disabled;
                 session->history->disabled = true;
                 int exit_status            = execute_string(content, session);
                 session->history->disabled = was_disabled;
+#else
+                int exit_status = execute_string(content, session);
+#endif
 
                 free(content);
 
@@ -332,61 +348,92 @@ int main(int argc, char **argv) {
 
     // Interactive shell loop
     while (true) {
-        char       *ps1_env     = environ_get(session->environ, "PS1");
-        const char *raw_prompt  = ps1_env ? ps1_env : PS1;
-        bool        ps1_default = ps1_env == NULL;
+        const char *applied_prompt;    // Prompt to display
+        bool  ps1_should_free = false; // Whether applied_prompt was allocated
+        char *temp_ps1        = NULL;  // Temporary buffer if expanded
 
-        char *expanded_prompt = expand_prompt(raw_prompt, session);
-        if (!expanded_prompt) {
-            expanded_prompt = strdup(raw_prompt);
-        }
+        // Determine PS1 prompt
+        if (session->features.prompt_expansion) {
+            char       *ps1_env     = environ_get(session->environ, "PS1");
+            const char *raw_prompt  = ps1_env ? ps1_env : PS1;
+            bool        ps1_default = ps1_env == NULL;
 
-        const char *applied_prompt  = expanded_prompt;
-        bool        ps1_should_free = false;
-
-        if (session->terminal->supports_colors && ps1_default) {
-            const char *colored =
-                ansi_apply(expanded_prompt, "", ANSI_MAGENTA, NULL);
-            if (colored) {
-                applied_prompt  = colored;
-                ps1_should_free = true;
+            char *expanded_prompt = expand_prompt(raw_prompt, session);
+            if (!expanded_prompt) {
+                expanded_prompt = strdup(raw_prompt);
             }
-        }
 
-        char       *ps2_env = environ_get(session->environ, "PS2");
-        const char *raw_continuation_prompt = ps2_env ? ps2_env : PS2;
-        bool        ps2_default             = ps2_env == NULL;
+            applied_prompt = expanded_prompt;
 
-        char *expanded_continuation_prompt =
-            expand_prompt(raw_continuation_prompt, session);
-        if (!expanded_continuation_prompt) {
-            expanded_continuation_prompt = strdup(raw_continuation_prompt);
-        }
-
-        const char *applied_continuation_prompt = expanded_continuation_prompt;
-
-        bool ps2_should_free = false;
-        if (session->terminal->supports_colors && ps2_default) {
-            const char *colored =
-                ansi_apply(expanded_continuation_prompt, "", ANSI_WHITE, NULL);
-            if (colored) {
-                applied_continuation_prompt = colored;
-                ps2_should_free             = true;
+            if (session->terminal->supports_colors && ps1_default) {
+                const char *colored =
+                    ansi_apply(expanded_prompt, "", ANSI_MAGENTA, NULL);
+                if (colored) {
+                    applied_prompt  = colored;
+                    ps1_should_free = true;
+                }
             }
+
+            temp_ps1 = expanded_prompt;
+        } else {
+            // Feature disabled: check env var, fall back to constant
+            char *ps1_env  = environ_get(session->environ, "PS1");
+            applied_prompt = ps1_env ? ps1_env : PS1;
         }
 
-        char *input = prompt(applied_prompt, applied_continuation_prompt,
-                             session, should_return);
+        const char
+            *applied_continuation_prompt; // Continuation prompt to display
+        bool ps2_should_free =
+            false; // Whether applied_continuation_prompt was allocated
+        char *temp_ps2 = NULL; // Temporary buffer if expanded
 
-        if (ps1_should_free && applied_prompt != expanded_prompt) {
+        // Determine PS2 (continuation) prompt
+        if (session->features.prompt_expansion) {
+            char       *ps2_env = environ_get(session->environ, "PS2");
+            const char *raw_continuation_prompt = ps2_env ? ps2_env : PS2;
+            bool        ps2_default             = ps2_env == NULL;
+
+            char *expanded_continuation_prompt =
+                expand_prompt(raw_continuation_prompt, session);
+            if (!expanded_continuation_prompt) {
+                expanded_continuation_prompt = strdup(raw_continuation_prompt);
+            }
+
+            applied_continuation_prompt = expanded_continuation_prompt;
+
+            if (session->terminal->supports_colors && ps2_default) {
+                const char *colored = ansi_apply(expanded_continuation_prompt,
+                                                 "", ANSI_WHITE, NULL);
+                if (colored) {
+                    applied_continuation_prompt = colored;
+                    ps2_should_free             = true;
+                }
+            }
+
+            temp_ps2 = expanded_continuation_prompt;
+        } else {
+            // Feature disabled: check env var, fall back to constant
+            char *ps2_env               = environ_get(session->environ, "PS2");
+            applied_continuation_prompt = ps2_env ? ps2_env : PS2;
+        }
+
+        char *input =
+            prompt((char *)applied_prompt, (char *)applied_continuation_prompt,
+                   session, should_return);
+
+        // Cleanup allocated prompts
+        if (ps1_should_free && applied_prompt != temp_ps1) {
             free((void *)applied_prompt);
         }
-        if (ps2_should_free &&
-            applied_continuation_prompt != expanded_continuation_prompt) {
+        if (temp_ps1) {
+            free(temp_ps1);
+        }
+        if (ps2_should_free && applied_continuation_prompt != temp_ps2) {
             free((void *)applied_continuation_prompt);
         }
-        free(expanded_prompt);
-        free(expanded_continuation_prompt);
+        if (temp_ps2) {
+            free(temp_ps2);
+        }
 
         if (input == NULL) {
             // Usually indicates Ctrl + C or Ctrl + D or EOF

@@ -7,6 +7,7 @@
 
 #include "data/array.h"      /* array_add, free_array */
 #include "environ.h"         /* environ_get, environ_set, environ_get_default */
+#include "features.h"        /* Features */
 #include "prompt/terminal.h" /* Terminal, terminal functions */
 #include "session.h"         /* Session, Environ, History, Trie, DirStack */
 
@@ -26,26 +27,32 @@ Session *init_session(Session *session, char *history_path) {
         return NULL;
     }
 
+#ifndef TIDESH_DISABLE_HISTORY
     session->history = load_history(NULL, history_path);
     if (!session->history) {
         free_session(session);
         free(session);
         return NULL;
     }
+#endif
 
+#ifndef TIDESH_DISABLE_ALIASES
     session->aliases = init_trie(NULL);
     if (!session->aliases) {
         free_session(session);
         free(session);
         return NULL;
     }
+#endif
 
+#ifndef TIDESH_DISABLE_DIRSTACK
     session->dirstack = init_dirstack(NULL);
     if (!session->dirstack) {
         free_session(session);
         free(session);
         return NULL;
     }
+#endif
 
     session->path_commands = init_trie(NULL);
     if (!session->path_commands) {
@@ -61,16 +68,21 @@ Session *init_session(Session *session, char *history_path) {
         return NULL;
     }
 
+#ifndef TIDESH_DISABLE_JOB_CONTROL
     session->jobs = init_jobs();
     if (!session->jobs) {
         free_session(session);
         free(session);
         return NULL;
     }
+#endif
 
     session->current_working_dir  = NULL;
     session->previous_working_dir = NULL;
     session->exit_requested       = false;
+
+    // Initialize feature flags (all enabled by default)
+    init_features(&session->features);
 
     // Initialize working directories
     update_working_dir(session);
@@ -86,25 +98,31 @@ void free_session(Session *session) {
     free(session->current_working_dir);
     free(session->previous_working_dir);
 
+#ifndef TIDESH_DISABLE_DIRSTACK
     if (session->dirstack) {
         free_dirstack(session->dirstack);
         free(session->dirstack);
-    };
+    }
+#endif
 
     if (session->environ) {
         free_environ(session->environ);
         free(session->environ);
     }
 
+#ifndef TIDESH_DISABLE_HISTORY
     if (session->history) {
         free_history(session->history);
         free(session->history);
     }
+#endif
 
+#ifndef TIDESH_DISABLE_ALIASES
     if (session->aliases) {
         free_trie(session->aliases);
         free(session->aliases);
     }
+#endif
 
     if (session->path_commands) {
         free_trie(session->path_commands);
@@ -116,10 +134,12 @@ void free_session(Session *session) {
         free(session->terminal);
     }
 
+#ifndef TIDESH_DISABLE_JOB_CONTROL
     if (session->jobs) {
         free_jobs(session->jobs);
         free(session->jobs);
     }
+#endif
 }
 
 static void init_previous_working_dir(Session *session) {
@@ -155,11 +175,13 @@ void update_working_dir(Session *session) {
         return;
     }
 
+#ifndef TIDESH_DISABLE_DIRSTACK
     if (!session->dirstack->stack->count) {
         // Initialize dirstack with current dir (make a copy)
         array_add(session->dirstack->stack,
                   strdup(session->current_working_dir));
     }
+#endif
 
     if (!session->previous_working_dir) {
         init_previous_working_dir(session);

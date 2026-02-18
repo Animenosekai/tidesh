@@ -120,13 +120,17 @@ char *find_in_path(const char *cmd, Session *session) {
 CommandInfo get_command_info(const char *cmd, Session *session) {
     CommandInfo info = {COMMAND_NOT_FOUND, NULL};
 
-    // 1. Alias
-    char *alias_val = trie_get(session->aliases, (char *)cmd);
-    if (alias_val) {
-        info.type = COMMAND_ALIAS;
-        info.path = strdup(alias_val);
-        return info;
+    // 1. Alias (if enabled)
+#ifndef TIDESH_DISABLE_ALIASES
+    if (session->features.alias_expansion) {
+        char *alias_val = trie_get(session->aliases, (char *)cmd);
+        if (alias_val) {
+            info.type = COMMAND_ALIAS;
+            info.path = strdup(alias_val);
+            return info;
+        }
     }
+#endif
 
     // 2. Special Builtin
     if (is_special_builtin(cmd)) {
@@ -509,15 +513,30 @@ int execute(ASTNode *node, Session *session) {
             free(cmd_name_trimmed);
 
         if (node->background) {
-            char *cmd_str = build_command_string(argv, argc);
-            int   job_id  = jobs_add(session->jobs, pid, cmd_str, JOB_RUNNING);
-            if (cmd_str) {
-                free(cmd_str);
+#ifdef TIDESH_DISABLE_JOB_CONTROL
+            fprintf(stderr,
+                    "tidesh: background jobs disabled at compile time\n");
+            kill(pid, SIGTERM);
+            waitpid(pid, NULL, 0);
+            return 127;
+#else
+            if (session->features.job_control) {
+                char *cmd_str = build_command_string(argv, argc);
+                int job_id = jobs_add(session->jobs, pid, cmd_str, JOB_RUNNING);
+                if (cmd_str) {
+                    free(cmd_str);
+                }
+                printf("[%d] %d\n", job_id, pid);
+                environ_set_background_pid(session->environ, pid);
+                environ_set_exit_status(session->environ, 0);
+                return 0;
+            } else {
+                fprintf(stderr, "tidesh: background jobs not enabled\n");
+                kill(pid, SIGTERM);
+                waitpid(pid, NULL, 0);
+                return 127;
             }
-            printf("[%d] %d\n", job_id, pid);
-            environ_set_background_pid(session->environ, pid);
-            environ_set_exit_status(session->environ, 0);
-            return 0;
+#endif
         } else {
             int status;
             waitpid(pid, &status, 0);
@@ -540,7 +559,11 @@ int execute_string(const char *cmd, Session *session) {
         result = execute(tree, session);
         free_ast(tree);
         free(tree);
-        history_append(session->history, cmd);
+#ifndef TIDESH_DISABLE_HISTORY
+        if (session->features.history) {
+            history_append(session->history, cmd);
+        }
+#endif
     }
 
     free_lexer_input(&lexer_in);

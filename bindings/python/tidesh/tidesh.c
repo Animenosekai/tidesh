@@ -19,6 +19,7 @@
 #include "environ.h"
 #include "execute.h"
 #include "expand.h"
+#include "features.h"
 #include "history.h"
 #include "jobs.h"
 #include "lexer.h"

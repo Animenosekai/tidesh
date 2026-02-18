@@ -8,7 +8,13 @@
 #include "jobs.h"
 #include "session.h"
 
+#ifndef TIDESH_DISABLE_JOB_CONTROL
+
 int builtin_bg(int argc, char **argv, Session *session) {
+    if (!session->features.job_control) {
+        fprintf(stderr, "tidesh: job control not enabled\n");
+        return 127;
+    }
     if (!session || !session->jobs) {
         return 1;
     }
@@ -73,3 +79,5 @@ int builtin_bg(int argc, char **argv, Session *session) {
 
     return 0;
 }
+
+#endif

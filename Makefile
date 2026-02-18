@@ -6,7 +6,7 @@
 
 # Compiler and flags
 CC ?= clang
-CFLAGS = -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=unused-but-set-variable -Wno-error=comment
+CFLAGS = -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=unused-but-set-variable -Wno-error=comment $(EXTRA_CFLAGS)
 DEBUGFLAGS = -Wall -Wextra -Werror -fsanitize=address -g
 RELEASEFLAGS = -O3 -DNDEBUG
 TESTINGFLAGS = -DTESTING -Itests/snow/ -DSNOW_ENABLED
@@ -131,11 +131,17 @@ help:
 	@echo "$(BRIEF)"
 	@echo ""
 	@echo "Usage:"
-	@echo "  $(BOLD)make$(SGR0) <command> [BUILD_TYPE=debug|release] [VERBOSE=1]"
+	@echo "  $(BOLD)make$(SGR0) <command> [BUILD_TYPE=debug|release] [VERBOSE=1] [CFLAGS='...']"
 	@echo ""
 	@echo "Build types:"
 	@echo "  debug:     Build with debug info"
 	@echo "  release:   Build optimized version (default)"
+	@echo ""
+	@echo "Feature flags (optional, all enabled by default):"
+	@echo "  $(BOLD)CFLAGS='-DTIDESH_DISABLE_HISTORY'$(SGR0)           Disable history builtin"
+	@echo "  $(BOLD)CFLAGS='-DTIDESH_DISABLE_DIRSTACK'$(SGR0)          Disable pushd/popd builtins"
+	@echo "  $(BOLD)CFLAGS='-DTIDESH_DISABLE_JOB_CONTROL'$(SGR0)       Disable jobs/fg/bg builtins"
+	@echo "  $(BOLD)CFLAGS='-DTIDESH_DISABLE_ALIASES'$(SGR0)           Disable alias expansion"
 	@echo ""
 	@echo "Available commands:"
 	@echo "  $(BOLD)all:        Compile everything$(SGR0)"
@@ -162,6 +168,11 @@ help:
 	@echo "  $(BOLD)Build type:  $(BUILD_TYPE)$(SGR0)"
 	@echo "  $(BOLD)Version:     $(VERSION)-$(GIT_VERSION)$(SGR0)"
 	@echo "  $(BOLD)Build date:  $(BUILD_DATE)$(SGR0)"
+	@echo ""
+	@echo "Example usage:"
+	@echo "  $(BOLD)make build$(SGR0)                                    # Full build"
+	@echo "  $(BOLD)make build BUILD_TYPE=debug$(SGR0)                  # Debug build"
+	@echo "  $(BOLD)make clean build CFLAGS='-DTIDESH_DISABLE_JOB_CONTROL'$(SGR0)  # Without job control"
 	@echo ""
 	@echo "For more information, visit the repository at"
 	@echo "  $(SMUL)https://github.com/Animenosekai/tidesh$(SGR0)"
@@ -366,6 +377,34 @@ $(TESTS_TARGET): $(TESTS_OBJ) $(TESTS_SRC_OBJ)
 ######################################
 
 .PHONY: build/python
+
+######################################
+#        FEATURE FLAG BUILDS         #
+######################################
+# Convenience targets for common feature flag combinations
+
+.PHONY: build/minimal build/no-history build/no-dirstack build/no-jobs build/no-aliases
+
+build/minimal:
+	@echo "$(BOLD)🔨 Building minimal shell (all optional features disabled)...$(SGR0)"
+	@$(MAKE) clean build \
+		EXTRA_CFLAGS="-DTIDESH_DISABLE_HISTORY -DTIDESH_DISABLE_DIRSTACK -DTIDESH_DISABLE_JOB_CONTROL -DTIDESH_DISABLE_ALIASES"
+
+build/no-history:
+	@echo "$(BOLD)🔨 Building without history...$(SGR0)"
+	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_HISTORY"
+
+build/no-dirstack:
+	@echo "$(BOLD)🔨 Building without dirstack (no pushd/popd)...$(SGR0)"
+	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_DIRSTACK"
+
+build/no-jobs:
+	@echo "$(BOLD)🔨 Building without job control...$(SGR0)"
+	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_JOB_CONTROL"
+
+build/no-aliases:
+	@echo "$(BOLD)🔨 Building without alias expansion...$(SGR0)"
+	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_ALIASES"
 
 python/stage: $(SRC) $(INCLUDES_DIR)/*.h
 	@echo "$(BOLD)📦 Staging C sources for Python bindings...$(SGR0)"

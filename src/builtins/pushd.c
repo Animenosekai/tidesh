@@ -17,7 +17,13 @@ static bool is_numeric(const char *str) {
     return true;
 }
 
+#ifndef TIDESH_DISABLE_DIRSTACK
+
 int builtin_pushd(int argc, char **argv, Session *session) {
+    if (!session->features.directory_stack) {
+        fprintf(stderr, "tidesh: directory stack not enabled\n");
+        return 127;
+    }
     if (!session || !session->dirstack) {
         return 1;
     }
@@ -48,3 +54,5 @@ int builtin_pushd(int argc, char **argv, Session *session) {
 
     return 1;
 }
+
+#endif

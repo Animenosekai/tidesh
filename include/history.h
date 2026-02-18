@@ -8,6 +8,8 @@
 #ifndef HISTORY_H
 #define HISTORY_H
 
+#ifndef TIDESH_DISABLE_HISTORY
+
 #include <stdbool.h> /* bool */
 #include <stddef.h>  /* size_t */
 
@@ -151,5 +153,7 @@ char *history_last_command_starting_with(History *history, char *prefix);
  * @param history Pointer to History to free
  */
 void free_history(History *history);
+
+#endif /* TIDESH_DISABLE_HISTORY */
 
 #endif /* HISTORY_H */

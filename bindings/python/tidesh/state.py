@@ -25,6 +25,153 @@ class JobState:
     """Job was terminated."""
 
 
+class Features:
+    """
+    Runtime feature flags for a shell session.
+
+    Control which shell features are enabled to optimize performance
+    when certain features are not needed.
+
+    All features are enabled by default.
+    """
+
+    def __init__(self, features_ptr: typing.Any) -> None:
+        """
+        Initialize the features wrapper.
+
+        Parameters
+        ----------
+        features_ptr : typing.Any
+            Pointer to the C Features structure.
+        """
+        super().__init__()
+        self._features = features_ptr
+        """(internal) The underlying C Features structure."""
+
+    @property
+    def variable_expansion(self) -> bool:
+        """Enable/disable variable expansion ($VAR, ${VAR}, etc.)."""
+        return bool(self._features.variable_expansion)
+
+    @variable_expansion.setter
+    def variable_expansion(self, value: bool) -> None:
+        self._features.variable_expansion = value
+
+    @property
+    def tilde_expansion(self) -> bool:
+        """Enable/disable tilde expansion (~, ~/path, ~user/path)."""
+        return bool(self._features.tilde_expansion)
+
+    @tilde_expansion.setter
+    def tilde_expansion(self, value: bool) -> None:
+        self._features.tilde_expansion = value
+
+    @property
+    def brace_expansion(self) -> bool:
+        """Enable/disable brace expansion ({a,b,c}, {1..10})."""
+        return bool(self._features.brace_expansion)
+
+    @brace_expansion.setter
+    def brace_expansion(self, value: bool) -> None:
+        self._features.brace_expansion = value
+
+    @property
+    def filename_expansion(self) -> bool:
+        """Enable/disable filename expansion (globbing: *, ?, [...])."""
+        return bool(self._features.filename_expansion)
+
+    @filename_expansion.setter
+    def filename_expansion(self, value: bool) -> None:
+        self._features.filename_expansion = value
+
+    @property
+    def alias_expansion(self) -> bool:
+        """Enable/disable alias expansion."""
+        return bool(self._features.alias_expansion)
+
+    @alias_expansion.setter
+    def alias_expansion(self, value: bool) -> None:
+        self._features.alias_expansion = value
+
+    @property
+    def job_control(self) -> bool:
+        """Enable/disable job control (bg, fg, jobs commands)."""
+        return bool(self._features.job_control)
+
+    @job_control.setter
+    def job_control(self, value: bool) -> None:
+        self._features.job_control = value
+
+    @property
+    def history(self) -> bool:
+        """Enable/disable command history."""
+        return bool(self._features.history)
+
+    @history.setter
+    def history(self, value: bool) -> None:
+        self._features.history = value
+
+    @property
+    def directory_stack(self) -> bool:
+        """Enable/disable directory stack (pushd, popd, dirs)."""
+        return bool(self._features.directory_stack)
+
+    @directory_stack.setter
+    def directory_stack(self, value: bool) -> None:
+        self._features.directory_stack = value
+
+    @property
+    def prompt_expansion(self) -> bool:
+        """Enable/disable prompt expansion (future feature)."""
+        return bool(self._features.prompt_expansion)
+
+    @prompt_expansion.setter
+    def prompt_expansion(self, value: bool) -> None:
+        self._features.prompt_expansion = value
+
+    @property
+    def completion(self) -> bool:
+        """Enable/disable tab completion (future feature)."""
+        return bool(self._features.completion)
+
+    @completion.setter
+    def completion(self, value: bool) -> None:
+        self._features.completion = value
+
+    def enable_all_expansions(self) -> None:
+        """Enable all expansion features."""
+        lib.features_enable_all_expansions(ffi.addressof(self._features))
+
+    def disable_all_expansions(self) -> None:
+        """Disable all expansion features for minimal/fast mode."""
+        lib.features_disable_all_expansions(ffi.addressof(self._features))
+
+    def __repr__(self) -> str:
+        """Return a string representation of the features."""
+        enabled = []
+        if self.variable_expansion:
+            enabled.append("variable_expansion")
+        if self.tilde_expansion:
+            enabled.append("tilde_expansion")
+        if self.brace_expansion:
+            enabled.append("brace_expansion")
+        if self.filename_expansion:
+            enabled.append("filename_expansion")
+        if self.alias_expansion:
+            enabled.append("alias_expansion")
+        if self.job_control:
+            enabled.append("job_control")
+        if self.history:
+            enabled.append("history")
+        if self.directory_stack:
+            enabled.append("directory_stack")
+        if self.prompt_expansion:
+            enabled.append("prompt_expansion")
+        if self.completion:
+            enabled.append("completion")
+        return f"Features({', '.join(enabled)})"
+
+
 class History:
     """
     Manages command history for a shell session.

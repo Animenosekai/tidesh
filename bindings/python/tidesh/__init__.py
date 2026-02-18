@@ -27,6 +27,7 @@ Classes
 - Terminal: Provides information about the terminal capabilities.
 - Jobs: A dict-like interface for background job control.
 - JobState: Job state constants (RUNNING, STOPPED, DONE, KILLED).
+- Features: Runtime feature flags for conditional shell features.
 - Lexer: Lexical analyzer for tokenizing shell commands.
 - Token: Base class for all tokens in the shell command.
 - ValuedToken: Token with a value attribute.
@@ -85,7 +86,16 @@ from .session import (
     ExternalCommandInfo,
     Session,
 )
-from .state import Aliases, DirectoryStack, Environ, History, Jobs, JobState, Terminal
+from .state import (
+    Aliases,
+    DirectoryStack,
+    Environ,
+    Features,
+    History,
+    Jobs,
+    JobState,
+    Terminal,
+)
 from .tokens import (
     AssignmentToken,
     BackgroundToken,
@@ -137,6 +147,7 @@ __all__ = [
     "ExecutionError",
     "ExtraValuedToken",
     "FDDuplicationToken",
+    "Features",
     "HeredocToken",
     "HereStringToken",
     "History",

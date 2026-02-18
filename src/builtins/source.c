@@ -49,14 +49,18 @@ int builtin_source(int argc, char **argv, Session *session) {
     }
 
     // Temporarily disable history for sourced commands
+#ifndef TIDESH_DISABLE_HISTORY
     bool was_disabled          = session->history->disabled;
     session->history->disabled = true;
+#endif
 
     // Execute the content
     int status = execute_string(content, session);
 
     // Restore history setting
+#ifndef TIDESH_DISABLE_HISTORY
     session->history->disabled = was_disabled;
+#endif
 
     free(content);
     free(expanded_filename);

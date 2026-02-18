@@ -4,7 +4,13 @@
 #include "dirstack.h" /* dirstack_popd */
 #include "session.h"  /* Session, update_working_dir */
 
+#ifndef TIDESH_DISABLE_DIRSTACK
+
 int builtin_popd(int argc, char **argv, Session *session) {
+    if (!session->features.directory_stack) {
+        fprintf(stderr, "tidesh: directory stack not enabled\n");
+        return 127;
+    }
     (void)argc;
     (void)argv;
 
@@ -25,3 +31,5 @@ int builtin_popd(int argc, char **argv, Session *session) {
 
     return 1;
 }
+
+#endif

@@ -10,23 +10,42 @@
 #define SESSION_H
 
 #include "data/trie.h"       /* Trie */
-#include "dirstack.h"        /* DirStack */
 #include "environ.h"         /* Environ */
-#include "history.h"         /* History */
-#include "jobs.h"            /* Jobs */
+#include "features.h"        /* Features */
 #include "prompt/terminal.h" /* Terminal */
 
+#ifndef TIDESH_DISABLE_HISTORY
+#include "history.h" /* History */
+#endif
+
+#ifndef TIDESH_DISABLE_DIRSTACK
+#include "dirstack.h" /* DirStack */
+#endif
+
+#ifndef TIDESH_DISABLE_JOB_CONTROL
+#include "jobs.h" /* Jobs */
+#endif
+
 typedef struct Session {
-    char     *current_working_dir;  // Current working directory
-    char     *previous_working_dir; // Previous working directory
-    Environ  *environ;              // Environment variables
-    History  *history;              // Command history
-    Trie     *aliases;              // Aliases
-    Trie     *path_commands;        // Commands found in PATH
-    DirStack *dirstack;             // Directory stack
-    Terminal *terminal;             // Terminal information
-    Jobs     *jobs;                 // Background jobs
-    bool      exit_requested;       // Flag to indicate if shell should exit
+    char    *current_working_dir;  // Current working directory
+    char    *previous_working_dir; // Previous working directory
+    Environ *environ;              // Environment variables
+#ifndef TIDESH_DISABLE_HISTORY
+    History *history; // Command history
+#endif
+#ifndef TIDESH_DISABLE_ALIASES
+    Trie *aliases; // Aliases
+#endif
+    Trie *path_commands; // Commands found in PATH
+#ifndef TIDESH_DISABLE_DIRSTACK
+    DirStack *dirstack; // Directory stack
+#endif
+    Terminal *terminal; // Terminal information
+#ifndef TIDESH_DISABLE_JOB_CONTROL
+    Jobs *jobs; // Background jobs
+#endif
+    Features features;       // Runtime feature flags
+    bool     exit_requested; // Flag to indicate if shell should exit
 } Session;
 
 /**

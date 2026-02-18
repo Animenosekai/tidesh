@@ -7,6 +7,9 @@
 #include <unistd.h>   /* getcwd, chdir */
 
 #include "data/array.h" /* init_array, free_array, array_insert, array_pop, array_set */
+
+#ifndef TIDESH_DISABLE_DIRSTACK
+
 #include "dirstack.h" /* DirStack */
 
 DirStack *init_dirstack(DirStack *directory_stack) {
@@ -97,3 +100,5 @@ char *dirstack_peek(const DirStack *directory_stack, size_t n) {
     }
     return strdup(directory_stack->stack->items[n]);
 }
+
+#endif /* TIDESH_DISABLE_DIRSTACK */

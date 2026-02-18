@@ -72,7 +72,9 @@ static void handle_key(Key key, Cursor *cursor) {
             break;
 
         case KEY_TAB:
-            completion_apply(cursor, cursor->session);
+            if (cursor->session->features.completion) {
+                completion_apply(cursor, cursor->session);
+            }
             break;
 
         case KEY_UP: {
@@ -82,10 +84,12 @@ static void handle_key(Key key, Cursor *cursor) {
             }
 
             // If at the top line, trigger history
+#ifndef TIDESH_DISABLE_HISTORY
             char *prev_cmd = history_get_previous(cursor->session->history);
             if (prev_cmd) {
                 cursor_set(cursor, prev_cmd, true);
             }
+#endif
         } break;
 
         case KEY_DOWN: {
@@ -95,6 +99,7 @@ static void handle_key(Key key, Cursor *cursor) {
             }
 
             // If at the bottom line, trigger history
+#ifndef TIDESH_DISABLE_HISTORY
             char *next_cmd = history_get_next(cursor->session->history);
             if (next_cmd) {
                 cursor_set(cursor, next_cmd, true);
@@ -104,6 +109,7 @@ static void handle_key(Key key, Cursor *cursor) {
                     cursor_set(cursor, cursor->keep, false);
                 }
             }
+#endif
         } break;
 
         default:
@@ -189,7 +195,9 @@ char *prompt(char *prompt_str, char *continuation, Session *session,
              bool (*should_return)(char *input, Session *session)) {
 
     // Ensure history state is at the bottom (live prompt)
+#ifndef TIDESH_DISABLE_HISTORY
     history_reset_state(session->history);
+#endif
 
     terminal_setup(session);
     Cursor *cursor = init_cursor(NULL, session, prompt_str, continuation);
@@ -257,7 +265,9 @@ char *prompt(char *prompt_str, char *continuation, Session *session,
     cleanup_cmd(final);
 
     // Reset history state again so next prompt starts clean
+#ifndef TIDESH_DISABLE_HISTORY
     history_reset_state(session->history);
+#endif
 
     return final;
 }

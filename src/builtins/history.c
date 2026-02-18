@@ -6,7 +6,13 @@
 #include "history.h" /* History, HistoryEntry, history_clear, history_enforce_limit, history_save */
 #include "session.h" /* Session */
 
+#ifndef TIDESH_DISABLE_HISTORY
+
 int builtin_history(int argc, char **argv, Session *session) {
+    if (!session->features.history) {
+        fprintf(stderr, "tidesh: history not enabled\n");
+        return 127;
+    }
     if (argc > 1) {
         if (strcmp(argv[1], "disable") == 0) {
             session->history->disabled = true;
@@ -81,3 +87,5 @@ int builtin_history(int argc, char **argv, Session *session) {
     }
     return 0;
 }
+
+#endif

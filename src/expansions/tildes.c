@@ -43,10 +43,12 @@ static char *expand_tilde_prefix(char *prefix, Session *session) {
         long  index = strtol(prefix, &endptr, 10);
         if (*endptr == '\0') {
             char *dirstack_entry = NULL;
+#ifndef TIDESH_DISABLE_DIRSTACK
             if (session->dirstack) {
                 dirstack_entry =
                     dirstack_peek(session->dirstack, (size_t)index);
             }
+#endif
             if (dirstack_entry == NULL) {
 #ifdef PROJECT_NAME
                 fprintf(stderr, "%s: No such entry ~%ld in directory stack\n",

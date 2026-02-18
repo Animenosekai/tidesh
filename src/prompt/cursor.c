@@ -541,11 +541,13 @@ void cursor_update_suggestion(Cursor *cursor) {
     if (!current_input)
         return;
 
+#ifndef TIDESH_DISABLE_HISTORY
     char *match = history_last_command_starting_with(cursor->session->history,
                                                      current_input);
     if (match && strlen(match) > cursor->data->length) {
         cursor->suggestion = strdup(match + cursor->data->length);
     }
+#endif
 
     free(current_input);
 }

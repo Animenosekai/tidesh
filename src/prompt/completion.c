@@ -71,6 +71,7 @@ static void match_builtins(const char *prefix, Array *matches) {
 }
 
 /* Match commands from history */
+#ifndef TIDESH_DISABLE_HISTORY
 static void match_history(const char *prefix, Session *session,
                           Array *matches) {
     if (!session || !session->history || !prefix)
@@ -96,8 +97,10 @@ static void match_history(const char *prefix, Session *session,
         curr = curr->prev;
     }
 }
+#endif
 
 /* Match aliases */
+#ifndef TIDESH_DISABLE_ALIASES
 static void match_aliases(const char *prefix, Session *session,
                           Array *matches) {
     Array *alias_matches = trie_starting_with(session->aliases, (char *)prefix);
@@ -107,6 +110,7 @@ static void match_aliases(const char *prefix, Session *session,
         free(alias_matches);
     }
 }
+#endif
 
 /* Match executables in PATH */
 static void match_path(const char *prefix, Session *session, Array *matches) {
@@ -234,7 +238,9 @@ void completion_apply(Cursor *cursor, Session *session) {
     if (is_command && strchr(prefix, '/') == NULL) {
         if (strlen(prefix) > 0) {
             match_builtins(prefix, matches);
+#ifndef TIDESH_DISABLE_ALIASES
             match_aliases(prefix, session, matches);
+#endif
             match_path(prefix, session, matches);
         }
     } else {
@@ -246,7 +252,9 @@ void completion_apply(Cursor *cursor, Session *session) {
         free(prefix);
         start  = 0; // Match entire line up to cursor
         prefix = strndup(data, pos);
+#ifndef TIDESH_DISABLE_HISTORY
         match_history(prefix, session, matches);
+#endif
     }
 
     if (matches->count > 0) {

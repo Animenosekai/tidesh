@@ -13,6 +13,7 @@ typedef struct LexerInput LexerInput;
 typedef struct ASTNode ASTNode;
 typedef struct Jobs Jobs;
 typedef struct Job Job;
+typedef struct Features Features;
 
 typedef enum CommandType {
     COMMAND_NOT_FOUND,
@@ -35,6 +36,19 @@ struct Array {
     ...;
 };
 
+struct Features {
+    bool variable_expansion;
+    bool tilde_expansion;
+    bool brace_expansion;
+    bool filename_expansion;
+    bool alias_expansion;
+    bool job_control;
+    bool history;
+    bool directory_stack;
+    bool prompt_expansion;
+    bool completion;
+};
+
 struct Session {
     char     *current_working_dir;
     char     *previous_working_dir;
@@ -45,6 +59,7 @@ struct Session {
     DirStack *dirstack;
     Terminal *terminal;
     Jobs     *jobs;
+    Features  features;
     bool      exit_requested;
     ...;
 };
@@ -61,6 +76,12 @@ Session *init_session(Session *session, char *history_path);
 void update_working_dir(Session *session);
 void update_path(Session *session);
 void free_session(Session *session);
+
+// Features
+Features *init_features(Features *features);
+Features *init_features_minimal(Features *features);
+void features_enable_all_expansions(Features *features);
+void features_disable_all_expansions(Features *features);
 
 // Execution
 int execute_string(const char *cmd, Session *session);

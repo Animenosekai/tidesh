@@ -7,6 +7,8 @@
 #ifndef EXPANSIONS_ALIASES_H
 #define EXPANSIONS_ALIASES_H
 
+#ifndef TIDESH_DISABLE_ALIASES
+
 #include "data/array.h" /* Array */
 #include "session.h"    /* Session */
 
@@ -19,5 +21,7 @@
  * found)
  */
 Array *alias_expansion(char *input, Session *session);
+
+#endif /* TIDESH_DISABLE_ALIASES */
 
 #endif /* EXPANSIONS_ALIASES_H */

@@ -97,6 +97,7 @@ sources = [
     "environ.c",
     "execute.c",
     "expand.c",
+    "features.c",
     "history.c",
     "jobs.c",
     "lexer.c",

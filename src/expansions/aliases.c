@@ -6,6 +6,8 @@
 #include "lexer.h" /* LexerInput, init_lexer_input, lexer_next_token, TOKEN_EOF */
 #include "session.h" /* Session, aliases_get */
 
+#ifndef TIDESH_DISABLE_ALIASES
+
 Array *alias_expansion(char *input, Session *session) {
     char *alias_value = trie_get(session->aliases, input);
     if (!alias_value) {
@@ -53,3 +55,5 @@ Array *alias_expansion(char *input, Session *session) {
 
     return results;
 }
+
+#endif /* TIDESH_DISABLE_ALIASES */

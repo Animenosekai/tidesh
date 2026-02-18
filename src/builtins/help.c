@@ -3,6 +3,7 @@
 #include <string.h>  /* strcmp */
 
 #include "builtins/help.h"
+#include "features.h"    /* TIDESH_DISABLE_* */
 #include "prompt/ansi.h" /* ANSI color constants */
 #include "session.h"     /* Session */
 
@@ -47,18 +48,22 @@ int builtin_help(int argc, char **argv, Session *session) {
             unalias = true;
         else if (strcmp(argv[i], "help") == 0)
             help = true;
+#ifndef TIDESH_DISABLE_HISTORY
         else if (strcmp(argv[i], "history") == 0)
             history = true;
+#endif
         else if (strcmp(argv[i], "info") == 0)
             info = true;
         else if (strcmp(argv[i], "printenv") == 0)
             printenv = true;
         else if (strcmp(argv[i], "pwd") == 0)
             pwd = true;
+#ifndef TIDESH_DISABLE_DIRSTACK
         else if (strcmp(argv[i], "pushd") == 0)
             pushd = true;
         else if (strcmp(argv[i], "popd") == 0)
             popd = true;
+#endif
         else if (strcmp(argv[i], "terminal") == 0)
             terminal = true;
         else if (strcmp(argv[i], "which") == 0)
@@ -69,12 +74,14 @@ int builtin_help(int argc, char **argv, Session *session) {
             type = true;
         else if (strcmp(argv[i], "test") == 0 || strcmp(argv[i], "[") == 0)
             test = true;
+#ifndef TIDESH_DISABLE_JOB_CONTROL
         else if (strcmp(argv[i], "jobs") == 0)
             jobs = true;
         else if (strcmp(argv[i], "fg") == 0)
             fg = true;
         else if (strcmp(argv[i], "bg") == 0)
             bg = true;
+#endif
     }
 
     bool all =
@@ -127,6 +134,7 @@ int builtin_help(int argc, char **argv, Session *session) {
         printf("  %s%-9s %s%-14s%s - Show this help message\n", command_clr,
                "help", argument_clr, "", reset);
 
+#ifndef TIDESH_DISABLE_HISTORY
     if (all || history)
         printf("  %s%-9s %s%-14s%s - Show or manage command history\n",
                command_clr, "history", argument_clr, "[subcommand]", reset);
@@ -137,6 +145,7 @@ int builtin_help(int argc, char **argv, Session *session) {
                "size, clear, limit %s[num]%s%s, file %s[path]%s\n",
                subcommand_clr, argument_clr, reset, subcommand_clr,
                argument_clr, reset);
+#endif
 
     if (all || info)
         printf("  %s%-9s %s%-14s%s - Show shell and build information\n",
@@ -150,6 +159,7 @@ int builtin_help(int argc, char **argv, Session *session) {
         printf("  %s%-9s %s%-14s%s - Print the current working directory\n",
                command_clr, "pwd", argument_clr, "", reset);
 
+#ifndef TIDESH_DISABLE_DIRSTACK
     if (all || pushd)
         printf("  %s%-9s %s%-14s%s - Push directory to stack and change CWD\n",
                command_clr, "pushd", argument_clr, "[dir|+N]", reset);
@@ -157,6 +167,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     if (all || popd)
         printf("  %s%-9s %s%-14s%s - Pop directory from stack and change CWD\n",
                command_clr, "popd", argument_clr, "", reset);
+#endif
 
     if (all || terminal)
         printf("  %s%-9s %s%-14s%s - Show or manage terminal settings\n",
@@ -191,6 +202,7 @@ int builtin_help(int argc, char **argv, Session *session) {
         printf("  %s%-9s %s%-14s%s - Evaluate conditional expressions\n",
                command_clr, "[", argument_clr, "expr ]", reset);
 
+#ifndef TIDESH_DISABLE_JOB_CONTROL
     if (all || jobs)
         printf("  %s%-9s %s%-14s%s - List background jobs\n", command_clr,
                "jobs", argument_clr, "", reset);
@@ -202,6 +214,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     if (all || bg)
         printf("  %s%-9s %s%-14s%s - Continue a stopped job in background\n",
                command_clr, "bg", argument_clr, "[job_id?]", reset);
+#endif
 
     return 0;
 }

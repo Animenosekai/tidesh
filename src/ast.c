@@ -403,7 +403,12 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
                 first_word = false;
                 continue;
             } else if (first_word) {
+#ifndef TIDESH_DISABLE_ALIASES
                 parts = alias_expansion(word.value, session);
+#else
+                parts = init_array(NULL);
+                array_add(parts, word.value);
+#endif
             } else {
                 parts = init_array(NULL);
                 array_add(parts, word.value);
