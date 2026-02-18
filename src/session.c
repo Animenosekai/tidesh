@@ -203,7 +203,7 @@ static void run_parent_enter_hooks(Session *session, const char *path) {
     cursor[len] = '\0';
 
     while (true) {
-        array_add(parents, strdup(cursor));
+        array_add(parents, cursor);
         if (strcmp(cursor, "/") == 0)
             break;
 
@@ -253,7 +253,7 @@ void update_working_dir(Session *session) {
     if (!session->dirstack->stack->count) {
         // Initialize dirstack with current dir (make a copy)
         array_add(session->dirstack->stack,
-                  strdup(session->current_working_dir));
+              session->current_working_dir);
     }
 #endif
 
