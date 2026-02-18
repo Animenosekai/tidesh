@@ -12,6 +12,19 @@ from ._tidesh import ffi, lib
 from .exceptions import AliasError
 
 
+class JobState:
+    """Job state constants."""
+
+    RUNNING = lib.JOB_RUNNING
+    """Job is currently running."""
+    STOPPED = lib.JOB_STOPPED
+    """Job is stopped (suspended)."""
+    DONE = lib.JOB_DONE
+    """Job has completed."""
+    KILLED = lib.JOB_KILLED
+    """Job was terminated."""
+
+
 class History:
     """
     Manages command history for a shell session.
@@ -480,3 +493,235 @@ class Terminal:
             True to indicate color support, False otherwise.
         """
         self._t.supports_colors = int(value)
+
+
+class Jobs(MutableMapping[int, typing.Any]):
+    """
+    A dictionary-like interface for managing background jobs.
+
+    This class provides access to job control, allowing you to track
+    and manage background processes. Jobs are accessed by their job ID.
+
+    Attributes
+    ----------
+    current
+        The most recently created job (if any).
+    previous
+        The second most recently created job (if any).
+    """
+
+    def __init__(self, jobs_ptr: typing.Any) -> None:
+        """
+        Initialize the jobs manager.
+
+        Parameters
+        ----------
+        jobs_ptr : typing.Any
+            Pointer to the C jobs structure.
+        """
+        super().__init__()
+        self._jobs = jobs_ptr
+        """(internal) The underlying C jobs structure."""
+
+    def update_states(self) -> None:
+        """
+        Update job states by checking their status.
+
+        This checks running jobs for state changes (completion, stopped, etc.)
+        and updates their internal state accordingly.
+        """
+        lib.jobs_update(self._jobs)
+
+    def notify(self) -> None:
+        """
+        Print status updates for jobs that have changed state.
+
+        This prints notifications for jobs that have finished, been killed, etc.,
+        and removes finished jobs from the list.
+        """
+        lib.jobs_notify(self._jobs)
+
+    def add(self, pid: int, command: str, state: int = JobState.RUNNING) -> int:
+        """
+        Add a new job to the tracking list.
+
+        Parameters
+        ----------
+        pid : int
+            The process ID of the job.
+        command : str
+            The command string that started the job.
+        state : int, optional
+            The initial job state (default: JOB_RUNNING).
+
+        Returns
+        -------
+        int
+            The assigned job ID (1-based), or -1 on failure.
+        """
+        return int(lib.jobs_add(self._jobs, pid, command.encode(), state))
+
+    def remove(self, job_id: int) -> bool:
+        """
+        Remove a job from the tracking list.
+
+        Parameters
+        ----------
+        job_id : int
+            The job ID to remove (1-based).
+
+        Returns
+        -------
+        bool
+            True if the job was found and removed, False otherwise.
+        """
+        return bool(lib.jobs_remove(self._jobs, job_id))
+
+    def get(self, job_id: int, default: typing.Any = None) -> typing.Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """
+        Get job information by job ID.
+
+        Parameters
+        ----------
+        job_id : int
+            The job ID to look up (1-based).
+        default : Any, optional
+            The value to return if the job is not found (default: None).
+
+        Returns
+        -------
+        Any
+            A dictionary containing job information, or default if not found.
+            The dict contains: id, pid, command, state, exit_status, notified.
+        """
+        job = lib.jobs_get(self._jobs, job_id)
+        if job == ffi.NULL:
+            return default
+        return {
+            "id": job.id,
+            "pid": job.pid,
+            "command": ffi.string(job.command).decode()
+            if job.command != ffi.NULL
+            else None,
+            "state": job.state,
+            "exit_status": job.exit_status,
+            "notified": bool(job.notified),
+        }
+
+    def by_pid(self, pid: int) -> typing.Any:
+        """
+        Get job information by process ID.
+
+        Parameters
+        ----------
+        pid : int
+            The process ID to look up.
+
+        Returns
+        -------
+        Any
+            A dictionary containing job information, or None if not found.
+            The dict contains: id, pid, command, state, exit_status, notified.
+        """
+        job = lib.jobs_get_by_pid(self._jobs, pid)
+        if job == ffi.NULL:
+            return None
+        return {
+            "id": job.id,
+            "pid": job.pid,
+            "command": ffi.string(job.command).decode()
+            if job.command != ffi.NULL
+            else None,
+            "state": job.state,
+            "exit_status": job.exit_status,
+            "notified": bool(job.notified),
+        }
+
+    @property
+    def current(self) -> typing.Any:
+        """
+        Get the current (most recent) job.
+
+        Returns
+        -------
+        Any
+            A dictionary containing job information, or None if no jobs.
+            The dict contains: id, pid, command, state, exit_status, notified.
+        """
+        job = lib.jobs_get_current(self._jobs)
+        if job == ffi.NULL:
+            return None
+        return {
+            "id": job.id,
+            "pid": job.pid,
+            "command": ffi.string(job.command).decode()
+            if job.command != ffi.NULL
+            else None,
+            "state": job.state,
+            "exit_status": job.exit_status,
+            "notified": bool(job.notified),
+        }
+
+    @property
+    def previous(self) -> typing.Any:
+        """
+        Get the previous (second most recent) job.
+
+        Returns
+        -------
+        Any
+            A dictionary containing job information, or None if less than 2 jobs.
+            The dict contains: id, pid, command, state, exit_status, notified.
+        """
+        job = lib.jobs_get_previous(self._jobs)
+        if job == ffi.NULL:
+            return None
+        return {
+            "id": job.id,
+            "pid": job.pid,
+            "command": ffi.string(job.command).decode()
+            if job.command != ffi.NULL
+            else None,
+            "state": job.state,
+            "exit_status": job.exit_status,
+            "notified": bool(job.notified),
+        }
+
+    @typing_extensions.override
+    def __getitem__(self, job_id: int) -> typing.Any:
+        """Get job information by job ID."""
+        result = self.get(job_id)
+        if result is None:
+            raise KeyError(job_id)
+        return result
+
+    @typing_extensions.override
+    def __setitem__(self, job_id: int, value: typing.Any) -> None:
+        """Not supported - jobs are managed internally."""
+        msg = "Cannot directly set jobs"
+        raise NotImplementedError(msg)
+
+    @typing_extensions.override
+    def __delitem__(self, job_id: int) -> None:
+        """Remove a job by job ID."""
+        if not self.remove(job_id):
+            raise KeyError(job_id)
+
+    @typing_extensions.override
+    def __iter__(self) -> Iterator[int]:
+        """Iterate over job IDs."""
+        # Get all jobs by iterating through internal array
+        for i in range(self._jobs.count):
+            yield self._jobs.jobs[i].id
+
+    @typing_extensions.override
+    def __len__(self) -> int:
+        """Get the number of jobs."""
+        return self._jobs.count
+
+    @typing_extensions.override
+    def __contains__(self, job_id: object) -> bool:
+        """Check if a job ID exists."""
+        if not isinstance(job_id, int):
+            return False
+        return lib.jobs_get(self._jobs, job_id) != ffi.NULL

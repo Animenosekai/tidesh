@@ -7,8 +7,11 @@
  */
 
 #include "ast.h"
+#include "builtins/bg.h"
 #include "builtins/cd.h"
+#include "builtins/fg.h"
 #include "builtins/info.h"
+#include "builtins/jobs.h"
 #include "builtins/which.h"
 #include "data/array.h"
 #include "data/trie.h"
@@ -17,6 +20,7 @@
 #include "execute.h"
 #include "expand.h"
 #include "history.h"
+#include "jobs.h"
 #include "lexer.h"
 #include "prompt/terminal.h"
 #include "session.h"

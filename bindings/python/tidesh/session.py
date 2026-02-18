@@ -12,7 +12,7 @@ from ._tidesh import ffi, lib
 from .ast import ASTNode
 from .exceptions import CommandNotFoundError, ParseError, SessionError
 from .lexer import Lexer
-from .state import Aliases, DirectoryStack, Environ, History, Terminal
+from .state import Aliases, DirectoryStack, Environ, History, Jobs, Terminal
 
 if typing.TYPE_CHECKING:
     import types
@@ -72,6 +72,8 @@ class Session:
         Directory stack for pushd/popd operations.
     terminal : Terminal
         Terminal properties and capabilities.
+    jobs : Jobs
+        Background job control manager.
     """
 
     _session: typing.Any
@@ -103,6 +105,8 @@ class Session:
         """The directory stack for pushd/popd operations in this session."""
         self.terminal = Terminal(self._session.terminal)
         """The terminal properties and capabilities for this session."""
+        self.jobs = Jobs(self._session.jobs)
+        """The background job control manager for this session."""
 
     def tokenize(self, command: str) -> typing.Iterable[Token]:
         """
@@ -177,6 +181,60 @@ class Session:
         c_args = [b"cd", *[a.encode() for a in args]]
         c_argv = ffi.new("char*[]", c_args)
         return bool(lib.builtin_cd(len(c_args), c_argv, self._session))
+
+    def bg(self, *args: str) -> int:
+        """
+        Continue a stopped job in the background using the bg builtin.
+
+        Parameters
+        ----------
+        *args : str
+            Arguments for the bg command (job ID or job spec like %1, %%, %+, %-).
+
+        Returns
+        -------
+        int
+            The exit status.
+        """
+        c_args = [b"bg", *[a.encode() for a in args]]
+        c_argv = ffi.new("char*[]", c_args)
+        return int(lib.builtin_bg(len(c_args), c_argv, self._session))
+
+    def fg(self, *args: str) -> int:
+        """
+        Bring a background job to the foreground using the fg builtin.
+
+        Parameters
+        ----------
+        *args : str
+            Arguments for the fg command (job ID or job spec like %1, %%, %+, %-).
+
+        Returns
+        -------
+        int
+            The exit status.
+        """
+        c_args = [b"fg", *[a.encode() for a in args]]
+        c_argv = ffi.new("char*[]", c_args)
+        return int(lib.builtin_fg(len(c_args), c_argv, self._session))
+
+    def list_jobs(self, *args: str) -> int:
+        """
+        List background jobs using the jobs builtin.
+
+        Parameters
+        ----------
+        *args : str
+            Arguments for the jobs command (optional).
+
+        Returns
+        -------
+        int
+            The exit status.
+        """
+        c_args = [b"jobs", *[a.encode() for a in args]]
+        c_argv = ffi.new("char*[]", c_args)
+        return int(lib.builtin_jobs(len(c_args), c_argv, self._session))
 
     def which(self, *args: str) -> list[CommandInfo]:
         """

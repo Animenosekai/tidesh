@@ -11,6 +11,8 @@ typedef struct Array Array;
 typedef struct Redirection Redirection;
 typedef struct LexerInput LexerInput;
 typedef struct ASTNode ASTNode;
+typedef struct Jobs Jobs;
+typedef struct Job Job;
 
 typedef enum CommandType {
     COMMAND_NOT_FOUND,
@@ -42,6 +44,7 @@ struct Session {
     Trie     *path_commands;
     DirStack *dirstack;
     Terminal *terminal;
+    Jobs     *jobs;
     bool      exit_requested;
     ...;
 };
@@ -171,10 +174,50 @@ struct ASTNode {
 ASTNode *parse(LexerInput *lexer, Session *session);
 void free_ast(ASTNode *node);
 
+// Job control
+typedef enum JobState {
+    JOB_RUNNING,
+    JOB_STOPPED,
+    JOB_DONE,
+    JOB_KILLED
+} JobState;
+
+struct Job {
+    int      id;
+    int      pid;
+    char    *command;
+    JobState state;
+    int      exit_status;
+    bool     notified;
+    ...;
+};
+
+struct Jobs {
+    Job  *jobs;
+    int   count;
+    int   capacity;
+    int   pgid;
+    ...;
+};
+
+Jobs *init_jobs(void);
+int jobs_add(Jobs *jobs, int pid, char *command, JobState state);
+Job *jobs_get(Jobs *jobs, int job_id);
+Job *jobs_get_by_pid(Jobs *jobs, int pid);
+bool jobs_remove(Jobs *jobs, int job_id);
+Job *jobs_get_current(Jobs *jobs);
+Job *jobs_get_previous(Jobs *jobs);
+void jobs_update(Jobs *jobs);
+void jobs_notify(Jobs *jobs);
+void free_jobs(Jobs *jobs);
+
 // Builtins
 int builtin_info(int argc, char **argv, Session *session);
 int builtin_cd(int argc, char **argv, Session *session);
 int builtin_which(int argc, char **argv, Session *session);
+int builtin_jobs(int argc, char **argv, Session *session);
+int builtin_fg(int argc, char **argv, Session *session);
+int builtin_bg(int argc, char **argv, Session *session);
 
 extern const char *tidesh_compiler;
 
