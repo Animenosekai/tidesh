@@ -25,6 +25,10 @@ typedef enum NodeType {
 #ifndef TIDESH_DISABLE_SUBSHELLS
     NODE_SUBSHELL
 #endif
+#ifndef TIDESH_DISABLE_CONDITIONALS
+    ,
+    NODE_CONDITIONAL
+#endif
 } NodeType;
 
 /* Descibes an I/O redirection */
@@ -35,6 +39,18 @@ typedef struct Redirection {
     bool                is_process_substitution;
     struct Redirection *next;
 } Redirection;
+
+#ifndef TIDESH_DISABLE_CONDITIONALS
+/* Describes a branch in a conditional statement */
+typedef struct ConditionalBranch {
+    /* Condition AST node (for if/elif) */
+    struct ASTNode *condition;
+    /* Commands to execute if condition succeeds */
+    struct ASTNode *body;
+    /* Next branch (for elif/else) */
+    struct ConditionalBranch *next;
+} ConditionalBranch;
+#endif
 
 /* Descibes an AST node */
 typedef struct ASTNode {
@@ -57,6 +73,10 @@ typedef struct ASTNode {
     struct ASTNode *right;
     /* Is this command to be run in background? */
     bool background;
+#ifndef TIDESH_DISABLE_CONDITIONALS
+    /* For conditional nodes */
+    ConditionalBranch *branches;
+#endif
 } ASTNode;
 
 /* Free all redirections */

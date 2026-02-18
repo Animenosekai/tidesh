@@ -348,6 +348,45 @@ int execute(ASTNode *node, Session *session) {
     }
 #endif
 
+#ifndef TIDESH_DISABLE_CONDITIONALS
+    if (node->type == NODE_CONDITIONAL) {
+        int exit_status = 0;
+
+        // Iterate through branches
+        ConditionalBranch *branch = node->branches;
+        while (branch) {
+            if (branch->condition == NULL) {
+                // This is an 'else' branch
+                if (branch->body) {
+                    exit_status = execute(branch->body, session);
+                } else {
+                    exit_status = 0;
+                }
+                environ_set_exit_status(session->environ, exit_status);
+                return exit_status;
+            } else {
+                // This is an 'if' or 'elif' branch
+                int condition_status = execute(branch->condition, session);
+                if (condition_status == 0) {
+                    // Condition succeeded, execute body
+                    if (branch->body) {
+                        exit_status = execute(branch->body, session);
+                    } else {
+                        exit_status = 0;
+                    }
+                    environ_set_exit_status(session->environ, exit_status);
+                    return exit_status;
+                }
+            }
+            branch = branch->next;
+        }
+
+        // No condition matched, return 0 (or the last condition's status)
+        environ_set_exit_status(session->environ, 0);
+        return 0;
+    }
+#endif
+
     if (node->type == NODE_COMMAND) {
         // Expand arguments
         int    argc       = 0;

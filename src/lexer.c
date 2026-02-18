@@ -219,6 +219,24 @@ static void skip_whitespaces(LexerInput *input) {
     }
 }
 
+#ifndef TIDESH_DISABLE_CONDITIONALS
+/* Check if a word is a conditional keyword */
+static TokenType check_conditional_keyword(const char *word) {
+    if (strcmp(word, "if") == 0) {
+        return TOKEN_IF;
+    } else if (strcmp(word, "then") == 0) {
+        return TOKEN_THEN;
+    } else if (strcmp(word, "else") == 0) {
+        return TOKEN_ELSE;
+    } else if (strcmp(word, "elif") == 0) {
+        return TOKEN_ELIF;
+    } else if (strcmp(word, "fi") == 0) {
+        return TOKEN_FI;
+    }
+    return TOKEN_WORD;
+}
+#endif
+
 LexerToken lexer_next_token(LexerInput *input) {
     // Skip whitespace
     skip_whitespaces(input);
@@ -678,6 +696,12 @@ LexerToken lexer_next_token(LexerInput *input) {
 
             token.value = dynamic_to_string(&word_value);
             free_dynamic(&word_value);
+#ifndef TIDESH_DISABLE_CONDITIONALS
+            // Check if the word is a conditional keyword
+            if (token.type == TOKEN_WORD) {
+                token.type = check_conditional_keyword(token.value);
+            }
+#endif
             break;
     }
     return token;

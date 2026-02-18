@@ -43,6 +43,32 @@ void free_redirects(Redirection *redirect) {
     }
 }
 
+#ifndef TIDESH_DISABLE_CONDITIONALS
+/* Free conditional branches */
+static void free_conditional_branches(ConditionalBranch *branch) {
+    if (!branch)
+        return;
+
+    if (branch->condition) {
+        free_ast(branch->condition);
+        free(branch->condition);
+        branch->condition = NULL;
+    }
+
+    if (branch->body) {
+        free_ast(branch->body);
+        free(branch->body);
+        branch->body = NULL;
+    }
+
+    if (branch->next) {
+        free_conditional_branches(branch->next);
+        free(branch->next);
+        branch->next = NULL;
+    }
+}
+#endif
+
 void free_ast(ASTNode *node) {
     if (!node)
         return;
@@ -85,6 +111,14 @@ void free_ast(ASTNode *node) {
         free(node->right);
         node->right = NULL;
     }
+
+#ifndef TIDESH_DISABLE_CONDITIONALS
+    if (node->branches) {
+        free_conditional_branches(node->branches);
+        free(node->branches);
+        node->branches = NULL;
+    }
+#endif
 }
 
 /* A command parser */
@@ -128,6 +162,9 @@ static ASTNode *parse_sequence(Parser *parser, Session *session);
 static ASTNode *parse_and_or(Parser *parser, Session *session);
 static ASTNode *parse_pipeline(Parser *parser, Session *session);
 static ASTNode *parse_command(Parser *parser, Session *session);
+#ifndef TIDESH_DISABLE_CONDITIONALS
+static ASTNode *parse_conditional(Parser *parser, Session *session);
+#endif
 
 ASTNode *parse(LexerInput *lexer, Session *session) {
     Parser   parser = {.lexer = lexer, .has_token = false, .error = false};
@@ -153,7 +190,11 @@ static ASTNode *parse_sequence(Parser *parser, Session *session) {
         return NULL;
     }
 
+#ifndef TIDESH_DISABLE_CONDITIONALS
+    ASTNode *left = parse_conditional(parser, session);
+#else
     ASTNode *left = parse_and_or(parser, session);
+#endif
     if (!left)
         return NULL;
 
@@ -195,7 +236,11 @@ static ASTNode *parse_sequence(Parser *parser, Session *session) {
             break;
         }
 
+#ifndef TIDESH_DISABLE_CONDITIONALS
+        ASTNode *right = parse_conditional(parser, session);
+#else
         ASTNode *right = parse_and_or(parser, session);
+#endif
         if (!right)
             break;
 #ifndef TIDESH_DISABLE_SEQUENCES
@@ -210,6 +255,233 @@ static ASTNode *parse_sequence(Parser *parser, Session *session) {
 
     return left;
 }
+
+#ifndef TIDESH_DISABLE_CONDITIONALS
+/* Parse conditional statements (if/then/else/elif/fi) */
+static ASTNode *parse_conditional(Parser *parser, Session *session) {
+    LexerToken *token = parser_peek(parser);
+
+    // Not a conditional, delegate to and_or
+    if (token->type != TOKEN_IF) {
+        return parse_and_or(parser, session);
+    }
+
+    // Consume 'if'
+    parser_skip(parser);
+
+    // Create conditional node
+    ASTNode *conditional = init_ast(NULL, NODE_CONDITIONAL);
+
+    // Parse branches
+    ConditionalBranch *first_branch   = NULL;
+    ConditionalBranch *current_branch = NULL;
+
+    while (true) {
+        // Parse the condition (a command)
+        ASTNode *condition = parse_and_or(parser, session);
+        if (!condition) {
+            fprintf(stderr,
+                    "Syntax error: expected condition in if statement\n");
+            parser->error = true;
+            free_ast(conditional);
+            free(conditional);
+            return NULL;
+        }
+
+        // Expect 'then'
+        token = parser_peek(parser);
+
+        // Skip newlines before 'then'
+        while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+               token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+            token = parser_peek(parser);
+        }
+
+        if (token->type != TOKEN_THEN) {
+            fprintf(stderr, "Syntax error: expected 'then' after condition\n");
+            parser->error = true;
+            free_ast(condition);
+            free(condition);
+            free_ast(conditional);
+            free(conditional);
+            return NULL;
+        }
+
+        parser_skip(parser);
+
+        // Skip newlines after 'then'
+        token = parser_peek(parser);
+        while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+               token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+            token = parser_peek(parser);
+        }
+
+        // Parse the body (commands until elif/else/fi)
+        ASTNode *body = NULL;
+        while (true) {
+            token = parser_peek(parser);
+            if (token->type == TOKEN_ELIF || token->type == TOKEN_ELSE ||
+                token->type == TOKEN_FI) {
+                break;
+            }
+            if (token->type == TOKEN_EOF) {
+                fprintf(stderr,
+                        "Syntax error: unexpected EOF in if statement\n");
+                parser->error = true;
+                break;
+            }
+
+            ASTNode *cmd = parse_conditional(parser, session);
+            if (!cmd) {
+                // Skip trailing separators
+                token = parser_peek(parser);
+                if (token->type == TOKEN_EOL ||
+                    token->type == TOKEN_SEMICOLON ||
+                    token->type == TOKEN_COMMENT) {
+                    parser_skip(parser);
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            // Append command to body
+            if (!body) {
+                body = cmd;
+            } else {
+                ASTNode *seq = init_ast(NULL, NODE_SEQUENCE);
+                seq->left    = body;
+                seq->right   = cmd;
+                body         = seq;
+            }
+
+            // Skip separators after command
+            token = parser_peek(parser);
+            if (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+                token->type == TOKEN_COMMENT) {
+                parser_skip(parser);
+            }
+        }
+
+        // Create the branch
+        ConditionalBranch *branch = calloc(1, sizeof(ConditionalBranch));
+        branch->condition         = condition;
+        branch->body              = body;
+        branch->next              = NULL;
+
+        if (!first_branch) {
+            first_branch   = branch;
+            current_branch = branch;
+        } else {
+            current_branch->next = branch;
+            current_branch       = branch;
+        }
+
+        // Check for elif, else, or fi
+        token = parser_peek(parser);
+        if (token->type == TOKEN_ELIF) {
+            parser_skip(parser);
+            // Continue loop to parse next condition
+            continue;
+        } else if (token->type == TOKEN_ELSE) {
+            parser_skip(parser);
+
+            // Skip newlines after 'else'
+            token = parser_peek(parser);
+            while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+                   token->type == TOKEN_COMMENT) {
+                parser_skip(parser);
+                token = parser_peek(parser);
+            }
+
+            // Create a special else branch with no condition
+            ConditionalBranch *else_branch =
+                calloc(1, sizeof(ConditionalBranch));
+            else_branch->condition = NULL; // No condition for else
+
+            // Parse else body
+            ASTNode *else_body = NULL;
+            while (true) {
+                token = parser_peek(parser);
+                if (token->type == TOKEN_FI) {
+                    break;
+                }
+                if (token->type == TOKEN_EOF) {
+                    fprintf(stderr,
+                            "Syntax error: unexpected EOF in else block\n");
+                    parser->error = true;
+                    break;
+                }
+
+                ASTNode *cmd = parse_conditional(parser, session);
+                if (!cmd) {
+                    // Skip trailing separators
+                    token = parser_peek(parser);
+                    if (token->type == TOKEN_EOL ||
+                        token->type == TOKEN_SEMICOLON ||
+                        token->type == TOKEN_COMMENT) {
+                        parser_skip(parser);
+                    } else {
+                        break;
+                    }
+                    continue;
+                }
+
+                // Append command to body
+                if (!else_body) {
+                    else_body = cmd;
+                } else {
+                    ASTNode *seq = init_ast(NULL, NODE_SEQUENCE);
+                    seq->left    = else_body;
+                    seq->right   = cmd;
+                    else_body    = seq;
+                }
+
+                // Skip separators after command
+                token = parser_peek(parser);
+                if (token->type == TOKEN_EOL ||
+                    token->type == TOKEN_SEMICOLON ||
+                    token->type == TOKEN_COMMENT) {
+                    parser_skip(parser);
+                }
+            }
+
+            else_branch->body    = else_body;
+            else_branch->next    = NULL;
+            current_branch->next = else_branch;
+            current_branch       = else_branch;
+            break;
+        } else if (token->type == TOKEN_FI) {
+            break;
+        } else {
+            fprintf(stderr, "Syntax error: expected 'elif', 'else', or 'fi' in "
+                            "if statement\n");
+            parser->error = true;
+            break;
+        }
+    }
+
+    // Consume 'fi'
+    token = parser_peek(parser);
+    if (token->type == TOKEN_FI) {
+        parser_skip(parser);
+    } else {
+        fprintf(stderr, "Syntax error: expected 'fi' to close if statement\n");
+        parser->error = true;
+    }
+
+    // Attach branches to conditional node
+    conditional->branches = first_branch;
+    return conditional;
+}
+#else
+/* Stub for parsing conditional when disabled */
+static ASTNode *parse_conditional(Parser *parser, Session *session) {
+    return parse_and_or(parser, session);
+}
+#endif
 
 /* Parse commands connected by && and || */
 static ASTNode *parse_and_or(Parser *parser, Session *session) {

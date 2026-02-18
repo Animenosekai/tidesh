@@ -99,6 +99,14 @@ typedef enum TokenType {
     TOKEN_RPAREN, // )
 #endif
 
+#ifndef TIDESH_DISABLE_CONDITIONALS
+    TOKEN_IF,   // if
+    TOKEN_THEN, // then
+    TOKEN_ELSE, // else
+    TOKEN_ELIF, // elif
+    TOKEN_FI,   // fi
+#endif
+
     TOKEN_EOL, // end of command (real newline)
     TOKEN_EOF  // end of file
 } TokenType;
