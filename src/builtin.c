@@ -19,6 +19,7 @@
 #include "builtins/pwd.h"      /* builtin_pwd */
 #include "builtins/source.h"   /* builtin_source */
 #include "builtins/terminal.h" /* builtin_terminal */
+#include "builtins/test.h"     /* builtin_test */
 #include "builtins/type.h"     /* builtin_type */
 #include "builtins/unalias.h"  /* builtin_unalias */
 #include "builtins/which.h"    /* builtin_which */
@@ -27,7 +28,7 @@
 const char *builtins[] = {
     "cd",    "exit",   "pwd",    "clear",   "history", "help",     "printenv",
     "which", "export", "alias",  "unalias", "eval",    "terminal", "info",
-    "pushd", "popd",   "source", "type",    NULL};
+    "pushd", "popd",   "source", "type",    "test",    NULL};
 
 int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
     if (strcmp(name, "cd") == 0)
@@ -68,6 +69,10 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_source;
     if (strcmp(name, "type") == 0)
         return builtin_type;
+    if (strcmp(name, "test") == 0)
+        return builtin_test;
+    if (strcmp(name, "[") == 0)
+        return builtin_test;
     return NULL;
 }
 

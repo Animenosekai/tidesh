@@ -25,6 +25,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool which    = false;
     bool source   = false;
     bool type     = false;
+    bool test     = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -63,11 +64,13 @@ int builtin_help(int argc, char **argv, Session *session) {
             source = true;
         else if (strcmp(argv[i], "type") == 0)
             type = true;
+        else if (strcmp(argv[i], "test") == 0 || strcmp(argv[i], "[") == 0)
+            test = true;
     }
 
     bool all = !(cd || clear || exit || export || eval || alias || unalias ||
                  help || history || info || printenv || pwd || pushd || popd ||
-                 terminal || which || source || type);
+                 terminal || which || source || type || test);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -168,7 +171,15 @@ int builtin_help(int argc, char **argv, Session *session) {
             command_clr, ".", argument_clr, "<file>", reset);
 
     if (all || type)
-        printf("  %s%-9s %s%-14s%s - Show the type of a command\n", command_clr,
-               "type", argument_clr, "[command...]", reset);
+
+        if (all || test)
+            printf("  %s%-9s %s%-14s%s - Evaluate conditional expressions\n",
+                   command_clr, "test", argument_clr, "[expr]", reset);
+
+    if (all || test)
+        printf("  %s%-9s %s%-14s%s - Evaluate conditional expressions\n",
+               command_clr, "[", argument_clr, "expr ]", reset);
+    printf("  %s%-9s %s%-14s%s - Show the type of a command\n", command_clr,
+           "type", argument_clr, "[command...]", reset);
     return 0;
 }
