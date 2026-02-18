@@ -102,6 +102,7 @@ sources = [
     "jobs.c",
     "lexer.c",
     "prompt.c",
+    "hooks.c",
     "session.c",
     "data/array.c",
     "data/dynamic.c",
@@ -141,6 +142,8 @@ sources = [
     "builtins/type.c",
     "builtins/source.c",
     "builtins/test.c",
+    "builtins/hooks.c",
+    "builtins/features.c",
 ]
 
 # Convert to relative paths for setup

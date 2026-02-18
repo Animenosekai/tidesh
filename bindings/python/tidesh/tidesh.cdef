@@ -67,6 +67,7 @@ struct Session {
     Jobs     *jobs;
     Features  features;
     bool      exit_requested;
+    bool      hooks_disabled;
     ...;
 };
 
@@ -245,8 +246,19 @@ int builtin_which(int argc, char **argv, Session *session);
 int builtin_jobs(int argc, char **argv, Session *session);
 int builtin_fg(int argc, char **argv, Session *session);
 int builtin_bg(int argc, char **argv, Session *session);
+int builtin_hooks(int argc, char **argv, Session *session);
 
 extern const char *tidesh_compiler;
+
+// Hooks
+typedef struct HookEnvVar {
+    const char *key;
+    const char *value;
+} HookEnvVar;
+
+void run_cwd_hook(Session *session, const char *hook_name);
+void run_cwd_hook_with_vars(Session *session, const char *hook_name,
+                            const HookEnvVar *vars, size_t var_count);
 
 // General free
 void free(void *ptr);

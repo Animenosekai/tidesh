@@ -81,7 +81,12 @@ class Session:
     _session: typing.Any
     """(internal) Pointer to the underlying C session structure."""
 
-    def __init__(self, history_path: str | None = None) -> None:
+    def __init__(
+        self,
+        history_path: str | None = None,
+        *,
+        run_hooks: bool = True,
+    ) -> None:
         """
         Initialize the shell session.
 
@@ -89,6 +94,8 @@ class Session:
         ----------
         history_path : str | None, optional
             The path to the history file. If None, history will not be saved to disk.
+        run_hooks : bool, default=True
+            Whether to enable hook execution for this session.
         """
         super().__init__()
         c_path = history_path.encode() if history_path else ffi.NULL
@@ -96,6 +103,9 @@ class Session:
         if self._session == ffi.NULL:
             msg = "Failed to initialize session"
             raise SessionError(msg)
+
+        # Set hook execution state
+        self._session.hooks_disabled = not run_hooks
 
         self.history = History(self._session.history)
         """The command history manager for this session."""
@@ -221,6 +231,88 @@ class Session:
         c_args = [b"fg", *[a.encode() for a in args]]
         c_argv = ffi.new("char*[]", c_args)
         return int(lib.builtin_fg(len(c_args), c_argv, self._session))
+
+    def hooks(self, *args: str) -> int:
+        """
+        Manage hooks using the hooks builtin.
+
+        Parameters
+        ----------
+        *args : str
+            Arguments for the hooks command:
+            - No args or 'list': List available hook files
+            - 'enable': Enable hook execution
+            - 'disable': Disable hook execution
+            - 'status': Show hook execution status
+            - 'run <hook_name>': Manually run a specific hook
+            - 'path': Show hooks directory path
+            - 'types': List all hook types
+
+        Returns
+        -------
+        int
+            The exit status.
+        """
+        c_args = [b"hooks", *[a.encode() for a in args]]
+        c_argv = ffi.new("char*[]", c_args)
+        return int(lib.builtin_hooks(len(c_args), c_argv, self._session))
+
+    def run_hook(self, hook_name: str, env_vars: dict[str, str] | None = None) -> None:
+        """
+        Run a hook script from the current working directory's .tidesh-hooks folder.
+
+        Parameters
+        ----------
+        hook_name : str
+            Name of the hook to run (e.g., "before_cmd", "cd", "enter").
+        env_vars : dict[str, str] | None, optional
+            Additional environment variables to set for the hook execution.
+        """
+        if env_vars:
+            # Create HookEnvVar array
+            hook_vars = []
+            for key, value in env_vars.items():
+                hook_var = ffi.new("HookEnvVar *")
+                hook_var.key = key.encode()
+                hook_var.value = value.encode()
+                hook_vars.append(hook_var)
+
+            vars_array = ffi.new("HookEnvVar[]", hook_vars)
+            lib.run_cwd_hook_with_vars(
+                self._session,
+                hook_name.encode(),
+                vars_array,
+                len(hook_vars),
+            )
+        else:
+            lib.run_cwd_hook(self._session, hook_name.encode())
+
+    def enable_hooks(self) -> None:
+        """
+        Enable hook execution for this session.
+
+        This allows .tidesh-hooks scripts to run when their trigger events occur.
+        """
+        self._session.hooks_disabled = False
+
+    def disable_hooks(self) -> None:
+        """
+        Disable hook execution for this session.
+
+        This prevents .tidesh-hooks scripts from running. Useful for debugging
+        or when you want to temporarily bypass hook behavior.
+        """
+        self._session.hooks_disabled = True
+
+    @property
+    def hooks_enabled(self) -> bool:
+        """Whether hook execution is enabled for this session."""
+        return not self._session.hooks_disabled
+
+    @hooks_enabled.setter
+    def hooks_enabled(self, enabled: bool) -> None:
+        """Set whether hook execution is enabled for this session."""
+        self._session.hooks_disabled = not enabled
 
     def list_jobs(self, *args: str) -> int:
         """

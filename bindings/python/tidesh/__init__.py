@@ -27,6 +27,7 @@ Classes
 - Terminal: Provides information about the terminal capabilities.
 - Jobs: A dict-like interface for background job control.
 - JobState: Job state constants (RUNNING, STOPPED, DONE, KILLED).
+- Hook: Hook name constants for .tidesh-hooks scripts.
 - Features: Runtime feature flags for conditional shell features.
 - Lexer: Lexical analyzer for tokenizing shell commands.
 - Token: Base class for all tokens in the shell command.
@@ -67,6 +68,7 @@ from .__info__ import (
 )
 from ._tidesh import ffi, lib
 from .ast import ASTNode, NodeType
+from .constants import Hook
 from .exceptions import (
     AliasError,
     CommandNotFoundError,
@@ -151,6 +153,7 @@ __all__ = [
     "HeredocToken",
     "HereStringToken",
     "History",
+    "Hook",
     "IONumberToken",
     "JobState",
     "Jobs",
