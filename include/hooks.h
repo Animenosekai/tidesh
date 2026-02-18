@@ -50,6 +50,30 @@
 // Fired when an environment variable changes (set/remove).
 #define HOOK_ENV_CHANGE "env_change"
 
+// Fired when the working directory changes (any change).
+#define HOOK_CD "cd"
+
+// Fired when a command is not found in PATH.
+#define HOOK_CMD_NOT_FOUND "cmd_not_found"
+
+// Fired after adding or updating an alias.
+#define HOOK_ALIAS_ADD "alias_add"
+
+// Fired after removing an alias.
+#define HOOK_ALIAS_REMOVE "alias_remove"
+
+// Fired when a foreground command is terminated by a signal.
+#define HOOK_SIGNAL "signal"
+
+// Fired right before starting a background job.
+#define HOOK_BEFORE_JOB "before_job"
+
+// Fired after a background job finishes or is killed.
+#define HOOK_AFTER_JOB "after_job"
+
+// Fired when the command line fails to parse due to syntax error.
+#define HOOK_SYNTAX_ERROR "syntax_error"
+
 // Fired once per session after rc handling.
 #define HOOK_SESSION_START "start"
 

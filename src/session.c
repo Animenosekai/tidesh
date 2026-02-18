@@ -16,6 +16,9 @@
 #include "session.h"         /* Session, Environ, History, Trie, DirStack */
 
 static void session_env_change_hook(void *context, const char *key);
+#ifndef TIDESH_DISABLE_JOB_CONTROL
+static void session_job_state_hook(void *context, const Job *job);
+#endif
 
 Session *init_session(Session *session, char *history_path) {
     if (!session) {
@@ -81,6 +84,7 @@ Session *init_session(Session *session, char *history_path) {
         free(session);
         return NULL;
     }
+    jobs_set_state_hook(session->jobs, session_job_state_hook, session);
 #endif
 
     session->current_working_dir  = NULL;
@@ -245,6 +249,16 @@ static void session_env_change_hook(void *context, const char *key) {
     run_cwd_hook(session, HOOK_ENV_CHANGE);
 }
 
+#ifndef TIDESH_DISABLE_JOB_CONTROL
+static void session_job_state_hook(void *context, const Job *job) {
+    (void)job;
+    Session *session = context;
+    if (!session)
+        return;
+    run_cwd_hook(session, HOOK_AFTER_JOB);
+}
+#endif
+
 void run_cwd_hook(Session *session, const char *hook_name) {
     if (!session || !session->current_working_dir)
         return;
@@ -364,6 +378,8 @@ void update_working_dir(Session *session) {
             run_dir_hook(session, current_value, HOOK_EXIT);
             run_dir_hook(session, session->current_working_dir, HOOK_ENTER);
         }
+
+        run_cwd_hook(session, HOOK_CD);
     }
 }
 

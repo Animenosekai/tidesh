@@ -344,7 +344,13 @@ int execute(ASTNode *node, Session *session) {
         }
         int st;
         waitpid(pid, &st, 0);
-        int exit_status = WEXITSTATUS(st);
+        int exit_status = 0;
+        if (WIFSIGNALED(st)) {
+            exit_status = 128 + WTERMSIG(st);
+            run_cwd_hook(session, HOOK_SIGNAL);
+        } else {
+            exit_status = WEXITSTATUS(st);
+        }
         environ_set_exit_status(session->environ, exit_status);
         run_cwd_hook(session, HOOK_EXIT_SUBSHELL);
         return exit_status;
@@ -482,8 +488,27 @@ int execute(ASTNode *node, Session *session) {
             }
         }
 
-        bool is_external = !is_builtin(cmd_name);
+        bool  is_external    = !is_builtin(cmd_name);
+        char *resolved_path  = NULL;
         if (is_external) {
+            resolved_path = find_in_path(cmd_name, session);
+            if (!resolved_path) {
+                run_cwd_hook(session, HOOK_CMD_NOT_FOUND);
+#ifdef PROJECT_NAME
+                fprintf(stderr, "%s: command not found: %s\n", PROJECT_NAME,
+                        cmd_name);
+#else
+                fprintf(stderr, "tidesh: command not found: %s\n", cmd_name);
+#endif
+                for (int i = 0; i < argc; i++)
+                    free(argv[i]);
+                free(argv);
+                free(arg_is_sub);
+                if (cmd_name_trimmed)
+                    free(cmd_name_trimmed);
+                environ_set_exit_status(session->environ, 127);
+                return 127;
+            }
             run_cwd_hook(session, HOOK_BEFORE_EXEC);
         }
 
@@ -582,8 +607,9 @@ int execute(ASTNode *node, Session *session) {
                 exit(ret);
             }
 
-            // Find the command path
-            char *path = find_in_path(cmd_name, session);
+            // Find the command path if not already resolved
+            char *path = resolved_path ? resolved_path
+                                       : find_in_path(cmd_name, session);
             if (!path) {
 #ifdef PROJECT_NAME
                 fprintf(stderr, "%s: command not found: %s\n", PROJECT_NAME,
@@ -604,7 +630,9 @@ int execute(ASTNode *node, Session *session) {
                 free_array(env_array);
                 free(env_array);
             }
-            free(path);
+            if (path && path != resolved_path) {
+                free(path);
+            }
             exit(126);
         }
 
@@ -617,6 +645,10 @@ int execute(ASTNode *node, Session *session) {
             free(arg_is_sub);
         if (cmd_name_trimmed)
             free(cmd_name_trimmed);
+
+        if (resolved_path) {
+            free(resolved_path);
+        }
 
         if (node->background) {
 #ifdef TIDESH_DISABLE_JOB_CONTROL
@@ -635,6 +667,7 @@ int execute(ASTNode *node, Session *session) {
                 printf("[%d] %d\n", job_id, pid);
                 environ_set_background_pid(session->environ, pid);
                 environ_set_exit_status(session->environ, 0);
+                run_cwd_hook(session, HOOK_BEFORE_JOB);
                 if (is_external) {
                     run_cwd_hook(session, HOOK_AFTER_EXEC);
                 }
@@ -649,7 +682,13 @@ int execute(ASTNode *node, Session *session) {
         } else {
             int status;
             waitpid(pid, &status, 0);
-            int exit_status = WEXITSTATUS(status);
+            int exit_status = 0;
+            if (WIFSIGNALED(status)) {
+                exit_status = 128 + WTERMSIG(status);
+                run_cwd_hook(session, HOOK_SIGNAL);
+            } else {
+                exit_status = WEXITSTATUS(status);
+            }
             environ_set_exit_status(session->environ, exit_status);
             if (is_external) {
                 run_cwd_hook(session, HOOK_AFTER_EXEC);
@@ -678,6 +717,8 @@ int execute_string(const char *cmd, Session *session) {
             history_append(session->history, cmd);
         }
 #endif
+    } else {
+        run_cwd_hook(session, HOOK_SYNTAX_ERROR);
     }
 
     run_cwd_hook(session, HOOK_AFTER_CMD);

@@ -19,6 +19,8 @@ Jobs *init_jobs(void) {
     jobs->count    = 0;
     jobs->capacity = 0;
     jobs->pgid     = getpgrp(); // Shell's process group
+    jobs->state_hook    = NULL;
+    jobs->state_context = NULL;
 
     return jobs;
 }
@@ -184,9 +186,21 @@ void jobs_update(Jobs *jobs) {
             // Mark as not notified if state changed
             if (old_state != job->state) {
                 job->notified = false;
+                if ((job->state == JOB_DONE || job->state == JOB_KILLED) &&
+                    jobs->state_hook) {
+                    jobs->state_hook(jobs->state_context, job);
+                }
             }
         }
     }
+}
+
+void jobs_set_state_hook(Jobs *jobs, JobsStateHook hook, void *context) {
+    if (!jobs) {
+        return;
+    }
+    jobs->state_hook    = hook;
+    jobs->state_context = context;
 }
 
 void jobs_notify(Jobs *jobs) {
