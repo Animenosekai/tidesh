@@ -125,7 +125,8 @@ bool is_special_builtin(const char *name) {
     if (strcmp(name, "exit") == 0 || strcmp(name, "export") == 0 ||
         strcmp(name, "info") == 0 || strcmp(name, "eval") == 0 ||
         strcmp(name, "terminal") == 0 || strcmp(name, "source") == 0 ||
-        strcmp(name, ".") == 0 || strcmp(name, "type") == 0) {
+        strcmp(name, ".") == 0 || strcmp(name, "type") == 0 ||
+        strcmp(name, "hooks") == 0) {
         return true;
     }
 #ifndef TIDESH_DISABLE_ALIASES

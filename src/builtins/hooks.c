@@ -81,8 +81,9 @@ static void list_hook_files(const char *dir) {
     struct dirent *entry;
     while ((entry = readdir(dir_handle)) != NULL) {
         const char *name = entry->d_name;
-        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+        if (!is_valid_hook_type(name)) {
             continue;
+        }
 
         char full_path[PATH_MAX];
         written =
@@ -177,7 +178,7 @@ int builtin_hooks(int argc, char **argv, Session *session) {
 
     if (strcmp(argv[1], "path") == 0) {
         if (!session->current_working_dir) {
-            fprintf(stderr, "hooks: cannot determine current directory\n");
+            printf("./tidesh-hooks\n");
             return 1;
         }
         printf("%s/.tidesh-hooks\n", session->current_working_dir);
