@@ -56,14 +56,14 @@
       - [Multi-line Formatting](#multi-line-formatting)
       - [Nested Conditionals](#nested-conditionals)
       - [Notes](#notes)
-- [Testing](#testing)
-  - [Prerequisites](#prerequisites-1)
-  - [Running Tests](#running-tests)
-  - [Specialized Test Targets](#specialized-test-targets)
 - [Python Bindings](#python-bindings)
   - [Installation](#installation-1)
   - [Usage](#usage)
   - [Development](#development)
+- [Testing](#testing)
+  - [Prerequisites](#prerequisites-1)
+  - [Running Tests](#running-tests)
+  - [Specialized Test Targets](#specialized-test-targets)
 - [Deployment](#deployment)
 - [Contributing](#contributing)
 - [Authors](#authors)
@@ -799,39 +799,6 @@ fi
 - Any command can be used as a condition, not just `test`
 - Multiple commands can be included in each block (then/elif/else)
 
-## Testing
-
-`tidesh` uses the [Snow](https://github.com/mortie/snow) testing framework.
-
-### Prerequisites
-
-You need to initialize and update the submodules to include the Snow testing framework:
-
-```bash
-git submodule update --init --recursive
-```
-
-### Running Tests
-
-You can run all the tests using the following command:
-
-```bash
-make test
-```
-
-### Specialized Test Targets
-
-You can also run tests for specific modules to speed up development:
-
-- `make test/data`: Data structures (Array, Dynamic String, Trie, UTF-8)
-- `make test/parsing`: Lexer and AST
-- `make test/execution`: Command execution logic
-- `make test/builtins`: Shell builtins
-- `make test/core`: Core shell components (Environment, History, etc.)
-- `make test/integration`: Full integration tests
-
-Individual suite targets like `make test/lexer`, `make test/ast`, or `make test/utf8` are also available.
-
 ## Python Bindings
 
 `tidesh` provides Python bindings to interact with the shell programmatically.
@@ -889,6 +856,39 @@ The `Makefile` provides several utility commands:
 - `make lint` - Run `clang-tidy` for linting.
 - `make docs` - Generate documentation using Doxygen.
 - `make clean` - Remove object files and binary.
+
+## Testing
+
+`tidesh` uses the [Snow](https://github.com/mortie/snow) testing framework.
+
+### Prerequisites
+
+You need to initialize and update the submodules to include the Snow testing framework:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Running Tests
+
+You can run all the tests using the following command:
+
+```bash
+make test
+```
+
+### Specialized Test Targets
+
+You can also run tests for specific modules to speed up development:
+
+- `make test/data`: Data structures (Array, Dynamic String, Trie, UTF-8)
+- `make test/parsing`: Lexer and AST
+- `make test/execution`: Command execution logic
+- `make test/builtins`: Shell builtins
+- `make test/core`: Core shell components (Environment, History, etc.)
+- `make test/integration`: Full integration tests
+
+Individual suite targets like `make test/lexer`, `make test/ast`, or `make test/utf8` are also available.
 
 ## Deployment
 
