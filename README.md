@@ -199,6 +199,20 @@ It manages environment variables similar to traditional UNIX shells with automat
 - `PWD` - Current working directory
 - `OLDPWD` - Previous working directory
 
+It also manages multiple environment variables under the `TIDESH_*` namespace :
+
+- TIDESH_NAME — The name of the shell (e.g., "tidesh")
+- TIDESH_VERSION — The version of the shell (e.g., "1.0.0-b62d82c")
+- TIDESH_RAW_VERSION — The raw version string (e.g., "1.0.0")
+- TIDESH_GIT_VERSION — The Git commit hash of the build (e.g., "b62d82c")
+- TIDESH_BUILD_DATE — The date and time when the shell was built (e.g., "2026-02-19")
+- TIDESH_PLATFORM — The platform/OS the shell was compiled for (accepted values: "linux", "macos", "windows")
+- TIDESH_COMPILER — The compiler used to build the shell (e.g., "Apple LLVM 17.0.0 (clang-1700.3.19.1)")
+- TIDESH_BUILD_TYPE — The build type (e.g., "debug", "release")
+- TIDESH_PID — The process ID of the shell
+- TIDESH_PPID — The parent process ID of the shell
+- TIDESH_EXECUTABLE=/usr/local/bin/tidesh
+
 #### Command History
 
 It provides a robust command history feature with the persistent storage of commands on disk and various navigation and expansion capabilities.
@@ -248,7 +262,7 @@ fi
 Kind of like an RC file, but for specific directories instead of the whole shell session. You can have different hooks for different events, such as before executing a command, after changing directories, or when a command fails.
 
 > [!TIP]  
-> The `enter` hooks of the filepath parents are executed when you `cd` into a directory. For example, if you have `.tidesh-hooks/enter.sh` in `/home/user/project` and you `cd /home/user/project/subdir`, the `enter` hook in `/home/user/project` will be executed.  
+> The `enter` hooks of the filepath parents are executed when you `cd` into a directory. For example, if you have `.tidesh-hooks/enter.sh` in `/home/user/project` and you `cd /home/user/project/subdir`, the `enter` hook in `/home/user/project` will be executed (then eventually the `enter` hook in `/home/user/project/subdir` if it exists).
 > This allows you to have project-specific hooks that run whenever you enter the project directory or any of its subdirectories.
 >
 > ```fs
@@ -262,6 +276,12 @@ Kind of like an RC file, but for specific directories instead of the whole shell
 > |   |   |   |   ├── .tidesh-hooks      ┃ when you `cd` into `subdir`
 > |   |   |   |   |   ├── enter.sh <━━━━━┛
 > ```
+
+> [!TIP]  
+> The `exit` hook also works in a similar way, but it runs when you leave a directory. So if you `cd` out of `/home/user/project/subdir`, the `exit` hooks in both `subdir` and `project` will be executed in that order.
+
+> [!NOTE]  
+> The `enter` and `exit` hooks won't be executed if you navigate within the same related directories (a child for example).
 
 ##### Supported Hook Types
 
@@ -361,6 +381,9 @@ puts "Hook: #{ENV['TIDE_HOOK']} at #{ENV['TIDE_TIMESTAMP']}"
 ```
 
 If a hook does **not** have a shebang, it will be sourced as a shell script instead.
+
+> [!IMPORTANT]  
+> Hooks are executed in the same process as the shell, so they can modify the shell environment (e.g., changing variables, aliases, etc.) and their changes will persist after the hook finishes **EXCEPT** for shebanged hooks (because another interpreter is invoked) where a separate process is spawned to run the hook.
 
 ##### Hook Context Variables
 

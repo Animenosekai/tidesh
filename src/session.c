@@ -227,6 +227,223 @@ static void run_parent_enter_hooks(Session *session, const char *path) {
     free(parents);
 }
 
+static void run_parent_exit_hooks(Session *session, const char *path) {
+    if (!session || !path || path[0] == '\0')
+        return;
+
+    Array *parents = init_array(NULL);
+    if (!parents)
+        return;
+
+    char *cursor = strdup(path);
+    if (!cursor) {
+        free_array(parents);
+        free(parents);
+        return;
+    }
+
+    size_t len  = trim_trailing_slash_len(cursor, strlen(cursor));
+    cursor[len] = '\0';
+
+    while (true) {
+        array_add(parents, cursor);
+        if (strcmp(cursor, "/") == 0)
+            break;
+
+        char *slash = strrchr(cursor, '/');
+        if (!slash)
+            break;
+        if (slash == cursor) {
+            cursor[1] = '\0';
+        } else {
+            *slash = '\0';
+        }
+    }
+
+    // Run exit hooks in reverse order (from current dir to root)
+    for (size_t i = 0; i < parents->count; i++) {
+        run_dir_hook_with_vars(session, parents->items[i], HOOK_EXIT, NULL, 0);
+    }
+
+    free(cursor);
+    free_array(parents);
+    free(parents);
+}
+
+static void run_descendant_enter_hooks(Session *session, const char *from,
+                                       const char *to) {
+    if (!session || !from || !to)
+        return;
+
+    // Build list of directories from 'to' up to root
+    Array *to_parents = init_array(NULL);
+    if (!to_parents)
+        return;
+
+    char *cursor = strdup(to);
+    if (!cursor) {
+        free_array(to_parents);
+        free(to_parents);
+        return;
+    }
+
+    size_t len  = trim_trailing_slash_len(cursor, strlen(cursor));
+    cursor[len] = '\0';
+
+    while (true) {
+        array_add(to_parents, cursor);
+        if (strcmp(cursor, "/") == 0)
+            break;
+
+        char *slash = strrchr(cursor, '/');
+        if (!slash)
+            break;
+        if (slash == cursor) {
+            cursor[1] = '\0';
+        } else {
+            *slash = '\0';
+        }
+    }
+
+    free(cursor);
+
+    // Normalize 'from' path for comparison
+    size_t from_len        = strlen(from);
+    char  *from_normalized = strdup(from);
+    if (!from_normalized) {
+        free_array(to_parents);
+        free(to_parents);
+        return;
+    }
+    from_len = trim_trailing_slash_len(from_normalized, from_len);
+    from_normalized[from_len] = '\0';
+
+    // Filter out directories that are ancestors of or equal to 'from'
+    // We only want to call enter hooks on new directories
+    Array *new_dirs = init_array(NULL);
+    if (!new_dirs) {
+        free(from_normalized);
+        free_array(to_parents);
+        free(to_parents);
+        return;
+    }
+
+    for (size_t i = 0; i < to_parents->count; i++) {
+        const char *dir     = to_parents->items[i];
+        size_t      dir_len = strlen(dir);
+
+        // Skip if this directory is 'from' or an ancestor of 'from'
+        if (dir_len < from_len) {
+            // dir is an ancestor of from, skip it
+            continue;
+        } else if (dir_len == from_len && strcmp(dir, from_normalized) == 0) {
+            // dir is exactly 'from', skip it
+            continue;
+        }
+
+        // This is a new directory we're entering
+        array_add(new_dirs, (char *)dir);
+    }
+
+    // Run enter hooks in reverse order (root to child)
+    for (size_t i = new_dirs->count; i > 0; i--) {
+        run_dir_hook_with_vars(session, new_dirs->items[i - 1], HOOK_ENTER,
+                               NULL, 0);
+    }
+
+    free(from_normalized);
+    free(new_dirs); // Don't free the strings, they're owned by to_parents
+    free_array(to_parents);
+    free(to_parents);
+}
+
+static void run_ancestor_exit_hooks(Session *session, const char *from,
+                                    const char *to) {
+    if (!session || !from || !to)
+        return;
+
+    // Build list of directories from 'from' up to root
+    Array *from_parents = init_array(NULL);
+    if (!from_parents)
+        return;
+
+    char *cursor = strdup(from);
+    if (!cursor) {
+        free_array(from_parents);
+        free(from_parents);
+        return;
+    }
+
+    size_t len  = trim_trailing_slash_len(cursor, strlen(cursor));
+    cursor[len] = '\0';
+
+    while (true) {
+        array_add(from_parents, cursor);
+        if (strcmp(cursor, "/") == 0)
+            break;
+
+        char *slash = strrchr(cursor, '/');
+        if (!slash)
+            break;
+        if (slash == cursor) {
+            cursor[1] = '\0';
+        } else {
+            *slash = '\0';
+        }
+    }
+
+    free(cursor);
+
+    // Normalize 'to' path for comparison
+    size_t to_len        = strlen(to);
+    char  *to_normalized = strdup(to);
+    if (!to_normalized) {
+        free_array(from_parents);
+        free(from_parents);
+        return;
+    }
+    to_len                = trim_trailing_slash_len(to_normalized, to_len);
+    to_normalized[to_len] = '\0';
+
+    // Filter out directories that are ancestors of or equal to 'to'
+    // We only want to call exit hooks on directories we're actually leaving
+    Array *exiting_dirs = init_array(NULL);
+    if (!exiting_dirs) {
+        free(to_normalized);
+        free_array(from_parents);
+        free(from_parents);
+        return;
+    }
+
+    for (size_t i = 0; i < from_parents->count; i++) {
+        const char *dir     = from_parents->items[i];
+        size_t      dir_len = strlen(dir);
+
+        // Skip if this directory is 'to' or an ancestor of 'to'
+        if (dir_len < to_len) {
+            // dir is an ancestor of to, skip it (we're staying in this tree)
+            continue;
+        } else if (dir_len == to_len && strcmp(dir, to_normalized) == 0) {
+            // dir is exactly 'to', skip it (we're moving to it)
+            continue;
+        }
+
+        // This is a directory we're exiting
+        array_add(exiting_dirs, (char *)dir);
+    }
+
+    // Run exit hooks in order (child to root)
+    for (size_t i = 0; i < exiting_dirs->count; i++) {
+        run_dir_hook_with_vars(session, exiting_dirs->items[i], HOOK_EXIT, NULL,
+                               0);
+    }
+
+    free(to_normalized);
+    free(exiting_dirs); // Don't free the strings, they're owned by from_parents
+    free_array(from_parents);
+    free(from_parents);
+}
+
 void update_working_dir(Session *session) {
     const char *current_value = session->current_working_dir;
     char       *cwd           = getcwd(NULL, 0);
@@ -280,10 +497,6 @@ void update_working_dir(Session *session) {
     }
 
     if (current_value && session->current_working_dir) {
-        HookEnvVar dir_vars[] = {
-            {"TIDE_FROM", current_value ? current_value : ""},
-            {"TIDE_TO",
-             session->current_working_dir ? session->current_working_dir : ""}};
         HookEnvVar child_vars[] = {
             {"TIDE_CHILD",
              session->current_working_dir ? session->current_working_dir : ""}};
@@ -320,21 +533,27 @@ void update_working_dir(Session *session) {
              session->current_working_dir ? session->current_working_dir : ""},
             {"TIDE_PARENT", parent_dir}};
 
+        // For parent-child relationships, only call hooks on the changed parts
         if (moved_down) {
+            // Moving down: enter_child on parent, enter on all new
+            // subdirectories No exit hook - we're not leaving, just going
+            // deeper
             run_dir_hook_with_vars(session, current_value, HOOK_ENTER_CHILD,
                                    child_vars, 1);
-            run_dir_hook_with_vars(session, session->current_working_dir,
-                                   HOOK_ENTER, dir_vars, 2);
+            run_descendant_enter_hooks(session, current_value,
+                                       session->current_working_dir);
         } else if (moved_up) {
-            run_dir_hook_with_vars(session, current_value, HOOK_EXIT, dir_vars,
-                                   2);
+            // Moving up: exit all intermediate directories, exit_child on
+            // parent No enter hook on parent since we're already there
+            // conceptually
+            run_ancestor_exit_hooks(session, current_value,
+                                    session->current_working_dir);
             run_dir_hook_with_vars(session, session->current_working_dir,
                                    HOOK_EXIT_CHILD, exit_child_vars, 1);
         } else {
-            run_dir_hook_with_vars(session, current_value, HOOK_EXIT, dir_vars,
-                                   2);
-            run_dir_hook_with_vars(session, session->current_working_dir,
-                                   HOOK_ENTER, dir_vars, 2);
+            // Unrelated paths: exit all from old, enter all for new
+            run_parent_exit_hooks(session, current_value);
+            run_parent_enter_hooks(session, session->current_working_dir);
         }
 
         run_cwd_hook_with_vars(session, HOOK_CD, cd_with_parent, 4);
