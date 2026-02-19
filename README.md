@@ -193,25 +193,25 @@ It manages the terminal state directly by keeping a virtual representation of th
 
 It manages environment variables similar to traditional UNIX shells with automatic handling of shell-specific variables :
 
-- `SHELL` - Path to the shell executable
-- `SHLVL` - Shell level indicating depth of nested shells
-- `HOME` - User's home directory
-- `PWD` - Current working directory
-- `OLDPWD` - Previous working directory
+- `SHELL` — Path to the shell executable
+- `SHLVL` — Shell level indicating depth of nested shells
+- `HOME` — User's home directory
+- `PWD` — Current working directory
+- `OLDPWD` — Previous working directory
 
 It also manages multiple environment variables under the `TIDESH_*` namespace :
 
-- TIDESH_NAME — The name of the shell (e.g., "tidesh")
-- TIDESH_VERSION — The version of the shell (e.g., "1.0.0-b62d82c")
-- TIDESH_RAW_VERSION — The raw version string (e.g., "1.0.0")
-- TIDESH_GIT_VERSION — The Git commit hash of the build (e.g., "b62d82c")
-- TIDESH_BUILD_DATE — The date and time when the shell was built (e.g., "2026-02-19")
-- TIDESH_PLATFORM — The platform/OS the shell was compiled for (accepted values: "linux", "macos", "windows")
-- TIDESH_COMPILER — The compiler used to build the shell (e.g., "Apple LLVM 17.0.0 (clang-1700.3.19.1)")
-- TIDESH_BUILD_TYPE — The build type (e.g., "debug", "release")
-- TIDESH_PID — The process ID of the shell
-- TIDESH_PPID — The parent process ID of the shell
-- TIDESH_EXECUTABLE=/usr/local/bin/tidesh
+- `TIDESH_NAME` — The name of the shell (e.g., "tidesh")
+- `TIDESH_VERSION` — The version of the shell (e.g., "1.0.0-b62d82c")
+- `TIDESH_RAW_VERSION` — The raw version string (e.g., "1.0.0")
+- `TIDESH_GIT_VERSION` — The Git commit hash of the build (e.g., "b62d82c")
+- `TIDESH_BUILD_DATE` — The date and time when the shell was built (e.g., "2026-02-19")
+- `TIDESH_PLATFORM` — The platform/OS the shell was compiled for (accepted values: "linux", "macos", "windows")
+- `TIDESH_COMPILER` — The compiler used to build the shell (e.g., "Apple LLVM 17.0.0 (clang-1700.3.19.1)")
+- `TIDESH_BUILD_TYPE` — The build type (e.g., "debug", "release")
+- `TIDESH_PID` — The process ID of the shell
+- `TIDESH_PPID` — The parent process ID of the shell
+- `TIDESH_EXECUTABLE` — The absolute path to the shell executable (e.g., "/usr/local/bin/tidesh")
 
 #### Command History
 
