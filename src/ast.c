@@ -25,7 +25,7 @@ static ASTNode *init_ast(ASTNode *node, NodeType type) {
     node->right       = NULL;
     node->background  = false;
 #ifndef TIDESH_DISABLE_CONDITIONALS
-    node->branches    = NULL;
+    node->branches = NULL;
 #endif
     return node;
 }
@@ -122,7 +122,6 @@ void free_ast(ASTNode *node) {
         node->branches = NULL;
     }
 #endif
-
 }
 
 /* A command parser */

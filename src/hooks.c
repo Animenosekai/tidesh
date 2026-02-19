@@ -179,6 +179,17 @@ void run_dir_hook_with_vars(Session *session, const char *dir,
     time_t now = time(NULL);
     snprintf(timestamp_str, sizeof(timestamp_str), "%ld", now);
 
+    // Generate TIDE_TIMESTAMP_NANO
+    char            timestamp_nano_str[32];
+    struct timespec clock_time;
+    if (clock_gettime(CLOCK_REALTIME, &clock_time) == 0) {
+        long nanos = clock_time.tv_sec * 1000000000L + clock_time.tv_nsec;
+        snprintf(timestamp_nano_str, sizeof(timestamp_nano_str), "%ld", nanos);
+    } else {
+        snprintf(timestamp_nano_str, sizeof(timestamp_nano_str), "%ld",
+                 now * 1000000000L);
+    }
+
     // Try to run wildcard "*" hook first
     char wildcard_hook_path[PATH_MAX];
     if (find_hook_file(dir, HOOK_ALL, wildcard_hook_path,
@@ -194,6 +205,8 @@ void run_dir_hook_with_vars(Session *session, const char *dir,
                             session);
         hook_env_backup_add(&backups, &backup_count, "TIDE_TIMESTAMP",
                             timestamp_str, session);
+        hook_env_backup_add(&backups, &backup_count, "TIDE_TIMESTAMP_NANO",
+                            timestamp_nano_str, session);
 
         for (size_t i = 0; i < var_count; i++) {
             if (!vars[i].key || !vars[i].value)
@@ -249,6 +262,8 @@ void run_dir_hook_with_vars(Session *session, const char *dir,
                         session);
     hook_env_backup_add(&backups, &backup_count, "TIDE_TIMESTAMP",
                         timestamp_str, session);
+    hook_env_backup_add(&backups, &backup_count, "TIDE_TIMESTAMP_NANO",
+                        timestamp_nano_str, session);
 
     for (size_t i = 0; i < var_count; i++) {
         if (!vars[i].key || !vars[i].value)

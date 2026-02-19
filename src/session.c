@@ -8,7 +8,7 @@
 
 #include "data/array.h"      /* array_add, free_array */
 #include "environ.h"         /* environ_get, environ_set, environ_get_default */
-#include "feature-flags.h"        /* Features */
+#include "feature-flags.h"   /* Features */
 #include "hooks.h"           /* HOOK_* */
 #include "prompt/terminal.h" /* Terminal, terminal functions */
 #include "session.h"         /* Session, Environ, History, Trie, DirStack */
@@ -252,8 +252,7 @@ void update_working_dir(Session *session) {
 #ifndef TIDESH_DISABLE_DIRSTACK
     if (!session->dirstack->stack->count) {
         // Initialize dirstack with current dir (make a copy)
-        array_add(session->dirstack->stack,
-              session->current_working_dir);
+        array_add(session->dirstack->stack, session->current_working_dir);
     }
 #endif
 

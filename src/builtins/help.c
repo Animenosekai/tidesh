@@ -3,9 +3,9 @@
 #include <string.h>  /* strcmp */
 
 #include "builtins/help.h"
-#include "feature-flags.h"    /* TIDESH_DISABLE_* */
-#include "prompt/ansi.h" /* ANSI color constants */
-#include "session.h"     /* Session */
+#include "feature-flags.h" /* TIDESH_DISABLE_* */
+#include "prompt/ansi.h"   /* ANSI color constants */
+#include "session.h"       /* Session */
 
 int builtin_help(int argc, char **argv, Session *session) {
     bool cd       = false;

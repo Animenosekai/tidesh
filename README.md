@@ -42,6 +42,7 @@
       - [Supported Hook Types](#supported-hook-types)
       - [Using Hooks](#using-hooks)
       - [Hook Context Variables](#hook-context-variables)
+        - [Example: Timing Command Execution](#example-timing-command-execution)
       - [The `hooks` Builtin](#the-hooks-builtin)
     - [Feature Flags](#feature-flags)
       - [Runtime Feature Flags](#runtime-feature-flags)
@@ -461,14 +462,82 @@ All hooks receive these global environment variables:
 
 - `TIDE_HOOK` - The specific hook name being executed (e.g., "cd", "before_cmd")
 - `TIDE_TIMESTAMP` - Unix timestamp when the hook fires (epoch seconds)
+- `TIDE_TIMESTAMP_NANO` - Nanosecond-precision timestamp when the hook fires (nanoseconds since epoch)
 
 Additional context variables are provided for specific hooks:
 
-| Hook | Context Variables |
-| :--- | :--- |
-| Directory hooks | `TIDE_PARENT` - Parent directory path |
-| Environment hooks | `TIDE_ENV_KEY`, `TIDE_ENV_VALUE`, `TIDE_ENV_OLD_VALUE` |
-| Alias hooks | `TIDE_ALIAS_NAME`, `TIDE_ALIAS_VALUE` |
+| Context Variable | Hooks | Details |
+| :--- | :--- | :--- |
+| `TIDE_HOOK` | All hooks | The specific hook name being executed (e.g., "cd", "enter", "add_alias") |
+| `TIDE_TIMESTAMP` | All hooks | Unix timestamp when the hook fires (seconds since epoch) |
+| `TIDE_TIMESTAMP_NANO` | All hooks | Nanosecond-precision timestamp (nanoseconds since epoch) |
+| `TIDE_CMDLINE` | `before_cmd`, `after_cmd`, `syntax_error`, `error` | Full command line string that was entered |
+| `TIDE_CMD` | `before_cmd`, `after_cmd`, `cmd_not_found`, `syntax_error`, `error` | First word of the command (command name) |
+| `TIDE_EXEC` | `before_exec`, `after_exec` | Resolved absolute path to the external command being executed |
+| `TIDE_ARGV0` | `before_exec`, `after_exec` | The first argument (argv[0]) passed to the command |
+| `TIDE_FROM` | `cd`, `enter`, `exit` | Previous directory path before the change |
+| `TIDE_TO` | `cd`, `enter`, `exit` | New directory path after the change |
+| `TIDE_DIR` | `cd` | Current directory path (same as `TIDE_TO`) |
+| `TIDE_PARENT` | `cd` | Parent directory of the target directory |
+| `TIDE_CHILD` | `enter_child`, `exit_child` | Child directory path being entered or exited |
+| `TIDE_ENV_KEY` | `add_environ`, `remove_environ`, `change_environ` | Environment variable name |
+| `TIDE_ENV_VALUE` | `add_environ`, `remove_environ`, `change_environ` | Current/new value (empty for `remove_environ`) |
+| `TIDE_ENV_OLD_VALUE` | `add_environ`, `remove_environ`, `change_environ` | Previous value (empty for new variables in `add_environ`) |
+| `TIDE_ALIAS_NAME` | `add_alias`, `remove_alias`, `change_alias` | Alias name |
+| `TIDE_ALIAS_VALUE` | `add_alias`, `remove_alias`, `change_alias` | Alias value (new value for add/change, previous value for remove) |
+| `TIDE_JOB_ID` | `before_job`, `after_job` | Background job ID number |
+| `TIDE_JOB_PID` | `before_job`, `after_job` | Process ID of the background job |
+| `TIDE_JOB_STATE` | `before_job`, `after_job` | Job state: `running`, `stopped`, `done`, or `killed` |
+| `TIDE_SIGNAL` | `signal` | Signal number that terminated the foreground command |
+| `TIDE_ERROR` | `syntax_error`, `error` | Error type: `"SYNTAX_ERROR"` or `"CMD_FAIL"` |
+| `CMD_FAIL` | `error` | Set to `"1"` when a command fails (for legacy compatibility) |
+
+###### Example: Timing Command Execution
+
+You can use the `before_cmd` and `after_cmd` hooks to measure how long a command takes to execute:
+
+```sh
+# .tidesh-hooks/before_cmd.sh
+export TIDE_START_TIME=$TIDE_TIMESTAMP_NANO
+```
+
+```python
+# .tidesh-hooks/after_cmd.py
+#!/usr/bin/env python3
+
+import os
+
+elapsed = (
+    int(os.environ["TIDE_TIMESTAMP_NANO"]) - int(os.environ.get("TIDE_START_TIME", 0))
+) / 1e9
+
+print(f"Took {elapsed} seconds to run {os.environ['TIDE_CMDLINE']}")
+```
+
+Now, in tidesh, every command you run will show how long it took to execute:
+
+```sh
+❱ sleep 1
+Took 1.014119 seconds to run sleep 1
+❱ echo hello
+hello
+Took 0.009505 seconds to run echo hello
+```
+
+You can even think about creative ways of customizing your shell behavior with hooks, such as:
+
+```sh
+# .tidesh-hooks/start.sh
+export WEATHER=$(curl -s wttr.in?format="%c%t")
+export PS1="${WEATHER} ❱ "
+```
+
+Which would show the current weather in your prompt whenever you start a new shell session:
+
+```sh
+🌦  +9°C ❱ echo hello
+hello
+```
 
 ##### The `hooks` Builtin
 
