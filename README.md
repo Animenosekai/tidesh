@@ -21,16 +21,8 @@
   - [Basic Usage](#basic-usage)
   - [Command-line Options](#command-line-options)
   - [Configuration](#configuration)
-  - [Development](#development)
   - [Builtin Commands](#builtin-commands)
   - [Terminal Handling](#terminal-handling)
-- [Testing](#testing)
-  - [Prerequisites](#prerequisites-1)
-  - [Running Tests](#running-tests)
-  - [Specialized Test Targets](#specialized-test-targets)
-- [Python Bindings](#python-bindings)
-  - [Installation](#installation-1)
-  - [Usage](#usage)
 - [Features](#features)
   - [Core Shell Features](#core-shell-features)
     - [Environment Variables](#environment-variables)
@@ -64,9 +56,14 @@
       - [Multi-line Formatting](#multi-line-formatting)
       - [Nested Conditionals](#nested-conditionals)
       - [Notes](#notes)
-  - [Lexical Analysis](#lexical-analysis)
-    - [Token Types](#token-types)
-    - [String Processing](#string-processing)
+- [Testing](#testing)
+  - [Prerequisites](#prerequisites-1)
+  - [Running Tests](#running-tests)
+  - [Specialized Test Targets](#specialized-test-targets)
+- [Python Bindings](#python-bindings)
+  - [Installation](#installation-1)
+  - [Usage](#usage)
+  - [Development](#development)
 - [Deployment](#deployment)
 - [Contributing](#contributing)
 - [Authors](#authors)
@@ -148,18 +145,6 @@ alias l='ls -CF'
 info
 ```
 
-### Development
-
-The `Makefile` provides several utility commands:
-
-- `make build` - Build the project (default `BUILD_TYPE=debug`).
-- `make build BUILD_TYPE=release` - Build the optimized version.
-- `make test` - Run all automated tests.
-- `make format` - Format the code using `clang-format`.
-- `make lint` - Run `clang-tidy` for linting.
-- `make docs` - Generate documentation using Doxygen.
-- `make clean` - Remove object files and binary.
-
 ### Builtin Commands
 
 `tidesh` includes a set of powerful builtin commands:
@@ -199,85 +184,6 @@ The shell includes terminal handling features such as:
 - Command history navigation
 
 It manages the terminal state directly by keeping a virtual representation of the terminal screen and cursor position. Allowing for total control over the terminal display and user input.
-
-## Testing
-
-`tidesh` uses the [Snow](https://github.com/mortie/snow) testing framework.
-
-### Prerequisites
-
-You need to initialize and update the submodules to include the Snow testing framework:
-
-```bash
-git submodule update --init --recursive
-```
-
-### Running Tests
-
-You can run all the tests using the following command:
-
-```bash
-make test
-```
-
-### Specialized Test Targets
-
-You can also run tests for specific modules to speed up development:
-
-- `make test/data`: Data structures (Array, Dynamic String, Trie, UTF-8)
-- `make test/parsing`: Lexer and AST
-- `make test/execution`: Command execution logic
-- `make test/builtins`: Shell builtins
-- `make test/core`: Core shell components (Environment, History, etc.)
-- `make test/integration`: Full integration tests
-
-Individual suite targets like `make test/lexer`, `make test/ast`, or `make test/utf8` are also available.
-
-## Python Bindings
-
-`tidesh` provides Python bindings to interact with the shell programmatically.
-
-### Installation
-
-```bash
-make clean/python build/python
-```
-
-This will create a Python wheel file in the `dist/` directory. You can install it using pip:
-
-```bash
-pip install bindings/python/dist/*.whl
-```
-
-### Usage
-
-```python
-from tidesh import Session, ExternalCommandInfo
-
-with Session() as session:
-    # Execute a command
-    session.execute("echo Hello from Python!")
-
-    # Set environment variables
-    session.environ["GREETING"] = "Bonjour"
-    session.execute("echo $GREETING")
-
-    # Capture output
-    output = session.capture("pwd")
-    print(f"Current directory: {output}")
-    session.execute("cd /tmp")
-    output = session.capture("pwd")
-    print(f"Changed directory: {output}")
-
-    # Check a command's path
-    ls, echo, *_ = session.which("ls", "echo")
-
-    if isinstance(ls, ExternalCommandInfo):
-        print(f"Path to ls: {ls.path}")
-
-    if isinstance(echo, ExternalCommandInfo):
-        print(f"Path to echo: {echo.path}")
-```
 
 ## Features
 
@@ -870,34 +776,96 @@ fi
 - Any command can be used as a condition, not just `test`
 - Multiple commands can be included in each block (then/elif/else)
 
-### Lexical Analysis
+## Testing
 
-#### Token Types
+`tidesh` uses the [Snow](https://github.com/mortie/snow) testing framework.
 
-- **Words and assignments**: Regular words and variable assignments (`VAR=value`)
-- **Operators**:
-  - Pipes: `|`
-  - Redirections: `<`, `>`, `>>`, `>&`
-  - Logical operators: `&&`, `||`
-  - Background: `&`
-  - Sequential: `;`
-- **Conditional keywords**: `if`, `then`, `elif`, `else`, `fi`
-- **Advanced I/O**:
-  - Here-documents: `<<`
-  - Here-strings: `<<<`
-  - I/O redirection with file descriptors: `n<`, `n>`, `n>>`, `n>&`
-  - Process substitution: `<(...)`, `>(...)`
-- **Grouping**: Parentheses `(` and `)`
-- **Comments**: `#` to end of line
+### Prerequisites
 
-#### String Processing
+You need to initialize and update the submodules to include the Snow testing framework:
 
-- **Quoting**:
-  - Single quotes: Preserve literal strings
-  - Double quotes: Allow variable expansion
-  - Escape sequences: Backslash escaping
-- **Dynamic strings**: Efficient string building with automatic memory management
-- **String arrays**: Dynamic arrays for managing multiple strings
+```bash
+git submodule update --init --recursive
+```
+
+### Running Tests
+
+You can run all the tests using the following command:
+
+```bash
+make test
+```
+
+### Specialized Test Targets
+
+You can also run tests for specific modules to speed up development:
+
+- `make test/data`: Data structures (Array, Dynamic String, Trie, UTF-8)
+- `make test/parsing`: Lexer and AST
+- `make test/execution`: Command execution logic
+- `make test/builtins`: Shell builtins
+- `make test/core`: Core shell components (Environment, History, etc.)
+- `make test/integration`: Full integration tests
+
+Individual suite targets like `make test/lexer`, `make test/ast`, or `make test/utf8` are also available.
+
+## Python Bindings
+
+`tidesh` provides Python bindings to interact with the shell programmatically.
+
+### Installation
+
+```bash
+make clean/python build/python
+```
+
+This will create a Python wheel file in the `dist/` directory. You can install it using pip:
+
+```bash
+pip install bindings/python/dist/*.whl
+```
+
+### Usage
+
+```python
+from tidesh import Session, ExternalCommandInfo
+
+with Session() as session:
+    # Execute a command
+    session.execute("echo Hello from Python!")
+
+    # Set environment variables
+    session.environ["GREETING"] = "Bonjour"
+    session.execute("echo $GREETING")
+
+    # Capture output
+    output = session.capture("pwd")
+    print(f"Current directory: {output}")
+    session.execute("cd /tmp")
+    output = session.capture("pwd")
+    print(f"Changed directory: {output}")
+
+    # Check a command's path
+    ls, echo, *_ = session.which("ls", "echo")
+
+    if isinstance(ls, ExternalCommandInfo):
+        print(f"Path to ls: {ls.path}")
+
+    if isinstance(echo, ExternalCommandInfo):
+        print(f"Path to echo: {echo.path}")
+```
+
+### Development
+
+The `Makefile` provides several utility commands:
+
+- `make build` - Build the project (default `BUILD_TYPE=debug`).
+- `make build BUILD_TYPE=release` - Build the optimized version.
+- `make test` - Run all automated tests.
+- `make format` - Format the code using `clang-format`.
+- `make lint` - Run `clang-tidy` for linting.
+- `make docs` - Generate documentation using Doxygen.
+- `make clean` - Remove object files and binary.
 
 ## Deployment
 
