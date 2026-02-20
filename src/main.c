@@ -252,6 +252,16 @@ int main(int argc, char **argv) {
         }
     }
 
+    char *ps1 = environ_get(session->environ, "PS1");
+    if (!ps1) {
+        environ_set(session->environ, "PS1", PS1);
+    }
+
+    char *ps2 = environ_get(session->environ, "PS2");
+    if (!ps2) {
+        environ_set(session->environ, "PS2", PS2);
+    }
+
     if (!no_fin) {
         // Set alias 'fin' to 'exit'
 #ifndef TIDESH_DISABLE_ALIASES
@@ -404,9 +414,9 @@ int main(int argc, char **argv) {
 
         // Determine PS1 prompt
         if (session->features.prompt_expansion) {
-            char       *ps1_env     = environ_get(session->environ, "PS1");
-            const char *raw_prompt  = ps1_env ? ps1_env : PS1;
-            bool        ps1_default = ps1_env == NULL;
+            char       *ps1_env    = environ_get(session->environ, "PS1");
+            const char *raw_prompt = ps1_env ? ps1_env : PS1;
+            bool ps1_default = ps1_env == NULL || strcmp(ps1_env, PS1) == 0;
 
             char *expanded_prompt = expand_prompt(raw_prompt, session);
             if (!expanded_prompt) {
@@ -441,7 +451,7 @@ int main(int argc, char **argv) {
         if (session->features.prompt_expansion) {
             char       *ps2_env = environ_get(session->environ, "PS2");
             const char *raw_continuation_prompt = ps2_env ? ps2_env : PS2;
-            bool        ps2_default             = ps2_env == NULL;
+            bool ps2_default = ps2_env == NULL || strcmp(ps2_env, PS2) == 0;
 
             char *expanded_continuation_prompt =
                 expand_prompt(raw_continuation_prompt, session);
