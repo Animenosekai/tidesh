@@ -101,39 +101,73 @@ static char *expand_brace_var(char *expr, Session *session, bool *is_split) {
         expr++; // Skip =
     }
 
-    // Find modifier operator
-    char *colon      = strstr(expr, ":-");
+    // Find modifier operator (check colon variants first, then non-colon)
     char *colon_eq   = strstr(expr, ":=");
+    char *colon_dash = strstr(expr, ":-");
     char *colon_plus = strstr(expr, ":+");
     char *colon_q    = strstr(expr, ":?");
+    char *eq         = strchr(expr, '=');
+    char *dash       = strchr(expr, '-');
+    char *plus       = strchr(expr, '+');
+    char *q          = strchr(expr, '?');
+
+    // Exclude matches that are part of longer operators
+    if (eq && (colon_eq == (eq - 1)))
+        eq = NULL;
+    if (dash && (colon_dash == (dash - 1)))
+        dash = NULL;
+    if (plus && (colon_plus == (plus - 1)))
+        plus = NULL;
+    if (q && (colon_q == (q - 1)))
+        q = NULL;
 
     char *varname     = NULL;
     char *modifier    = NULL;
     char *default_val = NULL;
+    bool  check_empty = false;
 
-    if (colon_eq && (!colon || colon_eq < colon) &&
-        (!colon_plus || colon_eq < colon_plus) &&
-        (!colon_q || colon_eq < colon_q)) {
-        // ${VAR:=default}
+    // Determine which modifier to use (prefer colon variants, fallback to
+    // non-colon)
+    if (colon_eq) {
         varname     = strndup(expr, colon_eq - expr);
         default_val = strdup(colon_eq + 2);
         modifier    = ":=";
-    } else if (colon_plus && (!colon || colon_plus < colon) &&
-               (!colon_q || colon_plus < colon_q)) {
-        // ${VAR:+alt}
+        check_empty = true;
+    } else if (colon_plus) {
         varname     = strndup(expr, colon_plus - expr);
         default_val = strdup(colon_plus + 2);
         modifier    = ":+";
-    } else if (colon_q && (!colon || colon_q < colon)) {
-        // ${VAR:?error}
+        check_empty = true;
+    } else if (colon_q) {
         varname     = strndup(expr, colon_q - expr);
         default_val = strdup(colon_q + 2);
         modifier    = ":?";
-    } else if (colon) {
-        // ${VAR:-default}
-        varname     = strndup(expr, colon - expr);
-        default_val = strdup(colon + 2);
+        check_empty = true;
+    } else if (colon_dash) {
+        varname     = strndup(expr, colon_dash - expr);
+        default_val = strdup(colon_dash + 2);
         modifier    = ":-";
+        check_empty = true;
+    } else if (eq) {
+        varname     = strndup(expr, eq - expr);
+        default_val = strdup(eq + 1);
+        modifier    = "=";
+        check_empty = false;
+    } else if (plus) {
+        varname     = strndup(expr, plus - expr);
+        default_val = strdup(plus + 1);
+        modifier    = "+";
+        check_empty = false;
+    } else if (q) {
+        varname     = strndup(expr, q - expr);
+        default_val = strdup(q + 1);
+        modifier    = "?";
+        check_empty = false;
+    } else if (dash) {
+        varname     = strndup(expr, dash - expr);
+        default_val = strdup(dash + 1);
+        modifier    = "-";
+        check_empty = false;
     } else {
         // ${VAR}
         varname = strdup(expr);
@@ -145,18 +179,50 @@ static char *expand_brace_var(char *expr, Session *session, bool *is_split) {
     if (!modifier) {
         result = value ? strdup(value) : strdup("");
     } else if (strcmp(modifier, ":-") == 0) {
+        // ${VAR:-default} - use default if unset or empty
         result = (value && *value) ? strdup(value) : strdup(default_val);
+    } else if (strcmp(modifier, "-") == 0) {
+        // ${VAR-default} - use default if unset
+        result = value ? strdup(value) : strdup(default_val);
     } else if (strcmp(modifier, ":=") == 0) {
+        // ${VAR:=default} - set to default if unset or empty
         if (!value || !*value) {
             environ_set(session->environ, varname, default_val);
             result = strdup(default_val);
         } else {
             result = strdup(value);
         }
+    } else if (strcmp(modifier, "=") == 0) {
+        // ${VAR=default} - set to default if unset
+        if (!value) {
+            environ_set(session->environ, varname, default_val);
+            result = strdup(default_val);
+        } else {
+            result = strdup(value);
+        }
     } else if (strcmp(modifier, ":+") == 0) {
+        // ${VAR:+alt} - use alt if set and non-empty
         result = (value && *value) ? strdup(default_val) : strdup("");
+    } else if (strcmp(modifier, "+") == 0) {
+        // ${VAR+alt} - use alt if set
+        result = value ? strdup(default_val) : strdup("");
     } else if (strcmp(modifier, ":?") == 0) {
+        // ${VAR:?error} - error if unset or empty
         if (!value || !*value) {
+#ifdef PROJECT_NAME
+            fprintf(stderr, "%s: %s: %s\n", PROJECT_NAME, varname, default_val);
+#else
+            fprintf(stderr, "tidesh: %s: %s\n", varname, default_val);
+#endif
+            free(varname);
+            free(default_val);
+            return NULL;
+        } else {
+            result = strdup(value);
+        }
+    } else if (strcmp(modifier, "?") == 0) {
+        // ${VAR?error} - error if unset
+        if (!value) {
 #ifdef PROJECT_NAME
             fprintf(stderr, "%s: %s: %s\n", PROJECT_NAME, varname, default_val);
 #else
