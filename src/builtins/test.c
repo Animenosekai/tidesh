@@ -147,7 +147,7 @@ static int evaluate_test(int argc, char **argv, int start) {
              strcmp(op, "-lt") == 0 || strcmp(op, "-le") == 0 ||
              strcmp(op, "-gt") == 0 || strcmp(op, "-ge") == 0)) {
             if (!is_integer(arg1) || !is_integer(arg2)) {
-                fprintf(stderr, "test: integer expression expected\n");
+                fprintf(stderr, "%s: integer expression expected\n", argv[0]);
                 return 2;
             }
             return test_numeric(arg1, op, arg2) ? 0 : 1;
@@ -165,7 +165,7 @@ static int evaluate_test(int argc, char **argv, int start) {
     }
 
     /* For now, anything more complex returns false */
-    fprintf(stderr, "test: too many arguments\n");
+    fprintf(stderr, "%s: too many arguments\n", argv[0]);
     return 2;
 }
 

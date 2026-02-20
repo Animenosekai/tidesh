@@ -16,6 +16,7 @@
 #include "builtins/help.h"     /* builtin_help */
 #include "builtins/hooks.h"    /* builtin_hooks */
 #include "builtins/info.h"     /* builtin_info */
+#include "builtins/not.h"      /* builtin_not */
 #include "builtins/printenv.h" /* builtin_printenv */
 #include "builtins/pwd.h"      /* builtin_pwd */
 #include "builtins/source.h"   /* builtin_source */
@@ -41,20 +42,21 @@
 #endif
 #include "session.h" /* Session */
 
-const char *builtins[] = {"exit",    "pwd",     "clear", "help",     "printenv",
-                          "which",   "export",  "eval",  "terminal", "info",
-                          "source",  "type",    "test",  "hooks",    "features",
+const char *builtins[] = {"exit",     "pwd",     "clear",    "help",
+                          "printenv", "which",   "export",   "eval",
+                          "terminal", "info",    "source",   "type",
+                          "test",     "hooks",   "features", "not",
 #ifndef TIDESH_DISABLE_ALIASES
-                          "alias",   "unalias",
+                          "alias",    "unalias",
 #endif
 #ifndef TIDESH_DISABLE_HISTORY
                           "history",
 #endif
 #ifndef TIDESH_DISABLE_DIRSTACK
-                          "cd",      "pushd",   "popd",
+                          "cd",       "pushd",   "popd",
 #endif
 #ifndef TIDESH_DISABLE_JOB_CONTROL
-                          "jobs",    "fg",      "bg",
+                          "jobs",     "fg",      "bg",
 #endif
                           NULL};
 
@@ -111,6 +113,10 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_test;
     if (strcmp(name, "[") == 0)
         return builtin_test;
+    if (strcmp(name, "not") == 0)
+        return builtin_not;
+    if (strcmp(name, "!") == 0)
+        return builtin_not;
 #ifndef TIDESH_DISABLE_JOB_CONTROL
     if (strcmp(name, "jobs") == 0)
         return builtin_jobs;
@@ -129,6 +135,7 @@ bool is_special_builtin(const char *name) {
         strcmp(name, "info") == 0 || strcmp(name, "eval") == 0 ||
         strcmp(name, "terminal") == 0 || strcmp(name, "source") == 0 ||
         strcmp(name, ".") == 0 || strcmp(name, "type") == 0 ||
+        strcmp(name, "not") == 0 || strcmp(name, "!") == 0 ||
         strcmp(name, "hooks") == 0 || strcmp(name, "features") == 0) {
         return true;
     }
