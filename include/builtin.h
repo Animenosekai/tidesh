@@ -29,6 +29,7 @@
 #include "builtins/test.h"
 #include "builtins/type.h"
 #include "builtins/unalias.h"
+#include "builtins/unset.h"
 #include "builtins/which.h"
 
 /**

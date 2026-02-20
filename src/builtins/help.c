@@ -12,6 +12,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool clear    = false;
     bool exit     = false;
     bool export   = false;
+    bool unset    = false;
     bool eval     = false;
     bool alias    = false;
     bool unalias  = false;
@@ -42,6 +43,8 @@ int builtin_help(int argc, char **argv, Session *session) {
             exit = true;
         else if (strcmp(argv[i], "export") == 0)
             export = true;
+        else if (strcmp(argv[i], "unset") == 0)
+            unset = true;
         else if (strcmp(argv[i], "eval") == 0)
             eval = true;
         else if (strcmp(argv[i], "alias") == 0)
@@ -90,10 +93,10 @@ int builtin_help(int argc, char **argv, Session *session) {
 #endif
     }
 
-    bool all = !(cd || clear || exit || export || eval || alias || unalias ||
-                 help || features || hooks || history || info || printenv ||
-                 pwd || pushd || popd || terminal || which || source || type ||
-                 test || jobs || fg || bg);
+    bool all = !(cd || clear || exit || export || unset || eval || alias ||
+                 unalias || help || features || hooks || history || info ||
+                 printenv || pwd || pushd || popd || terminal || which ||
+                 source || type || test || jobs || fg || bg);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -123,6 +126,10 @@ int builtin_help(int argc, char **argv, Session *session) {
     if (all || export)
         printf("  %s%-9s %s%-14s%s - Set environment variable\n", command_clr,
                "export", argument_clr, "[key]=[value]", reset);
+
+    if (all || unset)
+        printf("  %s%-9s %s%-14s%s - Unset variables or functions\n",
+               command_clr, "unset", argument_clr, "[-v|-f] name", reset);
 
     if (all || eval)
         printf("  %s%-9s %s%-14s%s - Execute arguments as a command\n",

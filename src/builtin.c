@@ -23,6 +23,7 @@
 #include "builtins/terminal.h" /* builtin_terminal */
 #include "builtins/test.h"     /* builtin_test */
 #include "builtins/type.h"     /* builtin_type */
+#include "builtins/unset.h"    /* builtin_unset */
 #include "builtins/which.h"    /* builtin_which */
 
 #ifndef TIDESH_DISABLE_HISTORY
@@ -42,10 +43,10 @@
 #endif
 #include "session.h" /* Session */
 
-const char *builtins[] = {"exit",     "pwd",     "clear",    "help",
-                          "printenv", "which",   "export",   "eval",
-                          "terminal", "info",    "source",   "type",
-                          "test",     "hooks",   "features", "not",
+const char *builtins[] = {"exit",     "pwd",     "clear", "help", "printenv",
+                          "which",    "export",  "unset", "eval", "terminal",
+                          "info",     "source",  "type",  "test", "hooks",
+                          "features", "not",
 #ifndef TIDESH_DISABLE_ALIASES
                           "alias",    "unalias",
 #endif
@@ -83,6 +84,8 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_which;
     if (strcmp(name, "export") == 0)
         return builtin_export;
+    if (strcmp(name, "unset") == 0)
+        return builtin_unset;
 #ifndef TIDESH_DISABLE_ALIASES
     if (strcmp(name, "alias") == 0)
         return builtin_alias;
@@ -132,11 +135,12 @@ bool is_builtin(const char *name) { return get_builtin(name) != NULL; }
 
 bool is_special_builtin(const char *name) {
     if (strcmp(name, "exit") == 0 || strcmp(name, "export") == 0 ||
-        strcmp(name, "info") == 0 || strcmp(name, "eval") == 0 ||
-        strcmp(name, "terminal") == 0 || strcmp(name, "source") == 0 ||
-        strcmp(name, ".") == 0 || strcmp(name, "type") == 0 ||
-        strcmp(name, "not") == 0 || strcmp(name, "!") == 0 ||
-        strcmp(name, "hooks") == 0 || strcmp(name, "features") == 0) {
+        strcmp(name, "unset") == 0 || strcmp(name, "info") == 0 ||
+        strcmp(name, "eval") == 0 || strcmp(name, "terminal") == 0 ||
+        strcmp(name, "source") == 0 || strcmp(name, ".") == 0 ||
+        strcmp(name, "type") == 0 || strcmp(name, "not") == 0 ||
+        strcmp(name, "!") == 0 || strcmp(name, "hooks") == 0 ||
+        strcmp(name, "features") == 0) {
         return true;
     }
 #ifndef TIDESH_DISABLE_ALIASES
