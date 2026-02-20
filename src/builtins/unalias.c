@@ -17,7 +17,7 @@ int builtin_unalias(int argc, char **argv, Session *session) {
     for (int i = 1; i < argc; i++) {
         char *alias_value = trie_get(session->aliases, argv[i]);
         if (!trie_delete_key(session->aliases, argv[i])) {
-            fprintf(stderr, "tidesh: unalias: %s: not found\n", argv[i]);
+            // fprintf(stderr, "tidesh: unalias: %s: not found\n", argv[i]);
             status = 1;
         } else {
             HookEnvVar alias_vars[] = {

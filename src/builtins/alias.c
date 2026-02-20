@@ -71,7 +71,7 @@ int builtin_alias(int argc, char **argv, Session *session) {
             if (value) {
                 printf("alias %s='%s'\n", arg, value);
             } else {
-                fprintf(stderr, "alias: %s: not found\n", arg);
+                // fprintf(stderr, "alias: %s: not found\n", arg);
                 status = 1;
             }
         }

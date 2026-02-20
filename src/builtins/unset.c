@@ -85,10 +85,10 @@ int builtin_unset(int argc, char **argv, Session *session) {
             }
         }
 
-        if (!found) {
-            fprintf(stderr, "tidesh: unset: %s: not found\n", argv[i]);
-            status = 1;
-        }
+        // if (!found) {
+        //     fprintf(stderr, "tidesh: unset: %s: not found\n", argv[i]);
+        //     status = 1;
+        // }
     }
 
     return status;
