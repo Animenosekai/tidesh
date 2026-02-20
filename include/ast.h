@@ -33,6 +33,10 @@ typedef enum NodeType {
     ,
     NODE_CONDITIONAL
 #endif
+#ifndef TIDESH_DISABLE_FUNCTIONS
+    ,
+    NODE_FUNCTION_DEF
+#endif
 } NodeType;
 
 /* Descibes an I/O redirection */

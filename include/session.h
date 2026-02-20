@@ -38,6 +38,9 @@ typedef struct Session {
 #ifndef TIDESH_DISABLE_ALIASES
     Trie *aliases; // Aliases
 #endif
+#ifndef TIDESH_DISABLE_FUNCTIONS
+    Trie *functions; // Shell functions (name -> ASTNode*)
+#endif
     Trie *path_commands; // Commands found in PATH
 #ifndef TIDESH_DISABLE_DIRSTACK
     DirStack *dirstack; // Directory stack

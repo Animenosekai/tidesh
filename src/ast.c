@@ -710,6 +710,27 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
             LexerToken word  = parser_next(parser);
             Array     *parts = NULL;
 
+#ifndef TIDESH_DISABLE_FUNCTIONS
+            // Check for function definition: name ()
+            if (session->features.functions && first_word &&
+                word.type == TOKEN_WORD) {
+                if (parser_peek(parser)->type == TOKEN_LPAREN) {
+                    parser_skip(parser); // consume '('
+                    if (parser_peek(parser)->type == TOKEN_RPAREN) {
+                        parser_skip(parser); // consume ')'
+                        ASTNode *body = parse_command(parser, session);
+                        if (body) {
+                            cmd->type = NODE_FUNCTION_DEF;
+                            add_argument(cmd, word.value, 0);
+                            cmd->left = body;
+                            free_lexer_token(&word);
+                            return cmd;
+                        }
+                    }
+                }
+            }
+#endif
+
             if (word.type == TOKEN_PROCESS_SUBSTITUTION_IN) {
                 add_argument(cmd, word.value, 1);
                 free_lexer_token(&word);

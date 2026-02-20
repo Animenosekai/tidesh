@@ -6,6 +6,7 @@
 #include <string.h>  /* strdup, strcmp */
 #include <unistd.h>  /* getcwd */
 
+#include "ast.h"             /* free_ast */
 #include "data/array.h"      /* array_add, free_array */
 #include "environ.h"         /* environ_get, environ_set, environ_get_default */
 #include "feature-flags.h"   /* Features */
@@ -50,6 +51,15 @@ Session *init_session(Session *session, char *history_path) {
 #ifndef TIDESH_DISABLE_DIRSTACK
     session->dirstack = init_dirstack(NULL);
     if (!session->dirstack) {
+        free_session(session);
+        free(session);
+        return NULL;
+    }
+#endif
+
+#ifndef TIDESH_DISABLE_FUNCTIONS
+    session->functions = init_trie(NULL);
+    if (!session->functions) {
         free_session(session);
         free(session);
         return NULL;
@@ -125,6 +135,14 @@ void free_session(Session *session) {
     if (session->aliases) {
         free_trie(session->aliases);
         free(session->aliases);
+    }
+#endif
+
+#ifndef TIDESH_DISABLE_FUNCTIONS
+    if (session->functions) {
+        // Note: Ideally we'd iterate and free ASTNodes, but assuming
+        // trie_free handles basic cleanup or we add a custom iterator later.
+        free_trie(session->functions);
     }
 #endif
 

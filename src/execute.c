@@ -4,6 +4,7 @@
 #include <limits.h>   /* PATH_MAX */
 #include <signal.h>   /* signal, SIGINT, SIGQUIT, SIG_DFL */
 #include <stdbool.h>  /* bool, true, false */
+#include <stdint.h>   /* uintptr_t */
 #include <stdio.h>    /* fprintf, stderr, printf, perror, fflush, stdout */
 #include <stdlib.h>   /* malloc, free, realloc, strdup, calloc, exit */
 #include <string.h>   /* strcmp, strchr, strlen, strncpy, strtok, snprintf */
@@ -13,7 +14,7 @@
 #include "ast.h"        /* ASTNode, NODE_*, parse, free_ast */
 #include "builtin.h"    /* is_special_builtin, get_builtin, is_builtin */
 #include "data/array.h" /* Array, free_array, init_array, array_add */
-#include "data/trie.h"  /* trie_get */
+#include "data/trie.h"  /* trie_get, trie_set */
 #include "environ.h" /* environ_get, environ_set, environ_set_exit_status, environ_set_last_arg, environ_set_background_pid, environ_to_array */
 #include "execute.h" /* execute, execute_string, execute_string_stdout, find_in_path, get_command_info, CommandInfo, COMMAND_* */
 #include "expand.h"  /* full_expansion */
@@ -51,6 +52,32 @@ static char *build_command_string(char **argv, int argc) {
 
     return cmd;
 }
+
+#ifndef TIDESH_DISABLE_FUNCTIONS
+static bool store_function_body(Trie *functions, char *name, ASTNode *body) {
+    if (!functions || !name || !body) {
+        return false;
+    }
+
+    char ptr_buf[32];
+    snprintf(ptr_buf, sizeof(ptr_buf), "%p", (void *)body);
+    return trie_set(functions, name, ptr_buf);
+}
+
+static ASTNode *load_function_body(Trie *functions, const char *name) {
+    if (!functions || !name) {
+        return NULL;
+    }
+
+    char *encoded = trie_get(functions, (char *)name);
+    if (!encoded) {
+        return NULL;
+    }
+
+    uintptr_t ptr = (uintptr_t)strtoull(encoded, NULL, 16);
+    return (ASTNode *)ptr;
+}
+#endif
 
 /* Trim leading and trailing whitespace from a string */
 static char *trim_whitespace(const char *str) {
@@ -271,6 +298,16 @@ CommandInfo get_command_info(const char *cmd, Session *session) {
         info.path = NULL;
         return info;
     }
+
+#ifndef TIDESH_DISABLE_FUNCTIONS
+    // 3.5. Function
+    if (session->features.functions &&
+        trie_get(session->functions, (char *)cmd)) {
+        info.type = COMMAND_FUNCTION;
+        info.path = NULL;
+        return info;
+    }
+#endif
 
     // 4. External Command
     char *path = find_in_path(cmd, session);
@@ -534,6 +571,21 @@ int execute(ASTNode *node, Session *session) {
     }
 #endif
 
+#ifndef TIDESH_DISABLE_FUNCTIONS
+    if (node->type == NODE_FUNCTION_DEF) {
+        char    *name = node->argv[0];
+        ASTNode *body = node->left;
+        node->left    = NULL; // Transfer ownership to the session
+
+        // Store the AST node pointer in the trie
+        if (!store_function_body(session->functions, name, body)) {
+            fprintf(stderr, "tidesh: failed to store function body\n");
+            return 1;
+        }
+        return 0;
+    }
+#endif
+
     if (node->type == NODE_COMMAND) {
         // Expand arguments
         int    argc       = 0;
@@ -608,6 +660,84 @@ int execute(ASTNode *node, Session *session) {
         const char *cmd_name =
             cmd_name_trimmed ? cmd_name_trimmed : cmd_name_raw;
         environ_set_last_arg(session->environ, argv[argc - 1]);
+
+#ifndef TIDESH_DISABLE_FUNCTIONS
+        // Check for shell functions
+        ASTNode *func_body = load_function_body(session->functions, cmd_name);
+        if (func_body) {
+            // 1. Backup existing positional parameters ($0, $1, $2, ...)
+            // We need to back up up to argc parameters, as these are the ones
+            // we will potentially overwrite.
+            char **old_pos_params     = calloc(argc, sizeof(char *));
+            char **old_pos_param_keys = calloc(argc, sizeof(char *));
+            if (!old_pos_params || !old_pos_param_keys) {
+                fprintf(stderr, "tidesh: failed to allocate memory for "
+                                "function argument backup\n");
+                // Clean up current argv and return error
+                for (int i = 0; i < argc; i++)
+                    free(argv[i]);
+                free(argv);
+                free(arg_is_sub);
+                if (cmd_name_trimmed)
+                    free(cmd_name_trimmed);
+                if (old_pos_params)
+                    free(old_pos_params);
+                if (old_pos_param_keys)
+                    free(old_pos_param_keys);
+                environ_set_exit_status(session->environ, 1);
+                return 1;
+            }
+
+            for (int i = 0; i < argc; i++) {
+                char key_str[16]; // Sufficient for "0" to "999..."
+                snprintf(key_str, sizeof(key_str), "%d", i);
+                old_pos_param_keys[i] = strdup(key_str);
+                char *existing_val =
+                    environ_get(session->environ, old_pos_param_keys[i]);
+                if (existing_val) {
+                    old_pos_params[i] = strdup(existing_val);
+                } else {
+                    old_pos_params[i] = NULL; // Mark as not existing
+                }
+            }
+
+            // 2. Set new positional parameters for the function
+            environ_set(session->environ, "0",
+                        (char *)cmd_name); // $0 is function name
+            for (int i = 1; i < argc; i++) {
+                char key_str[16];
+                snprintf(key_str, sizeof(key_str), "%d", i);
+                environ_set(session->environ, key_str, argv[i]);
+            }
+
+            // Execute the function body in the current process
+            int st = execute(func_body, session);
+
+            // 3. Restore original positional parameters
+            for (int i = 0; i < argc; i++) {
+                if (old_pos_params[i]) {
+                    environ_set(session->environ, old_pos_param_keys[i],
+                                old_pos_params[i]);
+                    free(old_pos_params[i]);
+                } else {
+                    environ_remove(session->environ, old_pos_param_keys[i]);
+                }
+                free(old_pos_param_keys[i]);
+            }
+            free(old_pos_params);
+            free(old_pos_param_keys);
+
+            // Original cleanup for argv, arg_is_sub, cmd_name_trimmed
+            for (int i = 0; i < argc; i++)
+                free(argv[i]);
+            free(argv);
+            free(arg_is_sub);
+            if (cmd_name_trimmed)
+                free(cmd_name_trimmed);
+            environ_set_exit_status(session->environ, st);
+            return st;
+        }
+#endif
 
         // Special builtins should be executed in the main process
         if (is_special_builtin(cmd_name)) {

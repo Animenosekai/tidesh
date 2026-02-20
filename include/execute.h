@@ -22,7 +22,8 @@ typedef enum CommandType {
     COMMAND_ALIAS,
     COMMAND_BUILTIN,
     COMMAND_SPECIAL_BUILTIN,
-    COMMAND_EXTERNAL
+    COMMAND_EXTERNAL,
+    COMMAND_FUNCTION
 } CommandType;
 
 /**

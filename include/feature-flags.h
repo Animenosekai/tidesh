@@ -29,6 +29,7 @@
  *  - TIDESH_DISABLE_BLOCKS: Disable command blocks { ... }
  *  - TIDESH_DISABLE_COMMAND_SUBSTITUTION: Disable $(...)
  *  - TIDESH_DISABLE_ASSIGNMENTS: Disable VAR=value assignments
+ *  - TIDESH_DISABLE_FUNCTIONS: Disable shell functions name() { ... }
  */
 
 /**
@@ -60,6 +61,7 @@ typedef struct Features {
     bool blocks;               // Command blocks { ... }
     bool command_substitution; // Command substitution $(...) and <(...)
     bool assignments;          // Variable assignments VAR=VAL in commands
+    bool functions;            // Shell functions
 } Features;
 
 /**
