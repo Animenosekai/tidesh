@@ -99,6 +99,11 @@ typedef enum TokenType {
     TOKEN_RPAREN, // )
 #endif
 
+#ifndef TIDESH_DISABLE_BLOCKS
+    TOKEN_LBRACE, // {
+    TOKEN_RBRACE, // }
+#endif
+
 #ifndef TIDESH_DISABLE_CONDITIONALS
     TOKEN_IF,   // if
     TOKEN_THEN, // then

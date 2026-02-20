@@ -25,6 +25,10 @@ typedef enum NodeType {
 #ifndef TIDESH_DISABLE_SUBSHELLS
     NODE_SUBSHELL
 #endif
+#ifndef TIDESH_DISABLE_BLOCKS
+    ,
+    NODE_BLOCK
+#endif
 #ifndef TIDESH_DISABLE_CONDITIONALS
     ,
     NODE_CONDITIONAL

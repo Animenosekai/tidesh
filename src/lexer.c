@@ -568,6 +568,48 @@ LexerToken lexer_next_token(LexerInput *input) {
             free_dynamic(&word_value);
 #endif
             break;
+        case '{':
+#ifndef TIDESH_DISABLE_BLOCKS
+            // Check if blocks feature is enabled
+            if (!input->session || input->session->features.blocks) {
+                advance(input);
+                token.type = TOKEN_LBRACE;
+            } else {
+                // Blocks disabled, treat { as a normal word
+                Dynamic word_value = read_single_word(input);
+                token.type         = TOKEN_WORD;
+                token.value        = dynamic_to_string(&word_value);
+                free_dynamic(&word_value);
+            }
+#else
+            // Blocks disabled, treat { as a normal word
+            Dynamic word_value = read_single_word(input);
+            token.type         = TOKEN_WORD;
+            token.value        = dynamic_to_string(&word_value);
+            free_dynamic(&word_value);
+#endif
+            break;
+        case '}':
+#ifndef TIDESH_DISABLE_BLOCKS
+            // Check if blocks feature is enabled
+            if (!input->session || input->session->features.blocks) {
+                advance(input);
+                token.type = TOKEN_RBRACE;
+            } else {
+                // Blocks disabled, treat } as a normal word
+                Dynamic word_value = read_single_word(input);
+                token.type         = TOKEN_WORD;
+                token.value        = dynamic_to_string(&word_value);
+                free_dynamic(&word_value);
+            }
+#else
+            // Blocks disabled, treat } as a normal word
+            Dynamic word_value = read_single_word(input);
+            token.type         = TOKEN_WORD;
+            token.value        = dynamic_to_string(&word_value);
+            free_dynamic(&word_value);
+#endif
+            break;
         case ')':
 #ifndef TIDESH_DISABLE_SUBSHELLS
             // Check if subshells feature is enabled
@@ -624,7 +666,7 @@ LexerToken lexer_next_token(LexerInput *input) {
 
             while (!is_at_end(input) && c != ' ' && c != '\t' && c != '\n' &&
                    c != '\r' && c != '|' && c != '&' && c != ';' && c != '(' &&
-                   c != ')' && c != '#') {
+                   c != ')' && c != '{' && c != '}' && c != '#') {
 #ifndef TIDESH_DISABLE_REDIRECTIONS
                 if (is_io_number && (c < '0' || c > '9')) {
                     if (c == '>' || c == '<') {

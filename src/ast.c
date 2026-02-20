@@ -570,6 +570,24 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
     }
 #endif
 
+#ifndef TIDESH_DISABLE_BLOCKS
+    if (peek->type == TOKEN_LBRACE) {
+        parser_skip(parser);
+        ASTNode   *block_body = parse_sequence(parser, session);
+        LexerToken token      = parser_next(parser);
+        if (token.type != TOKEN_RBRACE) {
+            fprintf(stderr, "Syntax error: expected '}'\n");
+            parser->error = true;
+        }
+        free_lexer_token(&token);
+        if (!block_body)
+            return NULL;
+        ASTNode *block = init_ast(NULL, NODE_BLOCK);
+        block->left    = block_body;
+        return block;
+    }
+#endif
+
     ASTNode *cmd        = init_ast(NULL, NODE_COMMAND);
     bool     first_word = true;
 

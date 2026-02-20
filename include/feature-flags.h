@@ -26,6 +26,7 @@
  *  - TIDESH_DISABLE_REDIRECTIONS: Disable redirections >, <, >>, etc.
  *  - TIDESH_DISABLE_SEQUENCES: Disable ; && || operators
  *  - TIDESH_DISABLE_SUBSHELLS: Disable subshells ( ... )
+ *  - TIDESH_DISABLE_BLOCKS: Disable command blocks { ... }
  *  - TIDESH_DISABLE_COMMAND_SUBSTITUTION: Disable $(...)
  *  - TIDESH_DISABLE_ASSIGNMENTS: Disable VAR=value assignments
  */
@@ -56,6 +57,7 @@ typedef struct Features {
     bool redirections;         // Input/output redirection >, <, >>, etc.
     bool sequences;            // Command sequences ;, &&, ||
     bool subshells;            // Subshells ( ... )
+    bool blocks;               // Command blocks { ... }
     bool command_substitution; // Command substitution $(...) and <(...)
     bool assignments;          // Variable assignments VAR=VAL in commands
 } Features;

@@ -524,6 +524,16 @@ int execute(ASTNode *node, Session *session) {
     }
 #endif
 
+#ifndef TIDESH_DISABLE_BLOCKS
+    if (node->type == NODE_BLOCK) {
+        if (!session->features.blocks) {
+            fprintf(stderr, "tidesh: blocks are disabled\n");
+            return 127;
+        }
+        return execute(node->left, session);
+    }
+#endif
+
     if (node->type == NODE_COMMAND) {
         // Expand arguments
         int    argc       = 0;

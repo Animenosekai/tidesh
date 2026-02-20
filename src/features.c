@@ -33,6 +33,7 @@ Features *init_features(Features *features) {
     features->redirections         = true;
     features->sequences            = true;
     features->subshells            = true;
+    features->blocks               = true;
     features->command_substitution = true;
     features->assignments          = true;
 
@@ -67,6 +68,7 @@ Features *init_features_minimal(Features *features) {
     features->redirections         = false;
     features->sequences            = false;
     features->subshells            = false;
+    features->blocks               = false;
     features->command_substitution = false;
     features->assignments          = false;
 
@@ -129,6 +131,9 @@ void features_apply_compile_time_disables(Features *features) {
 #endif
 #ifdef TIDESH_DISABLE_SUBSHELLS
     features->subshells = false;
+#endif
+#ifdef TIDESH_DISABLE_BLOCKS
+    features->blocks = false;
 #endif
 #ifdef TIDESH_DISABLE_COMMAND_SUBSTITUTION
     features->command_substitution = false;
