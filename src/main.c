@@ -153,6 +153,12 @@ int main(int argc, char **argv) {
     bool  disable_colors   = false;
     bool  disable_history  = false;
 
+    Array *script_args = init_array(NULL);
+    if (!script_args) {
+        return 1;
+    }
+
+    // Parse command line arguments
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
             help = true;
@@ -184,11 +190,16 @@ int main(int argc, char **argv) {
             disable_history = true;
         } else if (script_path == NULL) {
             script_path = argv[i];
+        } else if (script_path != NULL) {
+            // Script arguments
+            array_add(script_args, argv[i]);
         }
     }
 
     if (help) {
         print_usage(argv[0], !disable_colors);
+        free_array(script_args);
+        free(script_args);
         return 0;
     }
 
@@ -196,6 +207,8 @@ int main(int argc, char **argv) {
         fprintf(
             stderr,
             "Error: Cannot use both --enable-colors and --disable-colors\n");
+        free_array(script_args);
+        free(script_args);
         return 1;
     }
 
@@ -214,8 +227,30 @@ int main(int argc, char **argv) {
     }
     session = init_session(NULL, history_path);
 
+    if (!session) {
+        fprintf(stderr, "tidesh: failed to initialize session\n");
+        free_array(script_args);
+        free(script_args);
+        return 1;
+    }
+
     if (argc > 0)
         environ_set(session->environ, "0", argv[0]);
+
+    if (script_path) {
+        // Set it to the script name/path
+        environ_set(session->environ, "0", script_path);
+        // Set the script arguments as $1, $2, ... in the environment
+        size_t script_arg_index = 1;
+        while (script_args->count > 0) {
+            char *arg = array_pop(script_args, 0);
+            char  env_name[16];
+            snprintf(env_name, sizeof(env_name), "%zu", script_arg_index);
+            environ_set(session->environ, env_name, arg);
+            free(arg);
+            script_arg_index++;
+        }
+    }
 
     if (!no_fin) {
         // Set alias 'fin' to 'exit'
@@ -295,6 +330,8 @@ int main(int argc, char **argv) {
         if (!keep_alive && !script_path) {
             free_session(session);
             free(session);
+            free_array(script_args);
+            free(script_args);
             return exit_status;
         }
     }
@@ -327,6 +364,8 @@ int main(int argc, char **argv) {
                     run_cwd_hook(session, HOOK_SESSION_END);
                     free_session(session);
                     free(session);
+                    free_array(script_args);
+                    free(script_args);
                     return exit_status;
                 }
             }
@@ -342,6 +381,8 @@ int main(int argc, char **argv) {
 #endif
             free_session(session);
             free(session);
+            free_array(script_args);
+            free(script_args);
             return 1;
         }
 
@@ -349,6 +390,8 @@ int main(int argc, char **argv) {
             run_cwd_hook(session, HOOK_SESSION_END);
             free_session(session);
             free(session);
+            free_array(script_args);
+            free(script_args);
             return 0;
         }
     }
