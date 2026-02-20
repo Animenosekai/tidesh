@@ -26,6 +26,9 @@ int builtin_type(int argc, char **argv, Session *session) {
             case COMMAND_BUILTIN:
                 printf("%s is a shell built-in command\n", cmd_name);
                 break;
+            case COMMAND_FUNCTION:
+                printf("%s is a shell function\n", cmd_name);
+                break;
             case COMMAND_EXTERNAL:
                 printf("%s is %s\n", cmd_name, info.path);
                 break;

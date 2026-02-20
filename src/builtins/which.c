@@ -28,6 +28,9 @@ int builtin_which(int argc, char **argv, Session *session) {
             case COMMAND_BUILTIN:
                 printf("%s: shell built-in command\n", cmd_name);
                 break;
+            case COMMAND_FUNCTION:
+                printf("%s: shell function\n", cmd_name);
+                break;
             case COMMAND_EXTERNAL:
                 printf("%s\n", info.path);
                 break;
