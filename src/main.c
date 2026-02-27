@@ -278,6 +278,8 @@ int main(int argc, char **argv) {
         }
     }
 
+    // Run initial parent enter hooks after environment is set up from .tideshrc
+    run_initial_parent_hooks(session);
     run_cwd_hook(session, HOOK_SESSION_START);
 
     // If an eval command is provided, execute it

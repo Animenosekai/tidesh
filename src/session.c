@@ -79,10 +79,11 @@ Session *init_session(Session *session, char *history_path) {
     }
 #endif
 
-    session->current_working_dir  = NULL;
-    session->previous_working_dir = NULL;
-    session->exit_requested       = false;
-    session->hooks_disabled       = false;
+    session->current_working_dir      = NULL;
+    session->previous_working_dir     = NULL;
+    session->exit_requested           = false;
+    session->hooks_disabled           = false;
+    session->initial_parent_hooks_run = false;
 
     // Initialize feature flags (all enabled by default)
     init_features(&session->features);
@@ -475,7 +476,12 @@ void update_working_dir(Session *session) {
 
     if (!session->previous_working_dir) {
         init_previous_working_dir(session);
-        run_parent_enter_hooks(session, session->current_working_dir);
+        // Only run parent enter hooks if they've been explicitly initiated
+        // This allows them to run after environment setup (e.g., after
+        // .tideshrc)
+        if (session->initial_parent_hooks_run) {
+            run_parent_enter_hooks(session, session->current_working_dir);
+        }
         return;
     }
 
@@ -558,6 +564,19 @@ void update_working_dir(Session *session) {
 
         run_cwd_hook_with_vars(session, HOOK_CD, cd_with_parent, 4);
         free(parent_dir);
+    }
+}
+
+void run_initial_parent_hooks(Session *session) {
+    if (!session || session->initial_parent_hooks_run) {
+        return; // Already run or invalid session
+    }
+
+    session->initial_parent_hooks_run = true;
+
+    // Run the parent enter hooks that were deferred during init_session
+    if (session->current_working_dir) {
+        run_parent_enter_hooks(session, session->current_working_dir);
     }
 }
 

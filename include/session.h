@@ -49,6 +49,8 @@ typedef struct Session {
     Features features;       // Runtime feature flags
     bool     exit_requested; // Flag to indicate if shell should exit
     bool     hooks_disabled; // Prevent hook recursion during hook execution
+    bool     initial_parent_hooks_run; // Track if initial HOOK_ENTER has been
+                                       // executed
 } Session;
 
 /**
@@ -67,6 +69,15 @@ Session *init_session(Session *session, char *history_path);
  * @param session Pointer to Session to update
  */
 void update_working_dir(Session *session);
+
+/**
+ * Run initial parent enter hooks after environment setup
+ * This is called after .tideshrc is read to ensure environment variables
+ * are properly initialized before running HOOK_ENTER hooks
+ *
+ * @param session Pointer to Session
+ */
+void run_initial_parent_hooks(Session *session);
 
 /**
  * Update the PATH in the session
