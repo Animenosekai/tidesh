@@ -54,16 +54,6 @@ static char *build_command_string(char **argv, int argc) {
 }
 
 #ifndef TIDESH_DISABLE_FUNCTIONS
-static bool store_function_body(Trie *functions, char *name, ASTNode *body) {
-    if (!functions || !name || !body) {
-        return false;
-    }
-
-    char ptr_buf[32];
-    snprintf(ptr_buf, sizeof(ptr_buf), "%p", (void *)body);
-    return trie_set(functions, name, ptr_buf);
-}
-
 static ASTNode *load_function_body(Trie *functions, const char *name) {
     if (!functions || !name) {
         return NULL;
@@ -76,6 +66,27 @@ static ASTNode *load_function_body(Trie *functions, const char *name) {
 
     uintptr_t ptr = (uintptr_t)strtoull(encoded, NULL, 16);
     return (ASTNode *)ptr;
+}
+
+static bool store_function_body(Trie *functions, char *name, ASTNode *body) {
+    if (!functions || !name || !body) {
+        return false;
+    }
+
+    ASTNode *old_body = load_function_body(functions, name);
+
+    char ptr_buf[32];
+    snprintf(ptr_buf, sizeof(ptr_buf), "%p", (void *)body);
+    if (!trie_set(functions, name, ptr_buf)) {
+        return false;
+    }
+
+    if (old_body && old_body != body) {
+        free_ast(old_body);
+        free(old_body);
+    }
+
+    return true;
 }
 
 typedef struct PosParamBackup {
@@ -810,6 +821,10 @@ int execute(ASTNode *node, Session *session) {
         // Store the AST node pointer in the trie
         if (!store_function_body(session->functions, name, body)) {
             fprintf(stderr, "tidesh: failed to store function body\n");
+            if (body) {
+                free_ast(body);
+                free(body);
+            }
             return 1;
         }
         return 0;

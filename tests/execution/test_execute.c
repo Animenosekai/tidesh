@@ -433,5 +433,41 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should properly update function and free old AST node when redefining a function") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Define function version 1
+        int st1 = execute_string("redef_fn() { echo \"version 1\"; }", session);
+        asserteq(st1, 0);
+
+        char *out1 = execute_string_stdout("redef_fn", session);
+        assertneq(out1, NULL);
+        assert(strstr(out1, "version 1") != NULL);
+        free(out1);
+
+        // Redefine function version 2 (should free version 1 AST node without leak)
+        int st2 = execute_string("redef_fn() { echo \"version 2\"; }", session);
+        asserteq(st2, 0);
+
+        char *out2 = execute_string_stdout("redef_fn", session);
+        assertneq(out2, NULL);
+        assert(strstr(out2, "version 2") != NULL);
+        assert(strstr(out2, "version 1") == NULL);
+        free(out2);
+
+        // Redefine function version 3 with arguments
+        int st3 = execute_string("redef_fn() { echo \"version 3: $1\"; }", session);
+        asserteq(st3, 0);
+
+        char *out3 = execute_string_stdout("redef_fn argval", session);
+        assertneq(out3, NULL);
+        assert(strstr(out3, "version 3: argval") != NULL);
+        free(out3);
+
+        free_session(session);
+        free(session);
+    }
 }
+
 
