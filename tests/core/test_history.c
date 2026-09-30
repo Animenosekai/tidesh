@@ -250,4 +250,48 @@ describe(history) {
         free_history(history);
         free(history);
     }
+
+    it("should reset current navigation pointer when current entry is removed") {
+        History *history = init_history(NULL);
+        history_append(history, "cmd1");
+        history_append(history, "cmd2");
+        history_append(history, "cmd3");
+
+        char *prev = history_get_previous(history);
+        asserteq_str(prev, "cmd3");
+        assertneq(history->current, NULL);
+
+        bool removed = history_remove(history, "cmd3", false);
+        assert(removed);
+        asserteq(history->current, NULL);
+
+        prev = history_get_previous(history);
+        asserteq_str(prev, "cmd2");
+
+        free_history(history);
+        free(history);
+    }
+
+    it("should reset current navigation pointer when entry is pruned by enforce limit") {
+        History *history = init_history(NULL);
+        history_append(history, "cmd1");
+        history_append(history, "cmd2");
+
+        history_get_previous(history); // cmd2
+        char *prev = history_get_previous(history); // cmd1 (head)
+        asserteq_str(prev, "cmd1");
+        asserteq(history->current, history->head);
+
+        history->limit = 1;
+        size_t pruned = history_enforce_limit(history);
+        asserteq(pruned, 1);
+        asserteq(history->current, NULL);
+
+        prev = history_get_previous(history);
+        asserteq_str(prev, "cmd2");
+
+        free_history(history);
+        free(history);
+    }
 }
+

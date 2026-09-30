@@ -272,6 +272,9 @@ bool history_remove(History *history, const char *command, bool all) {
 
             HistoryEntry *to_free = curr;
             curr                  = curr->next;
+            if (history->current == to_free) {
+                history->current = NULL;
+            }
             free_history_entry(to_free);
             free(to_free);
             history->size--;
@@ -298,6 +301,9 @@ size_t history_enforce_limit(History *history) {
         else
             history->tail = NULL;
 
+        if (history->current == old) {
+            history->current = NULL;
+        }
         free_history_entry(old);
         free(old);
         history->size--;
