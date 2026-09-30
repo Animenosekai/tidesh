@@ -167,4 +167,49 @@ describe(jobs_control) {
         int (*bg_func)(int, char **, Session *) = get_builtin("bg");
         assertneq(bg_func, NULL);
     }
+
+    it("should notify and clean up completed and killed jobs without looping") {
+        Jobs *jobs = init_jobs();
+        int   id1  = jobs_add(jobs, 1001, "cmd_running", JOB_RUNNING);
+        int   id2  = jobs_add(jobs, 1002, "cmd_done", JOB_DONE);
+        int   id3  = jobs_add(jobs, 1003, "cmd_killed", JOB_KILLED);
+        int   id4  = jobs_add(jobs, 1004, "cmd_stopped", JOB_STOPPED);
+
+        asserteq(jobs->count, 4);
+
+        jobs_notify(jobs);
+
+        asserteq(jobs->count, 2);
+        assertneq(jobs_get(jobs, id1), NULL);
+        assertneq(jobs_get(jobs, id4), NULL);
+        asserteq(jobs_get(jobs, id2), NULL);
+        asserteq(jobs_get(jobs, id3), NULL);
+
+        assert(jobs_get(jobs, id1)->notified);
+        assert(jobs_get(jobs, id4)->notified);
+
+        // Calling again with no state change should be a no-op
+        jobs_notify(jobs);
+        asserteq(jobs->count, 2);
+
+        free_jobs(jobs);
+        free(jobs);
+    }
+
+    it("should notify and remove all jobs when all are completed") {
+        Jobs *jobs = init_jobs();
+        jobs_add(jobs, 2001, "cmd1", JOB_DONE);
+        jobs_add(jobs, 2002, "cmd2", JOB_DONE);
+        jobs_add(jobs, 2003, "cmd3", JOB_DONE);
+
+        asserteq(jobs->count, 3);
+
+        jobs_notify(jobs);
+
+        asserteq(jobs->count, 0);
+
+        free_jobs(jobs);
+        free(jobs);
+    }
 }
+

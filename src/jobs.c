@@ -237,7 +237,6 @@ void jobs_notify(Jobs *jobs) {
             // Remove finished/killed jobs after notification
             if (job->state == JOB_DONE || job->state == JOB_KILLED) {
                 jobs_remove(jobs, job->id);
-                i++; // Adjust index since we removed an element
             }
         }
     }
