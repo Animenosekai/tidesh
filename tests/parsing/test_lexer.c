@@ -321,6 +321,33 @@ describe(lexer) {
         free(session);
     }
 
+    it("should handle command substitution when execute callback is NULL") {
+        LexerInput *input = init_lexer_input(NULL, "echo $(whoami) \"$(date)\"", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "$(whoami)");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "$(date)");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
     it("should handle whitespace") {
         LexerInput *input = init_lexer_input(NULL, "   echo   test   ", NULL, NULL);
         assertneq(input, NULL);
