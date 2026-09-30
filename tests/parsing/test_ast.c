@@ -387,4 +387,20 @@ describe(ast) {
         free_session(session);
         free(session);
     }
+
+    it("should parse command with NULL session") {
+        LexerInput *lexer = init_lexer_input(NULL, "echo hello", NULL, NULL);
+        ASTNode *ast = parse(lexer, NULL);
+
+        assertneq(ast, NULL);
+        asserteq(ast->type, NODE_COMMAND);
+        assert(ast->argc >= 2);
+        asserteq_str(ast->argv[0], "echo");
+        asserteq_str(ast->argv[1], "hello");
+
+        free_ast(ast);
+        free(ast);
+        free_lexer_input(lexer);
+        free(lexer);
+    }
 }

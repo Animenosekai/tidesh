@@ -712,7 +712,7 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
 
 #ifndef TIDESH_DISABLE_FUNCTIONS
             // Check for function definition: name ()
-            if (session->features.functions && first_word &&
+            if (session && session->features.functions && first_word &&
                 word.type == TOKEN_WORD) {
                 if (parser_peek(parser)->type == TOKEN_LPAREN) {
                     parser_skip(parser); // consume '('

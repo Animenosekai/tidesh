@@ -34,6 +34,13 @@ static Array *apply(Array *inputs, Array *(*expansion_func)(char *, Session *),
 }
 
 Array *full_expansion(char *input, Session *session) {
+    if (!session) {
+        Array *results = init_array(NULL);
+        if (input)
+            array_add(results, input);
+        return results;
+    }
+
     // Variable expansion (always first)
     Array *after_variables = NULL;
     if (session->features.variable_expansion) {

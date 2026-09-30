@@ -9,6 +9,12 @@
 #ifndef TIDESH_DISABLE_ALIASES
 
 Array *alias_expansion(char *input, Session *session) {
+    if (!session || !session->aliases || !session->features.alias_expansion) {
+        Array *results = init_array(NULL);
+        array_add(results, input);
+        return results;
+    }
+
     char *alias_value = trie_get(session->aliases, input);
     if (!alias_value) {
         Array *results = init_array(NULL);
