@@ -159,6 +159,23 @@ describe(features) {
         free(session);
     }
 
+    it("should handle range brace expansion with whitespace") {
+        Session *session = init_session(NULL, NULL);
+        session->features.brace_expansion = true;
+
+        Array *result = full_expansion("test{ 1 .. 3 }", session);
+        assertneq_ptr(result, NULL);
+        asserteq(result->count, 3);
+        asserteq_str(result->items[0], "test1");
+        asserteq_str(result->items[1], "test2");
+        asserteq_str(result->items[2], "test3");
+        free_array(result);
+        free(result);
+
+        free_session(session);
+        free(session);
+    }
+
     it("should skip alias expansion when disabled") {
         Session *session = init_session(NULL, NULL);
         trie_set(session->aliases, "ll", "ls -l");

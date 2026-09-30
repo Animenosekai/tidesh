@@ -71,14 +71,31 @@ static Array *expand_range(char *str, int start, int end) {
         return result;
 
     // Extract start and end values
-    char *start_str = strndup(str + start, dots - start);
-    char *end_str   = strndup(str + dots + 2, end - (dots + 2));
+    char *start_raw = strndup(str + start, dots - start);
+    char *end_raw   = strndup(str + dots + 2, end - (dots + 2));
+    if (!start_raw || !end_raw) {
+        free(start_raw);
+        free(end_raw);
+        return result;
+    }
+
+    char *start_str = start_raw;
+    char *end_str   = end_raw;
 
     // Trim whitespace
-    while (*start_str && isspace(*start_str))
+    while (*start_str && isspace((unsigned char)*start_str))
         start_str++;
-    while (*end_str && isspace(*end_str))
+    while (*end_str && isspace((unsigned char)*end_str))
         end_str++;
+
+    size_t s_len = strlen(start_str);
+    while (s_len > 0 && isspace((unsigned char)start_str[s_len - 1])) {
+        start_str[--s_len] = '\0';
+    }
+    size_t e_len = strlen(end_str);
+    while (e_len > 0 && isspace((unsigned char)end_str[e_len - 1])) {
+        end_str[--e_len] = '\0';
+    }
 
     // Check if numeric range
     bool  is_numeric = true;
@@ -119,8 +136,8 @@ static Array *expand_range(char *str, int start, int end) {
         }
     }
 
-    free(start_str);
-    free(end_str);
+    free(start_raw);
+    free(end_raw);
     return result;
 }
 
