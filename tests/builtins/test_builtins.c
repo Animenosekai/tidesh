@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include "builtin.h"
+#include "builtins/unalias.h"
+#include "data/trie.h"
 #include "session.h"
 #include "snow/snow.h"
 
@@ -33,4 +35,23 @@ describe(builtin) {
         int (*nonexistent)(int, char **, Session *) = get_builtin("nonexistent");
         asserteq(nonexistent, NULL);
     }
+
+    it("should unalias existing aliases") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        trie_set(session->aliases, "test_alias", "echo 123");
+        assertneq(trie_get(session->aliases, "test_alias"), NULL);
+
+        char *argv[] = {"unalias", "test_alias"};
+        int res = builtin_unalias(2, argv, session);
+        asserteq(res, 0);
+        asserteq(trie_get(session->aliases, "test_alias"), NULL);
+
+        // Calling unalias on non-existent alias should return non-zero
+        int res_nonexistent = builtin_unalias(2, argv, session);
+        asserteq(res_nonexistent, 1);
+
+        free_session(session);
+        free(session);
+    }
 }
+

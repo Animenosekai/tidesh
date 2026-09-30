@@ -355,7 +355,7 @@ static int handle_redirections(ASTNode *node, Session *session) {
         } else if (redirect->is_process_substitution) {
             // Process substitution
             bool  is_in = (redirect->type == TOKEN_REDIRECT_IN ||
-                          redirect->type == TOKEN_PROCESS_SUBSTITUTION_IN);
+                           redirect->type == TOKEN_PROCESS_SUBSTITUTION_IN);
             char *cmd   = redirect->target;
 
             int pipe_fds[2];
