@@ -1,4 +1,5 @@
 #include <limits.h> /* PATH_MAX */
+#include <locale.h> /* setlocale, LC_ALL */
 #include <pwd.h>    /* getpwuid, struct passwd */
 #include <signal.h> /* signal, SIGINT, SIGQUIT, SIG_IGN */
 #include <stdio.h>  /* printf */
@@ -138,6 +139,8 @@ static void print_usage(const char *prog_name, bool colors) {
 
 #ifndef TESTING
 int main(int argc, char **argv) {
+    setlocale(LC_ALL, "");
+
     signal(SIGINT, SIG_IGN);
     signal(SIGQUIT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);

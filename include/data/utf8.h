@@ -23,7 +23,7 @@ unsigned char utf8_charlen(char c);
  * @param str Pointer to the UTF-8 encoded string.
  * @return Number of UTF-8 characters in the string.
  */
-size_t utf8_strlen(char *str);
+size_t utf8_strlen(const char *str);
 
 /**
  * Get the next UTF-8 character.
@@ -41,5 +41,21 @@ char *utf8_next_char(char *str);
  * @return Pointer to the start of the previous character, or NULL if at start.
  */
 char *utf8_prev_char(char *current, char *start);
+
+/**
+ * Get the visual display width of a UTF-8 character in terminal columns.
+ *
+ * @param str Pointer to the start of the UTF-8 character.
+ * @return Terminal column width (0, 1, or 2).
+ */
+int utf8_charwidth(const char *str);
+
+/**
+ * Get the visual display width of a UTF-8 encoded string in terminal columns.
+ *
+ * @param str Pointer to the UTF-8 encoded string.
+ * @return Number of terminal columns needed to display the string.
+ */
+size_t utf8_width(const char *str);
 
 #endif /* DATA_UTF8_H */

@@ -154,7 +154,7 @@ static bool read_until_enter(Cursor *cursor) {
             cursor_insert(cursor, unprocessed);
         } else {
             dynamic_extend(cursor->data, unprocessed);
-            cursor->visible_length += utf8_strlen(unprocessed);
+            cursor->visible_length += utf8_width(unprocessed);
         }
 
         if (key.type == KEY_ENTER || strchr(unprocessed, '\n') ||

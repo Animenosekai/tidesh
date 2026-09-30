@@ -62,7 +62,7 @@ size_t visible_length(const char *str) {
     if (!stripped) {
         return 0;
     }
-    size_t len = utf8_strlen(stripped);
+    size_t len = utf8_width(stripped);
     free(stripped);
     return len;
 }
@@ -136,12 +136,13 @@ CursorPosition cursor_terminal_position(Cursor *cursor) {
             if (p + char_len > end)
                 break;
 
+            int width = utf8_charwidth(p);
             p += char_len;
-            current_col++;
+            current_col += width;
 
             if (current_col >= total_cols) {
-                current_row++;
-                current_col = 0;
+                current_row += current_col / total_cols;
+                current_col %= total_cols;
             }
         }
     }
@@ -159,7 +160,7 @@ void cursor_insert(Cursor *cursor, char *string) {
     if (str_len == 0)
         return;
 
-    size_t visible_insert_len = utf8_strlen(string);
+    size_t visible_insert_len = utf8_width(string);
 
     // If cursor is at the very end (position 0), just append
     if (cursor->position == 0) {
@@ -182,6 +183,8 @@ void cursor_insert(Cursor *cursor, char *string) {
             insert_pos = cursor->data->length;
         }
 
+        CursorPosition old_pos = cursor_terminal_position(cursor);
+
         dynamic_insert(cursor->data, insert_pos, string);
         cursor->visible_length += visible_insert_len;
 
@@ -193,22 +196,14 @@ void cursor_insert(Cursor *cursor, char *string) {
         cursor_render_tail(cursor, insert_pos);
         terminal_restore_cursor();
 
-        // Move the cursor forward on screen
-        for (size_t i = 0; i < visible_insert_len; i++) {
-            CursorPosition cursor_pos = cursor_terminal_position(cursor);
-            size_t         total_cols = cursor->session->terminal->cols
-                                            ? cursor->session->terminal->cols
-                                            : TERMINAL_DEFAULT_COLS;
-
-            if (cursor_pos.col >= total_cols - 1) {
-                terminal_cursor_down(1);
-                // Move to end of continuation prompt
-                terminal_cursor_to_column(
-                    visible_length(cursor->continuation_prompt));
-            } else {
-                terminal_cursor_forward(1);
-            }
+        // Move the cursor forward on screen to the new position
+        CursorPosition new_pos = cursor_terminal_position(cursor);
+        if (new_pos.row > old_pos.row) {
+            terminal_cursor_down(new_pos.row - old_pos.row);
+        } else if (new_pos.row < old_pos.row) {
+            terminal_cursor_up(old_pos.row - new_pos.row);
         }
+        terminal_cursor_to_column(new_pos.col);
     }
 }
 
@@ -232,24 +227,25 @@ bool cursor_delete(Cursor *cursor) {
 
     size_t deleting_length = char_at_cursor - deleting_character;
     size_t delete_pos      = deleting_character - cursor->data->value;
+    int    deleting_width  = utf8_charwidth(deleting_character);
 
     CursorPosition cursor_pos = cursor_terminal_position(cursor);
 
     dynamic_remove(cursor->data, delete_pos, deleting_length);
 
-    if (cursor->visible_length > 0) {
-        cursor->visible_length -= 1;
+    if (cursor->visible_length >= (size_t)deleting_width) {
+        cursor->visible_length -= deleting_width;
+    } else {
+        cursor->visible_length = 0;
     }
 
     CursorPosition new_pos = cursor_terminal_position(cursor);
 
     // Move visual cursor back
     if (new_pos.row < cursor_pos.row) {
-        terminal_cursor_up(1);
-        terminal_cursor_to_column(new_pos.col);
-    } else if (new_pos.col < cursor_pos.col) {
-        terminal_cursor_backward(1);
+        terminal_cursor_up(cursor_pos.row - new_pos.row);
     }
+    terminal_cursor_to_column(new_pos.col);
 
     terminal_clear_to_end();
 
@@ -382,8 +378,9 @@ size_t cursor_eol_distance(Cursor *cursor) {
         if (char_len == 0)
             char_len = 1;
 
+        int width = utf8_charwidth(p);
         p += char_len;
-        current_col++;
+        current_col += width;
         distance++;
 
         if (current_col >= total_cols)
@@ -411,20 +408,19 @@ void cursor_backward(Cursor *cursor, size_t n) {
 
         bool   is_newline = (*prev_char == '\n');
         size_t char_len   = char_at_cursor - prev_char;
+        int    width      = utf8_charwidth(prev_char);
 
         CursorPosition cursor_pos = cursor_terminal_position(cursor);
 
         cursor->position += char_len;
-        cursor->visible_position += 1;
+        cursor->visible_position += width;
 
         CursorPosition new_pos = cursor_terminal_position(cursor);
 
-        if (is_newline || cursor_pos.col == 0) {
-            terminal_cursor_up(1);
-            terminal_cursor_to_column(new_pos.col);
-        } else {
-            terminal_cursor_backward(1);
+        if (is_newline || new_pos.row < cursor_pos.row) {
+            terminal_cursor_up(cursor_pos.row - new_pos.row);
         }
+        terminal_cursor_to_column(new_pos.col);
         moved++;
     }
 }
@@ -443,7 +439,8 @@ void cursor_forward(Cursor *cursor, size_t n) {
         if (char_pos >= cursor->data->length)
             break;
 
-        char          current_char = cursor->data->value[char_pos];
+        char         *current_ptr  = cursor->data->value + char_pos;
+        char          current_char = *current_ptr;
         bool          is_newline   = (current_char == '\n');
         unsigned char char_len     = utf8_charlen(current_char);
         if (char_len == 0)
@@ -452,19 +449,22 @@ void cursor_forward(Cursor *cursor, size_t n) {
         if (char_len > cursor->position)
             char_len = cursor->position;
 
+        int width = utf8_charwidth(current_ptr);
+
         CursorPosition cursor_pos = cursor_terminal_position(cursor);
 
         cursor->position -= char_len;
-        if (cursor->visible_position > 0)
-            cursor->visible_position -= 1;
+        if (cursor->visible_position >= (size_t)width)
+            cursor->visible_position -= width;
+        else
+            cursor->visible_position = 0;
 
-        if (is_newline || cursor_pos.col >= total_cols - 1) {
-            terminal_cursor_down(1);
-            terminal_cursor_to_column(
-                visible_length(cursor->continuation_prompt));
-        } else {
-            terminal_cursor_forward(1);
+        CursorPosition new_pos = cursor_terminal_position(cursor);
+
+        if (is_newline || new_pos.row > cursor_pos.row) {
+            terminal_cursor_down(new_pos.row - cursor_pos.row);
         }
+        terminal_cursor_to_column(new_pos.col);
 
         if (cursor->position == 0 && cursor->suggestion) {
             terminal_save_cursor();
@@ -682,12 +682,13 @@ static size_t cursor_get_index_at_pos(Cursor *cursor, size_t target_row,
             if (p + char_len > end)
                 break;
 
+            int width = utf8_charwidth(p);
             p += char_len;
-            current_col++;
+            current_col += width;
 
             if (current_col >= total_cols) {
-                current_row++;
-                current_col = 0;
+                current_row += current_col / total_cols;
+                current_col %= total_cols;
             }
 
             // Update target pointer if we are still on the target row
