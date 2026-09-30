@@ -548,6 +548,103 @@ static int handle_redirections(ASTNode *node, Session *session) {
     return 0;
 }
 
+typedef struct SavedFd {
+    int orig_fd;
+    int dup_fd;
+} SavedFd;
+
+typedef struct RedirectionState {
+    SavedFd *saved;
+    size_t   count;
+    size_t   capacity;
+} RedirectionState;
+
+#ifndef TIDESH_DISABLE_REDIRECTIONS
+static void save_fd(RedirectionState *state, int fd) {
+    if (fd < 0) {
+        return;
+    }
+    for (size_t i = 0; i < state->count; i++) {
+        if (state->saved[i].orig_fd == fd) {
+            return;
+        }
+    }
+
+    int dup_fd = dup(fd);
+    if (dup_fd >= 0) {
+        fcntl(dup_fd, F_SETFD, FD_CLOEXEC);
+        if (state->count >= state->capacity) {
+            size_t   new_cap = state->capacity == 0 ? 4 : state->capacity * 2;
+            SavedFd *new_saved =
+                realloc(state->saved, new_cap * sizeof(SavedFd));
+            if (!new_saved) {
+                close(dup_fd);
+                return;
+            }
+            state->saved    = new_saved;
+            state->capacity = new_cap;
+        }
+        state->saved[state->count].orig_fd = fd;
+        state->saved[state->count].dup_fd  = dup_fd;
+        state->count++;
+    }
+}
+#endif
+
+static bool apply_in_process_redirections(ASTNode *node, Session *session,
+                                          RedirectionState *state) {
+    state->saved    = NULL;
+    state->count    = 0;
+    state->capacity = 0;
+
+#ifndef TIDESH_DISABLE_REDIRECTIONS
+    if (!node || !node->redirects) {
+        return true;
+    }
+
+    Redirection *redirect = node->redirects;
+    while (redirect) {
+        save_fd(state, redirect->fd);
+        if (redirect->type == TOKEN_REDIRECT_OUT_ERR) {
+            save_fd(state, STDERR_FILENO);
+        }
+        redirect = redirect->next;
+    }
+
+    fflush(stdout);
+    fflush(stderr);
+
+    if (handle_redirections(node, session) < 0) {
+        return false;
+    }
+#else
+    (void)node;
+    (void)session;
+#endif
+    return true;
+}
+
+static void restore_in_process_redirections(RedirectionState *state) {
+    if (!state || !state->saved) {
+        return;
+    }
+
+    fflush(stdout);
+    fflush(stderr);
+
+    for (size_t i = 0; i < state->count; i++) {
+        if (state->saved[i].dup_fd >= 0) {
+            dup2(state->saved[i].dup_fd, state->saved[i].orig_fd);
+            close(state->saved[i].dup_fd);
+        }
+    }
+
+    free(state->saved);
+    state->saved    = NULL;
+    state->count    = 0;
+    state->capacity = 0;
+}
+
 int execute(ASTNode *node, Session *session) {
     if (!node)
         return 0;
@@ -796,19 +893,35 @@ int execute(ASTNode *node, Session *session) {
 
         // Special builtins should be executed in the main process
         if (is_special_builtin(cmd_name)) {
-            int (*builtin_func)(int, char **, Session *) =
-                get_builtin(cmd_name);
-            if (builtin_func) {
-                int st = builtin_func(argc, argv, session);
+            RedirectionState redir_state = {0};
+            if (!apply_in_process_redirections(node, session, &redir_state)) {
+                restore_in_process_redirections(&redir_state);
                 for (int i = 0; i < argc; i++)
                     free(argv[i]);
                 free(argv);
                 free(arg_is_sub);
                 if (cmd_name_trimmed)
                     free(cmd_name_trimmed);
-                environ_set_exit_status(session->environ, st);
-                return st;
+                environ_set_exit_status(session->environ, 1);
+                return 1;
             }
+
+            int (*builtin_func)(int, char **, Session *) =
+                get_builtin(cmd_name);
+            int st = 1;
+            if (builtin_func) {
+                st = builtin_func(argc, argv, session);
+            }
+            restore_in_process_redirections(&redir_state);
+
+            for (int i = 0; i < argc; i++)
+                free(argv[i]);
+            free(argv);
+            free(arg_is_sub);
+            if (cmd_name_trimmed)
+                free(cmd_name_trimmed);
+            environ_set_exit_status(session->environ, st);
+            return st;
         }
 
 #ifndef TIDESH_DISABLE_FUNCTIONS
@@ -817,6 +930,20 @@ int execute(ASTNode *node, Session *session) {
             ASTNode *func_body =
                 load_function_body(session->functions, cmd_name);
             if (func_body) {
+                RedirectionState redir_state = {0};
+                if (!apply_in_process_redirections(node, session,
+                                                   &redir_state)) {
+                    restore_in_process_redirections(&redir_state);
+                    for (int i = 0; i < argc; i++)
+                        free(argv[i]);
+                    free(argv);
+                    free(arg_is_sub);
+                    if (cmd_name_trimmed)
+                        free(cmd_name_trimmed);
+                    environ_set_exit_status(session->environ, 1);
+                    return 1;
+                }
+
                 // 1. Backup and clear existing positional parameters ($0, $1,
                 // $2,
                 // ...)
@@ -841,6 +968,8 @@ int execute(ASTNode *node, Session *session) {
                 // ones
                 restore_positional_params(session, old_pos_params,
                                           old_pos_count);
+
+                restore_in_process_redirections(&redir_state);
 
                 // Original cleanup for argv, arg_is_sub, cmd_name_trimmed
                 for (int i = 0; i < argc; i++)

@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <unistd.h>
 #include "execute.h"
 #include "snow/snow.h"
 
@@ -349,6 +351,84 @@ describe(execute) {
         info = get_command_info("pwd", session);
         asserteq(info.type, COMMAND_BUILTIN);
         if (info.path) free(info.path);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should redirect output of special builtins without corrupting shell stdout") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        const char *outfile = "/tmp/test_special_builtin_redir.txt";
+        unlink(outfile);
+
+        // type is a special builtin in tidesh
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "type pwd > %s", outfile);
+        int st = execute_string(cmd, session);
+        asserteq(st, 0);
+
+        // Verify the file was created and contains the redirected output
+        FILE *f = fopen(outfile, "r");
+        assertneq(f, NULL);
+        char buf[256] = {0};
+        char *read_str = fgets(buf, sizeof(buf), f);
+        assertneq(read_str, NULL);
+        assert(strstr(buf, "pwd is a shell built-in command") != NULL);
+        fclose(f);
+        unlink(outfile);
+
+        // Verify normal stdout is not corrupted after redirection
+        char *out = execute_string_stdout("echo post_test", session);
+        assertneq(out, NULL);
+        assert(strstr(out, "post_test") != NULL);
+        free(out);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should redirect input and output of shell functions without corrupting shell fds") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        const char *outfile = "/tmp/test_func_redir_out.txt";
+        const char *infile  = "/tmp/test_func_redir_in.txt";
+        unlink(outfile);
+        unlink(infile);
+
+        // Test output redirection on function
+        execute_string("fn_out() { echo \"from_fn_out: $1\"; }", session);
+        char cmd_out[256];
+        snprintf(cmd_out, sizeof(cmd_out), "fn_out hello > %s", outfile);
+        int st = execute_string(cmd_out, session);
+        asserteq(st, 0);
+
+        FILE *f_out = fopen(outfile, "r");
+        assertneq(f_out, NULL);
+        char buf_out[256] = {0};
+        assertneq(fgets(buf_out, sizeof(buf_out), f_out), NULL);
+        assert(strstr(buf_out, "from_fn_out: hello") != NULL);
+        fclose(f_out);
+        unlink(outfile);
+
+        // Test input redirection on function
+        FILE *f_in = fopen(infile, "w");
+        assertneq(f_in, NULL);
+        fputs("hello_from_input_file\n", f_in);
+        fclose(f_in);
+
+        execute_string("fn_in() { cat; }", session);
+        char cmd_in[256];
+        snprintf(cmd_in, sizeof(cmd_in), "fn_in < %s", infile);
+        char *out = execute_string_stdout(cmd_in, session);
+        assertneq(out, NULL);
+        assert(strstr(out, "hello_from_input_file") != NULL);
+        free(out);
+        unlink(infile);
+
+        // Verify stdout and stdin are intact
+        out = execute_string_stdout("echo intact", session);
+        assertneq(out, NULL);
+        assert(strstr(out, "intact") != NULL);
+        free(out);
 
         free_session(session);
         free(session);
