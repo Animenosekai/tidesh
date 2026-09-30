@@ -153,9 +153,8 @@ static const FeatureDef *find_feature(const char *name) {
 }
 
 static void print_usage(void) {
-    fprintf(
-        stderr,
-        "Usage: features [list|status|enable|disable|toggle] [name|all|expansions]\n");
+    fprintf(stderr, "Usage: features [list|status|enable|disable|toggle] "
+                    "[name|all|expansions]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subcommands:\n");
     fprintf(stderr, "  (none) or list     List all features and status\n");
@@ -258,8 +257,8 @@ int builtin_features(int argc, char **argv, Session *session) {
         if (strcmp(argv[1], "toggle") == 0) {
             if (strcmp(argv[2], "all") == 0) {
                 for (size_t i = 0; i < feature_defs_count(); i++) {
-                    const FeatureDef *def  = &feature_defs[i];
-                    bool             *flag = feature_flag_ptr(session, def);
+                    const FeatureDef *def     = &feature_defs[i];
+                    bool             *flag    = feature_flag_ptr(session, def);
                     bool              new_val = !*flag;
                     if (new_val && def->compile_time_disabled) {
                         *flag = false;
