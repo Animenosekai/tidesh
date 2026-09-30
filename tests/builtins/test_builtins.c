@@ -1,5 +1,7 @@
 #include <stdlib.h>
+#include <unistd.h>
 #include "builtin.h"
+#include "builtins/cd.h"
 #include "builtins/unalias.h"
 #include "data/trie.h"
 #include "session.h"
@@ -49,6 +51,25 @@ describe(builtin) {
         // Calling unalias on non-existent alias should return non-zero
         int res_nonexistent = builtin_unalias(2, argv, session);
         asserteq(res_nonexistent, 1);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should allow cd even when directory_stack is disabled") {
+        Session *session = init_session(NULL, NULL);
+        session->features.directory_stack = false;
+
+        char original_cwd[1024];
+        assertneq(getcwd(original_cwd, sizeof(original_cwd)), NULL);
+
+        char *argv[] = {"cd", "/tmp"};
+        int res = builtin_cd(2, argv, session);
+        asserteq(res, 0);
+
+        char *restore_argv[] = {"cd", original_cwd};
+        res = builtin_cd(2, restore_argv, session);
+        asserteq(res, 0);
 
         free_session(session);
         free(session);

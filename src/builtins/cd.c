@@ -8,22 +8,21 @@
 #ifndef TIDESH_DISABLE_DIRSTACK
 
 int builtin_cd(int argc, char **argv, Session *session) {
-    if (!session->features.directory_stack) {
-        fprintf(stderr, "tidesh: directory stack not enabled\n");
-        return 127;
-    }
     char *dir = NULL;
     if (argc > 1) {
         dir = argv[1];
     } else {
-        dir = environ_get_default(session->environ, "HOME", "/");
+        dir =
+            environ_get_default(session ? session->environ : NULL, "HOME", "/");
     }
 
     if (chdir(dir) != 0) {
         perror("cd");
         return 1;
     } else {
-        update_working_dir(session);
+        if (session) {
+            update_working_dir(session);
+        }
     }
     return 0;
 }
