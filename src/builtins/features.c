@@ -65,16 +65,28 @@
 #define FEATURE_DISABLED_SUBSHELLS false
 #endif
 
+#ifdef TIDESH_DISABLE_BLOCKS
+#define FEATURE_DISABLED_BLOCKS true
+#else
+#define FEATURE_DISABLED_BLOCKS false
+#endif
+
 #ifdef TIDESH_DISABLE_COMMAND_SUBSTITUTION
 #define FEATURE_DISABLED_COMMAND_SUBSTITUTION true
 #else
 #define FEATURE_DISABLED_COMMAND_SUBSTITUTION false
 #endif
 
-#ifdef TIDESH_DISABLE_ASSIGNMENTS
+#if defined(TIDESH_DISABLE_ASSIGNMENTS) || defined(TIDESH_DISABLE_ASSIGNMENT)
 #define FEATURE_DISABLED_ASSIGNMENTS true
 #else
 #define FEATURE_DISABLED_ASSIGNMENTS false
+#endif
+
+#ifdef TIDESH_DISABLE_FUNCTIONS
+#define FEATURE_DISABLED_FUNCTIONS true
+#else
+#define FEATURE_DISABLED_FUNCTIONS false
 #endif
 
 typedef struct FeatureDef {
@@ -112,11 +124,15 @@ static const FeatureDef feature_defs[] = {
      FEATURE_DISABLED_SEQUENCES},
     {"subshells", "( ... )", offsetof(Features, subshells),
      FEATURE_DISABLED_SUBSHELLS},
+    {"blocks", "command blocks { ... }", offsetof(Features, blocks),
+     FEATURE_DISABLED_BLOCKS},
     {"command_substitution", "$(...) and <(...)",
      offsetof(Features, command_substitution),
      FEATURE_DISABLED_COMMAND_SUBSTITUTION},
     {"assignments", "VAR=value", offsetof(Features, assignments),
      FEATURE_DISABLED_ASSIGNMENTS},
+    {"functions", "shell functions", offsetof(Features, functions),
+     FEATURE_DISABLED_FUNCTIONS},
 };
 
 static size_t feature_defs_count(void) {
@@ -139,13 +155,14 @@ static const FeatureDef *find_feature(const char *name) {
 static void print_usage(void) {
     fprintf(
         stderr,
-        "Usage: features [list|status|enable|disable] [name|all|expansions]\n");
+        "Usage: features [list|status|enable|disable|toggle] [name|all|expansions]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Subcommands:\n");
     fprintf(stderr, "  (none) or list     List all features and status\n");
     fprintf(stderr, "  status [name]      Show feature status\n");
     fprintf(stderr, "  enable <name|all>  Enable a feature or all features\n");
     fprintf(stderr, "  disable <name|all> Disable a feature or all features\n");
+    fprintf(stderr, "  toggle <name|all>  Toggle a feature or all features\n");
     fprintf(stderr,
             "  enable expansions  Enable variable/tilde/brace/filename\n");
     fprintf(stderr,
@@ -231,10 +248,45 @@ int builtin_features(int argc, char **argv, Session *session) {
         return print_feature_status(session, argv[2]);
     }
 
-    if (strcmp(argv[1], "enable") == 0 || strcmp(argv[1], "disable") == 0) {
+    if (strcmp(argv[1], "enable") == 0 || strcmp(argv[1], "disable") == 0 ||
+        strcmp(argv[1], "toggle") == 0) {
         if (argc < 3) {
             print_usage();
             return 1;
+        }
+
+        if (strcmp(argv[1], "toggle") == 0) {
+            if (strcmp(argv[2], "all") == 0) {
+                for (size_t i = 0; i < feature_defs_count(); i++) {
+                    const FeatureDef *def  = &feature_defs[i];
+                    bool             *flag = feature_flag_ptr(session, def);
+                    bool              new_val = !*flag;
+                    if (new_val && def->compile_time_disabled) {
+                        *flag = false;
+                    } else {
+                        *flag = new_val;
+                    }
+                }
+                features_apply_compile_time_disables(&session->features);
+                return 0;
+            }
+
+            if (strcmp(argv[2], "expansions") == 0) {
+                bool any_on = session->features.variable_expansion ||
+                              session->features.tilde_expansion ||
+                              session->features.brace_expansion ||
+                              session->features.filename_expansion;
+                return set_expansions(session, !any_on);
+            }
+
+            const FeatureDef *def = find_feature(argv[2]);
+            if (!def) {
+                fprintf(stderr, "features: unknown feature '%s'\n", argv[2]);
+                return 1;
+            }
+
+            bool current = *feature_flag_ptr(session, def);
+            return set_feature(session, argv[2], !current);
         }
 
         bool enable = strcmp(argv[1], "enable") == 0;

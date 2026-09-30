@@ -533,8 +533,10 @@ Runtime features can be toggled on/off per session using the `features` builtin.
 - `redirections` - Input/output redirection (`>`, `<`, `>>`, etc.)
 - `sequences` - Command sequences (`;`, `&&`, `||`)
 - `subshells` - Subshells `( ... )`
+- `blocks` - Command blocks `{ ... }`
 - `command_substitution` - Command substitution (`$(...)`, `<(...)`)
 - `assignments` - Variable assignments (`VAR=value`)
+- `functions` - Shell functions
 
 **Future Features** (not yet implemented):
 
@@ -551,6 +553,7 @@ Manage runtime feature flags with the `features` builtin:
 | `features status [name]` | Show status for a specific feature or all |
 | `features enable <name\|all>` | Enable a feature or all features |
 | `features disable <name\|all>` | Disable a feature or all features |
+| `features toggle <name\|all>` | Toggle a feature or all features |
 | `features enable expansions` | Enable all expansion features |
 | `features disable expansions` | Disable all expansion features |
 

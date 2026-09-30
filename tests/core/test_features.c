@@ -26,6 +26,16 @@ describe(features) {
         assert(features.job_control);
         assert(features.history);
         assert(features.directory_stack);
+        assert(features.prompt_expansion);
+        assert(features.completion);
+        assert(features.pipes);
+        assert(features.redirections);
+        assert(features.sequences);
+        assert(features.subshells);
+        assert(features.blocks);
+        assert(features.command_substitution);
+        assert(features.assignments);
+        assert(features.functions);
     }
 
     it("should initialize minimal with all features disabled") {
@@ -40,6 +50,16 @@ describe(features) {
         assert(!features.job_control);
         assert(!features.history);
         assert(!features.directory_stack);
+        assert(!features.prompt_expansion);
+        assert(!features.completion);
+        assert(!features.pipes);
+        assert(!features.redirections);
+        assert(!features.sequences);
+        assert(!features.subshells);
+        assert(!features.blocks);
+        assert(!features.command_substitution);
+        assert(!features.assignments);
+        assert(!features.functions);
     }
 
     it("should enable all expansions") {

@@ -140,7 +140,7 @@ void features_apply_compile_time_disables(Features *features) {
 #ifdef TIDESH_DISABLE_COMMAND_SUBSTITUTION
     features->command_substitution = false;
 #endif
-#ifdef TIDESH_DISABLE_ASSIGNMENTS
+#if defined(TIDESH_DISABLE_ASSIGNMENTS) || defined(TIDESH_DISABLE_ASSIGNMENT)
     features->assignments = false;
 #endif
 #ifdef TIDESH_DISABLE_FUNCTIONS

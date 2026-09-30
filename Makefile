@@ -388,7 +388,7 @@ $(TESTS_TARGET): $(TESTS_OBJ) $(TESTS_SRC_OBJ)
 build/minimal:
 	@echo "$(BOLD)🔨 Building minimal shell (all optional features disabled)...$(SGR0)"
 	@$(MAKE) clean build \
-		EXTRA_CFLAGS="-DTIDESH_DISABLE_JOB_CONTROL -DTIDESH_DISABLE_HISTORY -DTIDESH_DISABLE_ALIASES -DTIDESH_DISABLE_DIRSTACK -DTIDESH_DISABLE_EXPANSIONS -DTIDESH_DISABLE_PIPES -DTIDESH_DISABLE_REDIRECTIONS -DTIDESH_DISABLE_SEQUENCES -DTIDESH_DISABLE_SUBSHELLS -DTIDESH_DISABLE_COMMAND_SUBSTITUTION -DTIDESH_DISABLE_ASSIGNMENT"
+		EXTRA_CFLAGS="-DTIDESH_DISABLE_JOB_CONTROL -DTIDESH_DISABLE_HISTORY -DTIDESH_DISABLE_ALIASES -DTIDESH_DISABLE_DIRSTACK -DTIDESH_DISABLE_EXPANSIONS -DTIDESH_DISABLE_PIPES -DTIDESH_DISABLE_REDIRECTIONS -DTIDESH_DISABLE_SEQUENCES -DTIDESH_DISABLE_SUBSHELLS -DTIDESH_DISABLE_BLOCKS -DTIDESH_DISABLE_COMMAND_SUBSTITUTION -DTIDESH_DISABLE_ASSIGNMENT -DTIDESH_DISABLE_FUNCTIONS"
 
 build/no-history:
 	@echo "$(BOLD)🔨 Building without history...$(SGR0)"
@@ -426,6 +426,10 @@ build/no-subshells:
 	@echo "$(BOLD)🔨 Building without subshells...$(SGR0)"
 	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_SUBSHELLS"
 
+build/no-blocks:
+	@echo "$(BOLD)🔨 Building without command blocks...$(SGR0)"
+	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_BLOCKS"
+
 build/no-command-substitution:
 	@echo "$(BOLD)🔨 Building without command substitution...$(SGR0)"
 	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_COMMAND_SUBSTITUTION"
@@ -433,6 +437,10 @@ build/no-command-substitution:
 build/no-assignment:
 	@echo "$(BOLD)🔨 Building without assignment...$(SGR0)"
 	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_ASSIGNMENT"
+
+build/no-functions:
+	@echo "$(BOLD)🔨 Building without shell functions...$(SGR0)"
+	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_FUNCTIONS"
 
 python/stage: $(SRC) $(INCLUDES_DIR)/*.h
 	@echo "$(BOLD)📦 Staging C sources for Python bindings...$(SGR0)"
