@@ -600,6 +600,33 @@ void cursor_clear_screen(Cursor *cursor) {
     dynamic_clear(cursor->data);
 }
 
+void cursor_redraw(Cursor *cursor) {
+    if (!cursor || !cursor->data || !cursor->session)
+        return;
+
+    terminal_write("\r");
+    terminal_write(ANSI_ERASE_CURSOR_TO_EOF);
+
+    if (cursor->prompt) {
+        terminal_write_check_newline(cursor->prompt);
+    }
+
+    cursor_render_tail(cursor, 0);
+
+    if (cursor->position > 0) {
+        size_t saved_pos          = cursor->position;
+        cursor->position          = 0;
+        CursorPosition end_pos    = cursor_terminal_position(cursor);
+        cursor->position          = saved_pos;
+        CursorPosition target_pos = cursor_terminal_position(cursor);
+
+        if (end_pos.row > target_pos.row) {
+            terminal_cursor_up(end_pos.row - target_pos.row);
+        }
+        terminal_cursor_to_column(target_pos.col);
+    }
+}
+
 /* Helper to find the buffer index corresponding to a specific visual row/col */
 static size_t cursor_get_index_at_pos(Cursor *cursor, size_t target_row,
                                       size_t target_col) {

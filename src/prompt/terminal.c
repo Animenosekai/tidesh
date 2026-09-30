@@ -163,6 +163,10 @@ Terminal *init_terminal(Terminal *terminal, Session *session) {
         terminal->cols = ws.ws_col;
     }
 
+    if (isatty(STDIN_FILENO)) {
+        tcgetattr(STDIN_FILENO, &terminal->orig_termios);
+    }
+
     // Setup signal handler for window resize
     struct sigaction sa;
     sa.sa_handler = handle_sigwinch;
@@ -191,9 +195,12 @@ bool terminal_setup(Session *session) {
     if (!isatty(STDIN_FILENO))
         return false;
 
-    // Get original terminal attributes
-    if (tcgetattr(STDIN_FILENO, &session->terminal->orig_termios) == -1) {
-        return false;
+    // Update original terminal attributes only if in canonical mode
+    struct termios current;
+    if (tcgetattr(STDIN_FILENO, &current) == 0) {
+        if (current.c_lflag & ICANON) {
+            session->terminal->orig_termios = current;
+        }
     }
 
     // Enable raw mode

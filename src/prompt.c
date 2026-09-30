@@ -121,7 +121,11 @@ static bool read_until_enter(Cursor *cursor) {
     char temp[PROMPT_BUFFER_SIZE];
 
     while (1) {
-        terminal_check_resize(cursor->session);
+        if (terminal_check_resize(cursor->session)) {
+            if (cursor->session->terminal->is_visual) {
+                cursor_redraw(cursor);
+            }
+        }
         ssize_t nread = read(STDIN_FILENO, temp, PROMPT_BUFFER_SIZE - 1);
 
         if (nread < 0) {

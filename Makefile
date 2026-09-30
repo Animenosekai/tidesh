@@ -295,8 +295,12 @@ run: build
 install: build
 	@echo "$(BOLD)📥 Installing $(PROJECT_NAME) to $(INSTALL_DIR)...$(SGR0)"
 	$(SILENT)mkdir -p $(INSTALL_DIR)
+	$(SILENT)rm -f $(INSTALL_DIR)/$(PROJECT_NAME)
 	$(SILENT)cp $(TARGET) $(INSTALL_DIR)/$(PROJECT_NAME)
 	$(SILENT)chmod +x $(INSTALL_DIR)/$(PROJECT_NAME)
+ifeq ($(PLATFORM), macos)
+	$(SILENT)codesign --force --sign - $(INSTALL_DIR)/$(PROJECT_NAME) 2>/dev/null || true
+endif
 	@echo "$(BOLD)✅ Installation completed: $(INSTALL_DIR)/$(PROJECT_NAME)$(SGR0)"
 
 uninstall:

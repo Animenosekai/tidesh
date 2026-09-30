@@ -9,6 +9,7 @@
 #include <stdlib.h>   /* malloc, free, realloc, strdup, calloc, exit */
 #include <string.h>   /* strcmp, strchr, strlen, strncpy, strtok, snprintf */
 #include <sys/wait.h> /* waitpid, WEXITSTATUS */
+#include <termios.h>  /* tcsetpgrp, tcgetattr, tcsetattr, TCSADRAIN */
 #include <unistd.h> /* fork, access, X_OK, dup2, close, write, execve, pipe, STDOUT_FILENO, STDIN_FILENO, STDERR_FILENO, read */
 
 #include "ast.h"        /* ASTNode, NODE_*, parse, free_ast */
@@ -692,9 +693,11 @@ int execute(ASTNode *node, Session *session) {
         }
         close(fds[0]);
         close(fds[1]);
-        int st;
-        waitpid(left, NULL, 0);
-        waitpid(right, &st, 0);
+        int st = 0;
+        while (waitpid(left, NULL, 0) == -1 && errno == EINTR)
+            ;
+        while (waitpid(right, &st, 0) == -1 && errno == EINTR)
+            ;
         int exit_status = WEXITSTATUS(st);
         environ_set_exit_status(session->environ, exit_status);
         return exit_status;
@@ -745,8 +748,9 @@ int execute(ASTNode *node, Session *session) {
             signal(SIGQUIT, SIG_DFL);
             exit(execute(node->left, session));
         }
-        int st;
-        waitpid(pid, &st, 0);
+        int st = 0;
+        while (waitpid(pid, &st, 0) == -1 && errno == EINTR)
+            ;
         int exit_status = 0;
         if (WIFSIGNALED(st)) {
             exit_status = 128 + WTERMSIG(st);
@@ -1200,6 +1204,7 @@ int execute(ASTNode *node, Session *session) {
         }
 
         /* Parent Process */
+        char *cmd_str    = build_command_string(argv, argc);
         char *argv0_copy = argv && argv[0] ? strdup(argv[0]) : NULL;
         for (int i = 0; i < argc; i++)
             free(argv[i]);
@@ -1215,13 +1220,15 @@ int execute(ASTNode *node, Session *session) {
             fprintf(stderr,
                     "tidesh: background jobs disabled at compile time\n");
             kill(pid, SIGTERM);
-            waitpid(pid, NULL, 0);
+            while (waitpid(pid, NULL, 0) == -1 && errno == EINTR)
+                ;
+            if (cmd_str)
+                free(cmd_str);
             free(argv0_copy);
             free(resolved_path);
             return 127;
 #else
             if (session->features.job_control) {
-                char *cmd_str = build_command_string(argv, argc);
                 int job_id = jobs_add(session->jobs, pid, cmd_str, JOB_RUNNING);
                 if (cmd_str) {
                     free(cmd_str);
@@ -1252,17 +1259,48 @@ int execute(ASTNode *node, Session *session) {
             } else {
                 fprintf(stderr, "tidesh: background jobs not enabled\n");
                 kill(pid, SIGTERM);
-                waitpid(pid, NULL, 0);
+                while (waitpid(pid, NULL, 0) == -1 && errno == EINTR)
+                    ;
+                if (cmd_str)
+                    free(cmd_str);
                 free(argv0_copy);
                 free(resolved_path);
                 return 127;
             }
 #endif
         } else {
-            int status;
-            waitpid(pid, &status, 0);
+            int status = 0;
+            while (waitpid(pid, &status, WUNTRACED) == -1) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                break;
+            }
+
+            if (session->terminal && isatty(STDIN_FILENO)) {
+                tcsetattr(STDIN_FILENO, TCSADRAIN,
+                          &session->terminal->orig_termios);
+            }
+
             int exit_status = 0;
-            if (WIFSIGNALED(status)) {
+            if (WIFSTOPPED(status)) {
+#ifndef TIDESH_DISABLE_JOB_CONTROL
+                if (session->features.job_control) {
+                    int job_id =
+                        jobs_add(session->jobs, pid,
+                                 cmd_str ? cmd_str : cmd_name, JOB_STOPPED);
+                    printf("\n[%d]+  Stopped                 %s\n", job_id,
+                           cmd_name);
+                    exit_status = 128 + WSTOPSIG(status);
+                } else {
+                    kill(pid, SIGKILL);
+                    exit_status = 128 + WSTOPSIG(status);
+                }
+#else
+                kill(pid, SIGKILL);
+                exit_status = 128 + WSTOPSIG(status);
+#endif
+            } else if (WIFSIGNALED(status)) {
                 exit_status = 128 + WTERMSIG(status);
                 char sig_buf[16];
                 snprintf(sig_buf, sizeof(sig_buf), "%d", WTERMSIG(status));
@@ -1270,6 +1308,9 @@ int execute(ASTNode *node, Session *session) {
                 run_cwd_hook_with_vars(session, HOOK_SIGNAL, sig_vars, 1);
             } else {
                 exit_status = WEXITSTATUS(status);
+            }
+            if (cmd_str) {
+                free(cmd_str);
             }
             environ_set_exit_status(session->environ, exit_status);
             if (is_external) {
@@ -1406,7 +1447,8 @@ char *execute_string_stdout(const char *cmd, Session *session) {
 
     if (!buffer) {
         close(pipe_fd[0]);
-        waitpid(pid, NULL, 0);
+        while (waitpid(pid, NULL, 0) == -1 && errno == EINTR)
+            ;
         return NULL;
     }
 
@@ -1424,7 +1466,8 @@ char *execute_string_stdout(const char *cmd, Session *session) {
             if (!new_buf) {
                 free(buffer);
                 close(pipe_fd[0]);
-                waitpid(pid, NULL, 0);
+                while (waitpid(pid, NULL, 0) == -1 && errno == EINTR)
+                    ;
                 return NULL;
             }
             buffer = new_buf;
@@ -1435,8 +1478,9 @@ char *execute_string_stdout(const char *cmd, Session *session) {
     close(pipe_fd[0]);
 
     // Wait for the child process to finish
-    int status;
-    waitpid(pid, &status, 0);
+    int status = 0;
+    while (waitpid(pid, &status, 0) == -1 && errno == EINTR)
+        ;
 
     // Strip trailing newlines (Standard shell behavior for command
 

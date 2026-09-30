@@ -96,6 +96,13 @@ bool cursor_delete_line(Cursor *cursor);
  */
 void cursor_clear_screen(Cursor *cursor);
 
+/**
+ * Redraws the prompt and current input line (e.g. after a terminal resize).
+ *
+ * @param cursor Pointer to the Cursor structure.
+ */
+void cursor_redraw(Cursor *cursor);
+
 // /**
 //  * Calculates the column at the end of the current cursor line.
 //  *

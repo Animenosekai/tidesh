@@ -79,11 +79,19 @@ int builtin_fg(int argc, char **argv, Session *session) {
     tcsetpgrp(STDIN_FILENO, job->pid);
 
     // Wait for the job to complete or stop
-    int status;
-    waitpid(job->pid, &status, WUNTRACED);
+    int status = 0;
+    while (waitpid(job->pid, &status, WUNTRACED) == -1) {
+        if (errno == EINTR)
+            continue;
+        break;
+    }
 
     // Take back terminal control
     tcsetpgrp(STDIN_FILENO, session->jobs->pgid);
+
+    if (session->terminal) {
+        tcsetattr(STDIN_FILENO, TCSADRAIN, &session->terminal->orig_termios);
+    }
 
     // Update job state
     if (WIFEXITED(status)) {

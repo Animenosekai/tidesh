@@ -140,6 +140,9 @@ static void print_usage(const char *prog_name, bool colors) {
 int main(int argc, char **argv) {
     signal(SIGINT, SIG_IGN);
     signal(SIGQUIT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+    signal(SIGTTIN, SIG_IGN);
+    signal(SIGTTOU, SIG_IGN);
 
     bool  help             = false;
     bool  no_fin           = false;
