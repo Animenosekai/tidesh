@@ -229,4 +229,82 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should not leak caller positional parameters into shell functions with fewer arguments") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Set caller positional parameters
+        environ_set(session->environ, "0", "script.sh");
+        environ_set(session->environ, "1", "outer1");
+        environ_set(session->environ, "2", "outer2");
+        environ_set(session->environ, "3", "outer3");
+
+        // Define a function that outputs $1 and $2
+        execute_string("fn() { echo \"$1-$2\"; }", session);
+
+        // Call fn with only 1 argument ($2 should be empty, not 'outer2')
+        char *output = execute_string_stdout("fn inner1", session);
+        assertneq(output, NULL);
+        assert(strstr(output, "inner1-") != NULL);
+        assert(strstr(output, "outer2") == NULL);
+        free(output);
+
+        // Check that caller positional parameters are fully preserved
+        asserteq_str(environ_get(session->environ, "0"), "script.sh");
+        asserteq_str(environ_get(session->environ, "1"), "outer1");
+        asserteq_str(environ_get(session->environ, "2"), "outer2");
+        asserteq_str(environ_get(session->environ, "3"), "outer3");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should not leak function positional parameters back to caller") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        environ_set(session->environ, "0", "main");
+        environ_set(session->environ, "1", "val1");
+
+        // Define a function that takes 3 arguments
+        execute_string("fn() { echo \"$1 $2 $3\"; }", session);
+
+        char *output = execute_string_stdout("fn a b c", session);
+        assertneq(output, NULL);
+        assert(strstr(output, "a b c") != NULL);
+        free(output);
+
+        // Caller should still only have $0 and $1, while $2 and $3 must be unset
+        asserteq_str(environ_get(session->environ, "0"), "main");
+        asserteq_str(environ_get(session->environ, "1"), "val1");
+        asserteq(environ_get(session->environ, "2"), NULL);
+        asserteq(environ_get(session->environ, "3"), NULL);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should properly isolate positional parameters in nested function calls") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        environ_set(session->environ, "0", "top");
+        environ_set(session->environ, "1", "top_arg");
+
+        execute_string("inner() { echo \"in:$1-$2\"; }", session);
+        execute_string("outer() { echo \"out_pre:$1\"; inner \"in_arg\"; echo \"out_post:$1-$2\"; }", session);
+
+        char *output = execute_string_stdout("outer \"out_arg1\" \"out_arg2\"", session);
+        assertneq(output, NULL);
+        assert(strstr(output, "out_pre:out_arg1") != NULL);
+        assert(strstr(output, "in:in_arg-") != NULL);
+        assert(strstr(output, "out_post:out_arg1-out_arg2") != NULL);
+        free(output);
+
+        asserteq_str(environ_get(session->environ, "0"), "top");
+        asserteq_str(environ_get(session->environ, "1"), "top_arg");
+        asserteq(environ_get(session->environ, "2"), NULL);
+
+        free_session(session);
+        free(session);
+    }
 }
+

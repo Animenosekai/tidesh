@@ -77,6 +77,139 @@ static ASTNode *load_function_body(Trie *functions, const char *name) {
     uintptr_t ptr = (uintptr_t)strtoull(encoded, NULL, 16);
     return (ASTNode *)ptr;
 }
+
+typedef struct PosParamBackup {
+    char *key;
+    char *value;
+} PosParamBackup;
+
+static bool is_positional_param(const char *key) {
+    if (!key || !*key) {
+        return false;
+    }
+    for (const char *p = key; *p; p++) {
+        if (!isdigit((unsigned char)*p)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void clear_positional_params(Session *session) {
+    if (!session || !session->environ) {
+        return;
+    }
+
+    Array *env_array = environ_to_array(session->environ);
+    if (!env_array) {
+        return;
+    }
+
+    for (size_t i = 0; i < env_array->count; i++) {
+        char *entry = env_array->items[i];
+        char *eq    = strchr(entry, '=');
+        if (!eq) {
+            continue;
+        }
+
+        size_t key_len = eq - entry;
+        char  *key     = strndup(entry, key_len);
+        if (key) {
+            if (is_positional_param(key)) {
+                environ_remove(session->environ, key);
+            }
+            free(key);
+        }
+    }
+
+    free_array(env_array);
+    free(env_array);
+}
+
+static PosParamBackup *backup_and_clear_positional_params(Session *session,
+                                                          size_t  *count_out) {
+    *count_out = 0;
+    if (!session || !session->environ) {
+        return NULL;
+    }
+
+    Array *env_array = environ_to_array(session->environ);
+    if (!env_array) {
+        return NULL;
+    }
+
+    PosParamBackup *backups = NULL;
+    size_t          count   = 0;
+
+    for (size_t i = 0; i < env_array->count; i++) {
+        char *entry = env_array->items[i];
+        char *eq    = strchr(entry, '=');
+        if (!eq) {
+            continue;
+        }
+
+        size_t key_len = eq - entry;
+        char  *key     = strndup(entry, key_len);
+        if (!key) {
+            continue;
+        }
+
+        if (is_positional_param(key)) {
+            char *val = strdup(eq + 1);
+            if (val) {
+                PosParamBackup *new_backups =
+                    realloc(backups, (count + 1) * sizeof(PosParamBackup));
+                if (new_backups) {
+                    backups              = new_backups;
+                    backups[count].key   = key;
+                    backups[count].value = val;
+                    count++;
+                } else {
+                    free(val);
+                    free(key);
+                }
+            } else {
+                free(key);
+            }
+        } else {
+            free(key);
+        }
+    }
+
+    free_array(env_array);
+    free(env_array);
+
+    for (size_t i = 0; i < count; i++) {
+        environ_remove(session->environ, backups[i].key);
+    }
+
+    *count_out = count;
+    return backups;
+}
+
+static void restore_positional_params(Session *session, PosParamBackup *backups,
+                                      size_t count) {
+    if (!session || !session->environ) {
+        return;
+    }
+
+    clear_positional_params(session);
+
+    if (backups) {
+        for (size_t i = 0; i < count; i++) {
+            if (backups[i].key && backups[i].value) {
+                environ_set(session->environ, backups[i].key, backups[i].value);
+            }
+            if (backups[i].key) {
+                free(backups[i].key);
+            }
+            if (backups[i].value) {
+                free(backups[i].value);
+            }
+        }
+        free(backups);
+    }
+}
 #endif
 
 /* Trim leading and trailing whitespace from a string */
@@ -665,43 +798,13 @@ int execute(ASTNode *node, Session *session) {
         // Check for shell functions
         ASTNode *func_body = load_function_body(session->functions, cmd_name);
         if (func_body) {
-            // 1. Backup existing positional parameters ($0, $1, $2, ...)
-            // We need to back up up to argc parameters, as these are the ones
-            // we will potentially overwrite.
-            char **old_pos_params     = calloc(argc, sizeof(char *));
-            char **old_pos_param_keys = calloc(argc, sizeof(char *));
-            if (!old_pos_params || !old_pos_param_keys) {
-                fprintf(stderr, "tidesh: failed to allocate memory for "
-                                "function argument backup\n");
-                // Clean up current argv and return error
-                for (int i = 0; i < argc; i++)
-                    free(argv[i]);
-                free(argv);
-                free(arg_is_sub);
-                if (cmd_name_trimmed)
-                    free(cmd_name_trimmed);
-                if (old_pos_params)
-                    free(old_pos_params);
-                if (old_pos_param_keys)
-                    free(old_pos_param_keys);
-                environ_set_exit_status(session->environ, 1);
-                return 1;
-            }
+            // 1. Backup and clear existing positional parameters ($0, $1, $2,
+            // ...)
+            size_t          old_pos_count = 0;
+            PosParamBackup *old_pos_params =
+                backup_and_clear_positional_params(session, &old_pos_count);
 
-            for (int i = 0; i < argc; i++) {
-                char key_str[16]; // Sufficient for "0" to "999..."
-                snprintf(key_str, sizeof(key_str), "%d", i);
-                old_pos_param_keys[i] = strdup(key_str);
-                char *existing_val =
-                    environ_get(session->environ, old_pos_param_keys[i]);
-                if (existing_val) {
-                    old_pos_params[i] = strdup(existing_val);
-                } else {
-                    old_pos_params[i] = NULL; // Mark as not existing
-                }
-            }
-
-            // 2. Set new positional parameters for the function
+            // 2. Set new positional parameters for the function ($0, $1, ...)
             environ_set(session->environ, "0",
                         (char *)cmd_name); // $0 is function name
             for (int i = 1; i < argc; i++) {
@@ -713,19 +816,8 @@ int execute(ASTNode *node, Session *session) {
             // Execute the function body in the current process
             int st = execute(func_body, session);
 
-            // 3. Restore original positional parameters
-            for (int i = 0; i < argc; i++) {
-                if (old_pos_params[i]) {
-                    environ_set(session->environ, old_pos_param_keys[i],
-                                old_pos_params[i]);
-                    free(old_pos_params[i]);
-                } else {
-                    environ_remove(session->environ, old_pos_param_keys[i]);
-                }
-                free(old_pos_param_keys[i]);
-            }
-            free(old_pos_params);
-            free(old_pos_param_keys);
+            // 3. Clear function positional parameters and restore original ones
+            restore_positional_params(session, old_pos_params, old_pos_count);
 
             // Original cleanup for argv, arg_is_sub, cmd_name_trimmed
             for (int i = 0; i < argc; i++)
