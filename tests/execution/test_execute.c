@@ -306,5 +306,52 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should have consistent precedence: special builtins take precedence over functions") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        environ_set(session->environ, "TEST_UNSET_VAR", "active");
+
+        // Define a function shadowing a special builtin like unset
+        execute_string("unset() { echo \"shadowed_unset\"; }", session);
+
+        // get_command_info should report unset as COMMAND_SPECIAL_BUILTIN
+        CommandInfo info = get_command_info("unset", session);
+        asserteq(info.type, COMMAND_SPECIAL_BUILTIN);
+        if (info.path) free(info.path);
+
+        // execute should run the special builtin unset (unsetting the variable), not the function
+        execute_string("unset TEST_UNSET_VAR", session);
+        asserteq(environ_get(session->environ, "TEST_UNSET_VAR"), NULL);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should have consistent precedence: functions take precedence over regular builtins") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Define a function shadowing a regular builtin (e.g. pwd)
+        execute_string("pwd() { echo \"custom_pwd_output\"; }", session);
+
+        // get_command_info should report pwd as COMMAND_FUNCTION
+        CommandInfo info = get_command_info("pwd", session);
+        asserteq(info.type, COMMAND_FUNCTION);
+        if (info.path) free(info.path);
+
+        // execute should run the user function
+        char *output = execute_string_stdout("pwd", session);
+        assertneq(output, NULL);
+        assert(strstr(output, "custom_pwd_output") != NULL);
+        free(output);
+
+        // When functions feature is disabled, get_command_info should fallback to COMMAND_BUILTIN
+        session->features.functions = false;
+        info = get_command_info("pwd", session);
+        asserteq(info.type, COMMAND_BUILTIN);
+        if (info.path) free(info.path);
+
+        free_session(session);
+        free(session);
+    }
 }
 

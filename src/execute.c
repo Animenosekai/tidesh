@@ -425,15 +425,8 @@ CommandInfo get_command_info(const char *cmd, Session *session) {
         return info;
     }
 
-    // 3. Regular Builtin
-    if (is_builtin(cmd)) {
-        info.type = COMMAND_BUILTIN;
-        info.path = NULL;
-        return info;
-    }
-
 #ifndef TIDESH_DISABLE_FUNCTIONS
-    // 3.5. Function
+    // 3. Function
     if (session->features.functions &&
         trie_get(session->functions, (char *)cmd)) {
         info.type = COMMAND_FUNCTION;
@@ -442,7 +435,14 @@ CommandInfo get_command_info(const char *cmd, Session *session) {
     }
 #endif
 
-    // 4. External Command
+    // 4. Regular Builtin
+    if (is_builtin(cmd)) {
+        info.type = COMMAND_BUILTIN;
+        info.path = NULL;
+        return info;
+    }
+
+    // 5. External Command
     char *path = find_in_path(cmd, session);
     if (path) {
         info.type = COMMAND_EXTERNAL;
@@ -794,43 +794,6 @@ int execute(ASTNode *node, Session *session) {
             cmd_name_trimmed ? cmd_name_trimmed : cmd_name_raw;
         environ_set_last_arg(session->environ, argv[argc - 1]);
 
-#ifndef TIDESH_DISABLE_FUNCTIONS
-        // Check for shell functions
-        ASTNode *func_body = load_function_body(session->functions, cmd_name);
-        if (func_body) {
-            // 1. Backup and clear existing positional parameters ($0, $1, $2,
-            // ...)
-            size_t          old_pos_count = 0;
-            PosParamBackup *old_pos_params =
-                backup_and_clear_positional_params(session, &old_pos_count);
-
-            // 2. Set new positional parameters for the function ($0, $1, ...)
-            environ_set(session->environ, "0",
-                        (char *)cmd_name); // $0 is function name
-            for (int i = 1; i < argc; i++) {
-                char key_str[16];
-                snprintf(key_str, sizeof(key_str), "%d", i);
-                environ_set(session->environ, key_str, argv[i]);
-            }
-
-            // Execute the function body in the current process
-            int st = execute(func_body, session);
-
-            // 3. Clear function positional parameters and restore original ones
-            restore_positional_params(session, old_pos_params, old_pos_count);
-
-            // Original cleanup for argv, arg_is_sub, cmd_name_trimmed
-            for (int i = 0; i < argc; i++)
-                free(argv[i]);
-            free(argv);
-            free(arg_is_sub);
-            if (cmd_name_trimmed)
-                free(cmd_name_trimmed);
-            environ_set_exit_status(session->environ, st);
-            return st;
-        }
-#endif
-
         // Special builtins should be executed in the main process
         if (is_special_builtin(cmd_name)) {
             int (*builtin_func)(int, char **, Session *) =
@@ -847,6 +810,50 @@ int execute(ASTNode *node, Session *session) {
                 return st;
             }
         }
+
+#ifndef TIDESH_DISABLE_FUNCTIONS
+        // Check for shell functions
+        if (session->features.functions) {
+            ASTNode *func_body =
+                load_function_body(session->functions, cmd_name);
+            if (func_body) {
+                // 1. Backup and clear existing positional parameters ($0, $1,
+                // $2,
+                // ...)
+                size_t          old_pos_count = 0;
+                PosParamBackup *old_pos_params =
+                    backup_and_clear_positional_params(session, &old_pos_count);
+
+                // 2. Set new positional parameters for the function ($0, $1,
+                // ...)
+                environ_set(session->environ, "0",
+                            (char *)cmd_name); // $0 is function name
+                for (int i = 1; i < argc; i++) {
+                    char key_str[16];
+                    snprintf(key_str, sizeof(key_str), "%d", i);
+                    environ_set(session->environ, key_str, argv[i]);
+                }
+
+                // Execute the function body in the current process
+                int st = execute(func_body, session);
+
+                // 3. Clear function positional parameters and restore original
+                // ones
+                restore_positional_params(session, old_pos_params,
+                                          old_pos_count);
+
+                // Original cleanup for argv, arg_is_sub, cmd_name_trimmed
+                for (int i = 0; i < argc; i++)
+                    free(argv[i]);
+                free(argv);
+                free(arg_is_sub);
+                if (cmd_name_trimmed)
+                    free(cmd_name_trimmed);
+                environ_set_exit_status(session->environ, st);
+                return st;
+            }
+        }
+#endif
 
         bool  is_external   = !is_builtin(cmd_name);
         char *resolved_path = NULL;
