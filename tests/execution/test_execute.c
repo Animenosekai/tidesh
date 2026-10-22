@@ -468,6 +468,68 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should expand variables in variable assignments") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        int st1 = execute_string("BASE=/opt/app; FULL=\"$BASE/bin\"; PATH=\"$FULL:$PATH\"", session);
+        asserteq(st1, 0);
+
+        char *val = environ_get(session->environ, "FULL");
+        assertneq(val, NULL);
+        asserteq_str(val, "/opt/app/bin");
+
+        char *path = environ_get(session->environ, "PATH");
+        assertneq(path, NULL);
+        assert(strncmp(path, "/opt/app/bin:", 13) == 0);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should populate special positional parameters $#, $@, $* in functions") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        int def_st = execute_string("test_params() { echo \"count:$# args:$@ star:$*\"; }", session);
+        asserteq(def_st, 0);
+
+        char *out = execute_string_stdout("test_params one two three", session);
+        assertneq(out, NULL);
+        assert(strstr(out, "count:3") != NULL);
+        assert(strstr(out, "args:one two three") != NULL);
+        assert(strstr(out, "star:one two three") != NULL);
+        free(out);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should expand nested variables in parameter defaults") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        environ_set(session->environ, "FALLBACK", "default_val");
+        char *out = execute_string_stdout("echo \"${UNSET_VAR:-$FALLBACK}\"", session);
+        assertneq(out, NULL);
+        assert(strstr(out, "default_val") != NULL);
+        free(out);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should expand variable names starting with an underscore without confusing with $_") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        int st = execute_string("_MY_VAR=\"hello_under\"; VAL=\"$_MY_VAR\"", session);
+        asserteq(st, 0);
+
+        char *val = environ_get(session->environ, "VAL");
+        assertneq(val, NULL);
+        asserteq_str(val, "hello_under");
+
+        free_session(session);
+        free(session);
+    }
 }
 
 

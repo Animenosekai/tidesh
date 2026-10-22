@@ -16,12 +16,19 @@
 static char *parse_varname(char *input, size_t *pos) {
     size_t start = *pos;
 
-    // Check if first character is a special variable or a digit
+    // Check if first character is a special single-character variable or a
+    // digit
     if (input[*pos] == '?' || input[*pos] == '$' || input[*pos] == '!' ||
-        input[*pos] == '_' || isdigit(input[*pos])) {
+        input[*pos] == '#' || input[*pos] == '@' || input[*pos] == '*' ||
+        isdigit((unsigned char)input[*pos])) {
+        (*pos)++;
+    } else if (input[*pos] == '_' && !isalnum((unsigned char)input[*pos + 1]) &&
+               input[*pos + 1] != '_') {
+        // Standalone $_
         (*pos)++;
     } else {
-        while (input[*pos] && (isalnum(input[*pos]) || input[*pos] == '_')) {
+        while (input[*pos] &&
+               (isalnum((unsigned char)input[*pos]) || input[*pos] == '_')) {
             (*pos)++;
         }
     }
@@ -81,8 +88,8 @@ static Array *split_by_whitespace(char *str) {
 static char *expand_brace_var(char *expr, Session *session, bool *is_split) {
     *is_split = false;
 
-    // Handle ${#VAR} - length
-    if (expr[0] == '#') {
+    // Handle ${#VAR} - length (but ${#} is the positional parameter count)
+    if (expr[0] == '#' && expr[1] != '\0') {
         char *varname = strdup(expr + 1);
         char *value   = environ_get(session->environ, varname);
         free(varname);
@@ -173,8 +180,23 @@ static char *expand_brace_var(char *expr, Session *session, bool *is_split) {
         varname = strdup(expr);
     }
 
-    char *value  = environ_get(session->environ, varname);
+    char *value = environ_get(session->environ, varname);
+    if (!value && strcmp(varname, "#") == 0) {
+        value = "0";
+    }
     char *result = NULL;
+
+    // Expand nested variables in default_val if present
+    if (default_val && strchr(default_val, '$') &&
+        session->features.variable_expansion) {
+        Array *def_arr = variable_expansion(default_val, session);
+        if (def_arr && def_arr->count > 0) {
+            free(default_val);
+            default_val = strdup(def_arr->items[0]);
+            free_array(def_arr);
+            free(def_arr);
+        }
+    }
 
     if (!modifier) {
         result = value ? strdup(value) : strdup("");
@@ -303,7 +325,11 @@ Array *variable_expansion(char *input, Session *session) {
                 // $VAR
                 char *varname = parse_varname(input, &i);
                 char *value   = environ_get(session->environ, varname);
-                expanded      = value ? strdup(value) : strdup("");
+                if (!value && strcmp(varname, "#") == 0) {
+                    expanded = strdup("0");
+                } else {
+                    expanded = value ? strdup(value) : strdup("");
+                }
                 free(varname);
             }
 

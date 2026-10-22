@@ -15,15 +15,79 @@
 #include "ast.h"        /* ASTNode, NODE_*, parse, free_ast */
 #include "builtin.h"    /* is_special_builtin, get_builtin, is_builtin */
 #include "data/array.h" /* Array, free_array, init_array, array_add */
-#include "data/trie.h"  /* trie_get, trie_set */
+#include "data/dynamic.h"
+#include "data/trie.h" /* trie_get, trie_set */
 #include "environ.h" /* environ_get, environ_set, environ_set_exit_status, environ_set_last_arg, environ_set_background_pid, environ_to_array */
 #include "execute.h" /* execute, execute_string, execute_string_stdout, find_in_path, get_command_info, CommandInfo, COMMAND_* */
 #include "expand.h"  /* full_expansion */
+#include "expansions/tildes.h"
+#include "expansions/variables.h"
 #include "hooks.h"   /* HOOK_* */
 #include "jobs.h"    /* jobs_add, jobs_update */
 #include "session.h" /* Session */
 
 #define RW_R__R__ 0644
+
+#ifndef TIDESH_DISABLE_ASSIGNMENTS
+static char *expand_assignment_value(const char *raw_value, Session *session) {
+    if (!raw_value) {
+        return strdup("");
+    }
+    char *current = strdup(raw_value);
+
+    // 1. Variable expansion
+    if (session && session->features.variable_expansion) {
+        Array *var_arr = variable_expansion(current, session);
+        if (var_arr) {
+            free(current);
+            if (var_arr->count == 0) {
+                current = strdup("");
+            } else if (var_arr->count == 1) {
+                current = strdup(var_arr->items[0]);
+            } else {
+                Dynamic joined = {0};
+                init_dynamic(&joined);
+                for (size_t i = 0; i < var_arr->count; i++) {
+                    if (i > 0)
+                        dynamic_append(&joined, ' ');
+                    dynamic_extend(&joined, var_arr->items[i]);
+                }
+                current = dynamic_to_string(&joined);
+                free_dynamic(&joined);
+            }
+            free_array(var_arr);
+            free(var_arr);
+        }
+    }
+
+    // 2. Tilde expansion (for cases like PATH=~/bin:$PATH or HOME=~)
+    if (session && session->features.tilde_expansion && current && current[0]) {
+        Array *tilde_arr = tilde_expansion(current, session);
+        if (tilde_arr) {
+            free(current);
+            if (tilde_arr->count == 0) {
+                current = strdup("");
+            } else if (tilde_arr->count == 1) {
+                current = strdup(tilde_arr->items[0]);
+            } else {
+                Dynamic joined = {0};
+                init_dynamic(&joined);
+                for (size_t i = 0; i < tilde_arr->count; i++) {
+                    if (i > 0)
+                        dynamic_append(&joined, ' ');
+                    dynamic_extend(&joined, tilde_arr->items[i]);
+                }
+                current = dynamic_to_string(&joined);
+                free_dynamic(&joined);
+            }
+            free_array(tilde_arr);
+            free(tilde_arr);
+        }
+    }
+
+    return current ? current : strdup("");
+}
+#endif
 
 /* Build a command string from argv for display */
 static char *build_command_string(char **argv, int argc) {
@@ -98,6 +162,10 @@ typedef struct PosParamBackup {
 static bool is_positional_param(const char *key) {
     if (!key || !*key) {
         return false;
+    }
+    if (strcmp(key, "#") == 0 || strcmp(key, "@") == 0 ||
+        strcmp(key, "*") == 0) {
+        return true;
     }
     for (const char *p = key; *p; p++) {
         if (!isdigit((unsigned char)*p)) {
@@ -882,7 +950,10 @@ int execute(ASTNode *node, Session *session) {
                 char *eq   = strchr(copy, '=');
                 if (eq) {
                     *eq = 0;
-                    environ_set(session->environ, copy, eq + 1);
+                    char *expanded_val =
+                        expand_assignment_value(eq + 1, session);
+                    environ_set(session->environ, copy, expanded_val);
+                    free(expanded_val);
                 }
                 free(copy);
             }
@@ -979,6 +1050,23 @@ int execute(ASTNode *node, Session *session) {
                     snprintf(key_str, sizeof(key_str), "%d", i);
                     environ_set(session->environ, key_str, argv[i]);
                 }
+                char argc_str[16];
+                snprintf(argc_str, sizeof(argc_str), "%d", argc - 1);
+                environ_set(session->environ, "#", argc_str);
+
+                Dynamic all_params = {0};
+                init_dynamic(&all_params);
+                for (int i = 1; i < argc; i++) {
+                    if (i > 1) {
+                        dynamic_append(&all_params, ' ');
+                    }
+                    dynamic_extend(&all_params, argv[i]);
+                }
+                char *all_str = dynamic_to_string(&all_params);
+                environ_set(session->environ, "@", all_str ? all_str : "");
+                environ_set(session->environ, "*", all_str ? all_str : "");
+                free(all_str);
+                free_dynamic(&all_params);
 
                 // Execute the function body in the current process
                 int st = execute(func_body, session);
@@ -1095,7 +1183,10 @@ int execute(ASTNode *node, Session *session) {
                     char *eq     = strchr(assign, '=');
                     if (eq) {
                         *eq = '\0';
-                        environ_set(session->environ, assign, eq + 1);
+                        char *expanded_val =
+                            expand_assignment_value(eq + 1, session);
+                        environ_set(session->environ, assign, expanded_val);
+                        free(expanded_val);
                     }
                     free(assign);
                 }

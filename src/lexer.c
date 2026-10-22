@@ -118,6 +118,11 @@ static Dynamic read_single_word(LexerInput *input) {
     bool escaped = false;
     while (!is_at_end(input) && c != ' ' && c != '\t' && c != '\n' &&
            c != '\r') {
+        if (!escaped &&
+            (c == ';' || c == '&' || c == '|' || c == '<' || c == '>' ||
+             c == '(' || c == ')' || c == '{' || c == '}')) {
+            break;
+        }
         if (!escaped && c == '\\' && peek_next(input) == '$') {
             advance(input); // consume '\\'
             dynamic_append(&word_value, '\\');
@@ -686,7 +691,7 @@ LexerToken lexer_next_token(LexerInput *input) {
 
             while (!is_at_end(input) && c != ' ' && c != '\t' && c != '\n' &&
                    c != '\r' && c != '|' && c != '&' && c != ';' && c != '(' &&
-                   c != ')' && c != '{' && c != '}' && c != '#') {
+                   c != ')' && c != '{' && c != '}') {
 #ifndef TIDESH_DISABLE_REDIRECTIONS
                 if (is_io_number && (c < '0' || c > '9')) {
                     if (c == '>' || c == '<') {
