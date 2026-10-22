@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import typing
-from collections.abc import Iterator, MutableMapping, Sequence
+from collections.abc import Iterator, Mapping, MutableMapping, Sequence
 
 import typing_extensions
 
@@ -175,6 +175,15 @@ class Features:
         self._features.subshells = value
 
     @property
+    def blocks(self) -> bool:
+        """Enable/disable command blocks ({ ... })."""
+        return bool(self._features.blocks)
+
+    @blocks.setter
+    def blocks(self, value: bool) -> None:
+        self._features.blocks = value
+
+    @property
     def command_substitution(self) -> bool:
         """Enable/disable command substitution ($(...), <(...), >(...)."""
         return bool(self._features.command_substitution)
@@ -191,6 +200,15 @@ class Features:
     @assignments.setter
     def assignments(self, value: bool) -> None:
         self._features.assignments = value
+
+    @property
+    def functions(self) -> bool:
+        """Enable/disable shell functions."""
+        return bool(self._features.functions)
+
+    @functions.setter
+    def functions(self, value: bool) -> None:
+        self._features.functions = value
 
     def enable_all_expansions(self) -> None:
         """Enable all expansion features."""
@@ -231,10 +249,14 @@ class Features:
             enabled.append("sequences")
         if self.subshells:
             enabled.append("subshells")
+        if self.blocks:
+            enabled.append("blocks")
         if self.command_substitution:
             enabled.append("command_substitution")
         if self.assignments:
             enabled.append("assignments")
+        if self.functions:
+            enabled.append("functions")
         return f"Features({', '.join(enabled)})"
 
 
@@ -567,6 +589,90 @@ class Aliases(MutableMapping[str, str]):
         bool
             True if the alias was found and removed, False otherwise.
         """
+        return bool(lib.trie_delete_key(self._trie, key.encode()))
+
+
+class Functions(Mapping[str, str]):
+    """
+    A dictionary-like read/delete interface for shell functions.
+
+    This class provides access to shell functions defined in the session.
+    """
+
+    def __init__(self, trie_ptr: typing.Any) -> None:
+        """
+        Initialize the functions manager.
+
+        Parameters
+        ----------
+        trie_ptr : typing.Any
+            Pointer to the C trie structure for functions.
+        """
+        super().__init__()
+        self._trie = trie_ptr
+
+    @typing_extensions.override
+    def __getitem__(self, key: str) -> str:
+        """Get the body/definition of a shell function."""
+        if self._trie == ffi.NULL:
+            raise KeyError(key)
+        res = lib.trie_get(self._trie, key.encode())
+        if res == ffi.NULL:
+            raise KeyError(key)
+        return ffi.string(res).decode()
+
+    @typing_extensions.override
+    def __contains__(self, key: object) -> bool:
+        """Check if a shell function exists."""
+        if not isinstance(key, str) or self._trie == ffi.NULL:
+            return False
+        return bool(lib.trie_contains(self._trie, key.encode()))
+
+    @typing_extensions.override
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over shell function names."""
+        if self._trie == ffi.NULL:
+            return
+        arr_ptr = lib.trie_starting_with(self._trie, b"")
+        if arr_ptr == ffi.NULL:
+            return
+        try:
+            for i in range(arr_ptr.count):
+                yield ffi.string(arr_ptr.items[i]).decode()
+        finally:
+            lib.free_array(arr_ptr)
+            lib.free(arr_ptr)
+
+    @typing_extensions.override
+    def __len__(self) -> int:
+        """Get the number of defined shell functions."""
+        if self._trie == ffi.NULL:
+            return 0
+        arr_ptr = lib.trie_starting_with(self._trie, b"")
+        if arr_ptr == ffi.NULL:
+            return 0
+        try:
+            return arr_ptr.count
+        finally:
+            lib.free_array(arr_ptr)
+            lib.free(arr_ptr)
+
+    def remove(self, key: str) -> bool:
+        """
+        Remove a shell function.
+
+        Parameters
+        ----------
+        key : str
+            The function name to remove.
+
+        Returns
+        -------
+        bool
+            True if removed, False otherwise.
+        """
+        if self._trie == ffi.NULL:
+            return False
         return bool(lib.trie_delete_key(self._trie, key.encode()))
 
 

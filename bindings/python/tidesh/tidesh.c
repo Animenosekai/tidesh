@@ -7,12 +7,16 @@
  */
 
 #include "ast.h"
+#include "builtins/ast.h"
 #include "builtins/bg.h"
 #include "builtins/cd.h"
 #include "builtins/fg.h"
 #include "builtins/hooks.h"
 #include "builtins/info.h"
 #include "builtins/jobs.h"
+#include "builtins/lexer.h"
+#include "builtins/not.h"
+#include "builtins/unset.h"
 #include "builtins/which.h"
 #include "data/array.h"
 #include "data/trie.h"

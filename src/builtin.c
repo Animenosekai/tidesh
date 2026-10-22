@@ -8,6 +8,7 @@
 #include "builtins/alias.h"   /* builtin_alias */
 #include "builtins/unalias.h" /* builtin_unalias */
 #endif
+#include "builtins/ast.h"      /* builtin_ast */
 #include "builtins/clear.h"    /* builtin_clear */
 #include "builtins/eval.h"     /* builtin_eval */
 #include "builtins/exit.h"     /* builtin_exit */
@@ -16,6 +17,7 @@
 #include "builtins/help.h"     /* builtin_help */
 #include "builtins/hooks.h"    /* builtin_hooks */
 #include "builtins/info.h"     /* builtin_info */
+#include "builtins/lexer.h"    /* builtin_lexer */
 #include "builtins/not.h"      /* builtin_not */
 #include "builtins/printenv.h" /* builtin_printenv */
 #include "builtins/pwd.h"      /* builtin_pwd */
@@ -46,7 +48,7 @@
 const char *builtins[] = {"exit",     "pwd",     "clear", "help", "printenv",
                           "which",    "export",  "unset", "eval", "terminal",
                           "info",     "source",  "type",  "test", "hooks",
-                          "features", "not",
+                          "features", "not",     "lexer", "ast",
 #ifndef TIDESH_DISABLE_ALIASES
                           "alias",    "unalias",
 #endif
@@ -120,6 +122,10 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_not;
     if (strcmp(name, "!") == 0)
         return builtin_not;
+    if (strcmp(name, "lexer") == 0)
+        return builtin_lexer;
+    if (strcmp(name, "ast") == 0)
+        return builtin_ast;
 #ifndef TIDESH_DISABLE_JOB_CONTROL
     if (strcmp(name, "jobs") == 0)
         return builtin_jobs;
@@ -140,7 +146,8 @@ bool is_special_builtin(const char *name) {
         strcmp(name, "source") == 0 || strcmp(name, ".") == 0 ||
         strcmp(name, "type") == 0 || strcmp(name, "not") == 0 ||
         strcmp(name, "!") == 0 || strcmp(name, "hooks") == 0 ||
-        strcmp(name, "features") == 0) {
+        strcmp(name, "features") == 0 || strcmp(name, "lexer") == 0 ||
+        strcmp(name, "ast") == 0) {
         return true;
     }
 #ifndef TIDESH_DISABLE_ALIASES

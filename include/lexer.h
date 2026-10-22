@@ -143,4 +143,12 @@ LexerToken lexer_next_token(LexerInput *input);
  */
 void free_lexer_token(LexerToken *token);
 
+/**
+ * Get string representation of a token type
+ *
+ * @param type The TokenType
+ * @return String representation of the token type (e.g. "TOKEN_WORD")
+ */
+const char *token_type_to_string(TokenType type);
+
 #endif /* LEXER_H */

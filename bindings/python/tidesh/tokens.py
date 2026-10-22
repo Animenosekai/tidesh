@@ -16,18 +16,18 @@ class TokenType(IntEnum):
     """Represents the type of a token in the shell command."""
 
     WORD = lib.TOKEN_WORD
-    IO_NUMBER = lib.TOKEN_IO_NUMBER
     COMMENT = lib.TOKEN_COMMENT
+    IO_NUMBER = lib.TOKEN_IO_NUMBER
     ASSIGNMENT = lib.TOKEN_ASSIGNMENT
     PIPE = lib.TOKEN_PIPE
     REDIRECT_IN = lib.TOKEN_REDIRECT_IN
     FD_DUPLICATION = lib.TOKEN_FD_DUPLICATION
-    PROCESS_SUBSTITUTION_IN = lib.TOKEN_PROCESS_SUBSTITUTION_IN
     HEREDOC = lib.TOKEN_HEREDOC
     HERESTRING = lib.TOKEN_HERESTRING
     REDIRECT_OUT = lib.TOKEN_REDIRECT_OUT
     REDIRECT_APPEND = lib.TOKEN_REDIRECT_APPEND
     REDIRECT_OUT_ERR = lib.TOKEN_REDIRECT_OUT_ERR
+    PROCESS_SUBSTITUTION_IN = lib.TOKEN_PROCESS_SUBSTITUTION_IN
     PROCESS_SUBSTITUTION_OUT = lib.TOKEN_PROCESS_SUBSTITUTION_OUT
     BACKGROUND = lib.TOKEN_BACKGROUND
     SEQUENCE = lib.TOKEN_SEQUENCE
@@ -35,6 +35,13 @@ class TokenType(IntEnum):
     SEMICOLON = lib.TOKEN_SEMICOLON
     LPAREN = lib.TOKEN_LPAREN
     RPAREN = lib.TOKEN_RPAREN
+    LBRACE = lib.TOKEN_LBRACE
+    RBRACE = lib.TOKEN_RBRACE
+    IF = lib.TOKEN_IF
+    THEN = lib.TOKEN_THEN
+    ELSE = lib.TOKEN_ELSE
+    ELIF = lib.TOKEN_ELIF
+    FI = lib.TOKEN_FI
     EOL = lib.TOKEN_EOL
     EOF = lib.TOKEN_EOF
 
@@ -65,6 +72,30 @@ class Token:
     def __repr__(self) -> str:
         """Return a string representation of the token."""
         return f"<{self.__class__.__name__}>"
+
+    @property
+    def value(self) -> str | None:
+        """Get the token value string, or None if not applicable."""
+        return getattr(self, "_value", None)
+
+    @property
+    def extra(self) -> str | None:
+        """Get extra data associated with the token, or None if not applicable."""
+        return getattr(self, "_extra", None)
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Serialize token to a dictionary."""
+        return {
+            "type": self.type.name,
+            "value": self.value,
+            "extra": self.extra,
+        }
+
+    def to_json(self, indent: int | None = 2) -> str:
+        """Serialize token to a JSON string."""
+        import json
+
+        return json.dumps(self.to_dict(), indent=indent)
 
 
 class ValuedToken(Token):
@@ -246,6 +277,34 @@ class RParenToken(Token):
     """A right parenthesis token (RPAREN)."""
 
 
+class LBraceToken(Token):
+    """A left brace token (LBRACE)."""
+
+
+class RBraceToken(Token):
+    """A right brace token (RBRACE)."""
+
+
+class IfToken(Token):
+    """An if token (IF)."""
+
+
+class ThenToken(Token):
+    """A then token (THEN)."""
+
+
+class ElseToken(Token):
+    """An else token (ELSE)."""
+
+
+class ElifToken(Token):
+    """An elif token (ELIF)."""
+
+
+class FiToken(Token):
+    """A fi token (FI)."""
+
+
 class EOLToken(Token):
     """An end-of-line token (EOL)."""
 
@@ -276,6 +335,13 @@ _TOKEN_CLASS_MAP = {
     TokenType.SEMICOLON: SemicolonToken,
     TokenType.LPAREN: LParenToken,
     TokenType.RPAREN: RParenToken,
+    TokenType.LBRACE: LBraceToken,
+    TokenType.RBRACE: RBraceToken,
+    TokenType.IF: IfToken,
+    TokenType.THEN: ThenToken,
+    TokenType.ELSE: ElseToken,
+    TokenType.ELIF: ElifToken,
+    TokenType.FI: FiToken,
     TokenType.EOL: EOLToken,
     TokenType.EOF: EOFToken,
 }

@@ -33,6 +33,8 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool jobs     = false;
     bool fg       = false;
     bool bg       = false;
+    bool lexer    = false;
+    bool ast      = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -91,6 +93,10 @@ int builtin_help(int argc, char **argv, Session *session) {
         else if (strcmp(argv[i], "bg") == 0)
             bg = true;
 #endif
+        else if (strcmp(argv[i], "lexer") == 0)
+            lexer = true;
+        else if (strcmp(argv[i], "ast") == 0)
+            ast = true;
     }
 
     bool all = !(cd || clear || exit || export || unset || eval || alias ||
@@ -247,6 +253,14 @@ int builtin_help(int argc, char **argv, Session *session) {
         printf("  %s%-9s %s%-14s%s - Continue a stopped job in background\n",
                command_clr, "bg", argument_clr, "[job_id?]", reset);
 #endif
+
+    if (all || lexer)
+        printf("  %s%-9s %s%-14s%s - Tokenize a command and display tokens\n",
+               command_clr, "lexer", argument_clr, "[options] [cmd]", reset);
+
+    if (all || ast)
+        printf("  %s%-9s %s%-14s%s - Parse a command and display its AST\n",
+               command_clr, "ast", argument_clr, "[options] [cmd]", reset);
 
     return 0;
 }

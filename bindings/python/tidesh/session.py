@@ -9,10 +9,19 @@ import typing
 import typing_extensions
 
 from ._tidesh import ffi, lib
-from .ast import ASTNode
+from .ast import ASTNode, ASTResult
 from .exceptions import CommandNotFoundError, ParseError, SessionError
-from .lexer import Lexer
-from .state import Aliases, DirectoryStack, Environ, Features, History, Jobs, Terminal
+from .lexer import Lexer, LexResult
+from .state import (
+    Aliases,
+    DirectoryStack,
+    Environ,
+    Features,
+    Functions,
+    History,
+    Jobs,
+    Terminal,
+)
 
 if typing.TYPE_CHECKING:
     import types
@@ -33,6 +42,13 @@ class BuiltinCommandInfo(CommandInfo):
     """Information about a builtin command."""
 
     special: bool
+    """Whether this is a special builtin."""
+
+
+@dataclasses.dataclass(frozen=True)
+class FunctionCommandInfo(CommandInfo):
+    """Information about a shell function."""
+
     """Whether this is a special builtin."""
 
 
@@ -113,6 +129,8 @@ class Session:
         """The environment variables mapping for this session."""
         self.aliases = Aliases(self._session.aliases)
         """The command aliases mapping for this session."""
+        self.functions = Functions(self._session.functions)
+        """The shell functions mapping for this session."""
         self.dirstack = DirectoryStack(self._session.dirstack)
         """The directory stack for pushd/popd operations in this session."""
         self.terminal = Terminal(self._session.terminal)
@@ -153,11 +171,48 @@ class Session:
         ASTNode
             The root node of the parsed abstract syntax tree.
         """
-        ast_ptr = lib.parse_command(command.encode(), self._session)
+        lexer = Lexer(command, self)
+        ast_ptr = lib.parse(lexer._lexer, self._session)
         if ast_ptr == ffi.NULL:
             msg = "Failed to parse command"
             raise ParseError(msg, command=command)
         return ASTNode(ast_ptr)
+
+    def lex(self, command: str) -> LexResult:
+        """
+        Tokenize a command string in this session.
+
+        Parameters
+        ----------
+        command : str
+            The shell command to tokenize.
+
+        Returns
+        -------
+        LexResult
+            A sequence of tokens with .json and .pretty properties.
+        """
+        lexer = Lexer(command, self)
+        return LexResult(list(lexer))
+
+    def ast(self, command: str) -> ASTResult:
+        """
+        Parse a command string into an Abstract Syntax Tree (AST).
+
+        Parameters
+        ----------
+        command : str
+            The shell command to parse.
+
+        Returns
+        -------
+        ASTResult
+            A wrapper around the root ASTNode with .json and .pretty properties.
+        """
+        lexer = Lexer(command, self)
+        ast_ptr = lib.parse(lexer._lexer, self._session)
+        root = ASTNode(ast_ptr) if ast_ptr != ffi.NULL else None
+        return ASTResult(root)
 
     def execute(self, command: str | ASTNode) -> int:
         """
@@ -177,6 +232,8 @@ class Session:
             return int(lib.execute(command._node, self._session))  # noqa: SLF001
 
         return int(lib.execute_string(command.encode(), self._session))
+
+    run = execute  # Alias for execute method
 
     def cd(self, *args: str) -> int:
         """
@@ -361,6 +418,8 @@ class Session:
                 results.append(BuiltinCommandInfo(command=cmd, special=False))
             elif info.type == lib.COMMAND_SPECIAL_BUILTIN:
                 results.append(BuiltinCommandInfo(command=cmd, special=True))
+            elif info.type == lib.COMMAND_FUNCTION:
+                results.append(FunctionCommandInfo(command=cmd))
             elif info.type == lib.COMMAND_EXTERNAL:
                 path = ffi.string(info.path).decode() if info.path != ffi.NULL else ""
                 results.append(ExternalCommandInfo(command=cmd, path=path))

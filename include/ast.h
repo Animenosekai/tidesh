@@ -105,4 +105,12 @@ void free_ast(ASTNode *node);
  */
 ASTNode *parse(LexerInput *lexer, Session *session);
 
+/**
+ * Get string representation of an AST node type
+ *
+ * @param type The NodeType
+ * @return String representation of the node type (e.g. "NODE_COMMAND")
+ */
+const char *node_type_to_string(NodeType type);
+
 #endif /* AST_H */

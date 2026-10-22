@@ -144,6 +144,10 @@ sources = [
     "builtins/test.c",
     "builtins/hooks.c",
     "builtins/features.c",
+    "builtins/not.c",
+    "builtins/unset.c",
+    "builtins/lexer.c",
+    "builtins/ast.c",
 ]
 
 # Convert to relative paths for setup

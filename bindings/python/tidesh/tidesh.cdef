@@ -14,13 +14,15 @@ typedef struct ASTNode ASTNode;
 typedef struct Jobs Jobs;
 typedef struct Job Job;
 typedef struct Features Features;
+typedef struct ConditionalBranch ConditionalBranch;
 
 typedef enum CommandType {
     COMMAND_NOT_FOUND,
     COMMAND_ALIAS,
     COMMAND_BUILTIN,
     COMMAND_SPECIAL_BUILTIN,
-    COMMAND_EXTERNAL
+    COMMAND_EXTERNAL,
+    COMMAND_FUNCTION
 } CommandType;
 
 typedef struct CommandInfo {
@@ -51,8 +53,11 @@ struct Features {
     bool redirections;
     bool sequences;
     bool subshells;
+    bool blocks;
     bool command_substitution;
     bool assignments;
+    bool functions;
+    ...;
 };
 
 struct Session {
@@ -61,6 +66,7 @@ struct Session {
     Environ  *environ;
     History  *history;
     Trie     *aliases;
+    Trie     *functions;
     Trie     *path_commands;
     DirStack *dirstack;
     Terminal *terminal;
@@ -141,18 +147,18 @@ Array *full_expansion(char *input, Session *session);
 // Lexer
 typedef enum TokenType {
     TOKEN_WORD,
-    TOKEN_IO_NUMBER,
     TOKEN_COMMENT,
+    TOKEN_IO_NUMBER,
     TOKEN_ASSIGNMENT,
     TOKEN_PIPE,
     TOKEN_REDIRECT_IN,
     TOKEN_FD_DUPLICATION,
-    TOKEN_PROCESS_SUBSTITUTION_IN,
     TOKEN_HEREDOC,
     TOKEN_HERESTRING,
     TOKEN_REDIRECT_OUT,
     TOKEN_REDIRECT_APPEND,
     TOKEN_REDIRECT_OUT_ERR,
+    TOKEN_PROCESS_SUBSTITUTION_IN,
     TOKEN_PROCESS_SUBSTITUTION_OUT,
     TOKEN_BACKGROUND,
     TOKEN_SEQUENCE,
@@ -160,6 +166,13 @@ typedef enum TokenType {
     TOKEN_SEMICOLON,
     TOKEN_LPAREN,
     TOKEN_RPAREN,
+    TOKEN_LBRACE,
+    TOKEN_RBRACE,
+    TOKEN_IF,
+    TOKEN_THEN,
+    TOKEN_ELSE,
+    TOKEN_ELIF,
+    TOKEN_FI,
     TOKEN_EOL,
     TOKEN_EOF
 } TokenType;
@@ -175,6 +188,7 @@ LexerInput *init_lexer_input(LexerInput *input, char *data, void *execute_fn, Se
 LexerToken lexer_next_token(LexerInput *input);
 void free_lexer_token(LexerToken *token);
 void free_lexer_input(LexerInput *input);
+const char *token_type_to_string(TokenType type);
 
 // Parser
 typedef enum NodeType {
@@ -183,8 +197,27 @@ typedef enum NodeType {
     NODE_AND,
     NODE_OR,
     NODE_SEQUENCE,
-    NODE_SUBSHELL
+    NODE_SUBSHELL,
+    NODE_BLOCK,
+    NODE_CONDITIONAL,
+    NODE_FUNCTION_DEF
 } NodeType;
+
+struct ConditionalBranch {
+    struct ASTNode *condition;
+    struct ASTNode *body;
+    struct ConditionalBranch *next;
+    ...;
+};
+
+struct Redirection {
+    int                 fd;
+    TokenType           type;
+    char               *target;
+    bool                is_process_substitution;
+    struct Redirection *next;
+    ...;
+};
 
 struct ASTNode {
     NodeType type;
@@ -196,11 +229,13 @@ struct ASTNode {
     struct ASTNode *left;
     struct ASTNode *right;
     bool background;
+    ConditionalBranch *branches;
     ...;
 };
 
 ASTNode *parse(LexerInput *lexer, Session *session);
 void free_ast(ASTNode *node);
+const char *node_type_to_string(NodeType type);
 
 // Job control
 typedef enum JobState {
@@ -247,6 +282,8 @@ int builtin_jobs(int argc, char **argv, Session *session);
 int builtin_fg(int argc, char **argv, Session *session);
 int builtin_bg(int argc, char **argv, Session *session);
 int builtin_hooks(int argc, char **argv, Session *session);
+int builtin_lexer(int argc, char **argv, Session *session);
+int builtin_ast(int argc, char **argv, Session *session);
 
 extern const char *tidesh_compiler;
 

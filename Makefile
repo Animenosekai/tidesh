@@ -15,6 +15,7 @@ TESTINGFLAGS = -DTESTING -Itests/snow/ -DSNOW_ENABLED
 PROJECT_NAME ?= tidesh
 VERSION ?= 1.0
 BRIEF ?= A lightweight but fully-featured shell
+PYTHON ?=
 
 # Directory structure
 SRC_DIR ?= src
@@ -131,7 +132,7 @@ help:
 	@echo "$(BRIEF)"
 	@echo ""
 	@echo "Usage:"
-	@echo "  $(BOLD)make$(SGR0) <command> [BUILD_TYPE=debug|release] [VERBOSE=1] [CFLAGS='...']"
+	@echo "  $(BOLD)make$(SGR0) <command> [BUILD_TYPE=debug|release] [PYTHON=python3.x] [VERBOSE=1] [CFLAGS='...']"
 	@echo ""
 	@echo "Build types:"
 	@echo "  debug:     Build with debug info"
@@ -456,7 +457,7 @@ python/stage: $(SRC) $(INCLUDES_DIR)/*.h
 build/python: python/stage
 	@echo "$(BOLD)🐍 Building Python bindings...$(SGR0)"
 	@echo "$(BOLD)  → Running build...$(SGR0)"
-	@if cd bindings/python && PROJECT_NAME="$(PROJECT_NAME)" RAW_VERSION="$(VERSION)" BRIEF="$(BRIEF)" PLATFORM="$(PLATFORM)" GIT_VERSION="$(GIT_VERSION)" BUILD_DATE="$(BUILD_DATE)" BUILD_TYPE="$(BUILD_TYPE)" uv build; then \
+	@if cd bindings/python && PROJECT_NAME="$(PROJECT_NAME)" RAW_VERSION="$(VERSION)" BRIEF="$(BRIEF)" PLATFORM="$(PLATFORM)" GIT_VERSION="$(GIT_VERSION)" BUILD_DATE="$(BUILD_DATE)" BUILD_TYPE="$(BUILD_TYPE)" uv build $(if $(PYTHON),--python "$(PYTHON)"); then \
 		echo "$(BOLD)  → Cleaning up staged sources...$(SGR0)"; \
 		rm -rf src include; \
 		echo "$(BOLD)✅ Python bindings built successfully$(SGR0)"; \

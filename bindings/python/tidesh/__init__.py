@@ -67,7 +67,14 @@ from .__info__ import (
     __year__,
 )
 from ._tidesh import ffi, lib
-from .ast import ASTNode, NodeType
+from .ast import (
+    ASTNode,
+    ASTResult,
+    ConditionalBranch,
+    NodeType,
+    PrettyString,
+    Redirection,
+)
 from .constants import Hook
 from .exceptions import (
     AliasError,
@@ -80,12 +87,13 @@ from .exceptions import (
     SessionError,
     TideshError,
 )
-from .lexer import Lexer
+from .lexer import Lexer, LexResult
 from .session import (
     AliasCommandInfo,
     BuiltinCommandInfo,
     CommandInfo,
     ExternalCommandInfo,
+    FunctionCommandInfo,
     Session,
 )
 from .state import (
@@ -93,6 +101,7 @@ from .state import (
     DirectoryStack,
     Environ,
     Features,
+    Functions,
     History,
     Jobs,
     JobState,
@@ -102,18 +111,24 @@ from .tokens import (
     AssignmentToken,
     BackgroundToken,
     CommentToken,
+    ElifToken,
+    ElseToken,
     EOFToken,
     EOLToken,
     ExtraValuedToken,
     FDDuplicationToken,
+    FiToken,
     HeredocToken,
     HereStringToken,
+    IfToken,
     IONumberToken,
+    LBraceToken,
     LParenToken,
     OrToken,
     PipeToken,
     ProcessSubstitutionInToken,
     ProcessSubstitutionOutToken,
+    RBraceToken,
     RedirectAppendToken,
     RedirectInToken,
     RedirectOutErrToken,
@@ -121,6 +136,7 @@ from .tokens import (
     RParenToken,
     SemicolonToken,
     SequenceToken,
+    ThenToken,
     Token,
     TokenType,
     ValuedToken,
@@ -128,59 +144,75 @@ from .tokens import (
 )
 
 __all__ = [
-    "Aliases",
-    "AliasError",
     "ASTNode",
+    "ASTResult",
+    "AliasCommandInfo",
+    "AliasError",
+    "Aliases",
     "AssignmentToken",
     "BackgroundToken",
-    "Token",
-    "CommentToken",
-    "CommandNotFoundError",
-    "CommandInfo",
-    "ExternalCommandInfo",
     "BuiltinCommandInfo",
-    "AliasCommandInfo",
+    "CommandInfo",
+    "CommandNotFoundError",
+    "CommentToken",
+    "ConditionalBranch",
     "DirectoryStack",
     "DirectoryStackError",
     "EOFToken",
     "EOLToken",
+    "ElifToken",
+    "ElseToken",
     "Environ",
     "EnvironmentVariableError",
     "ExecutionError",
+    "ExternalCommandInfo",
     "ExtraValuedToken",
     "FDDuplicationToken",
     "Features",
+    "FiToken",
+    "FunctionCommandInfo",
+    "Functions",
     "HeredocToken",
     "HereStringToken",
     "History",
     "Hook",
     "IONumberToken",
+    "IfToken",
     "JobState",
     "Jobs",
-    "LexerError",
+    "LBraceToken",
     "LParenToken",
+    "LexResult",
     "Lexer",
+    "LexerError",
     "NodeType",
     "OrToken",
     "ParseError",
     "PipeToken",
+    "PrettyString",
     "ProcessSubstitutionInToken",
     "ProcessSubstitutionOutToken",
+    "RBraceToken",
     "RParenToken",
     "RedirectAppendToken",
     "RedirectInToken",
     "RedirectOutErrToken",
     "RedirectOutToken",
+    "Redirection",
     "SemicolonToken",
     "SequenceToken",
     "Session",
     "SessionError",
     "Terminal",
+    "ThenToken",
     "TideshError",
+    "Token",
     "TokenType",
     "ValuedToken",
     "WordToken",
+    "ast",
     "capture",
+    "lex",
     "parse",
     "run",
     "tokenize",
@@ -202,7 +234,7 @@ __all__ = [
 ]
 
 
-def run(command: str) -> int:
+def run(command: str | ASTNode) -> int:
     """
     Run a command in a new session and return its exit code.
 
@@ -255,6 +287,42 @@ def tokenize(command: str) -> typing.Iterable[Token]:
     with Session() as s:
         lexer = Lexer(command, s)
         yield from lexer.tokenize()
+
+
+def lex(command: str) -> LexResult:
+    """
+    Tokenize a command string in a new session.
+
+    Parameters
+    ----------
+    command : str
+        The command to tokenize.
+
+    Returns
+    -------
+    LexResult
+        A sequence of tokens with .json and .pretty properties.
+    """
+    with Session() as s:
+        return s.lex(command)
+
+
+def ast(command: str) -> ASTResult:
+    """
+    Parse a command string into an Abstract Syntax Tree (AST) in a new session.
+
+    Parameters
+    ----------
+    command : str
+        The command to parse.
+
+    Returns
+    -------
+    ASTResult
+        A wrapper around the root ASTNode with .json and .pretty properties.
+    """
+    with Session() as s:
+        return s.ast(command)
 
 
 def parse(command: str) -> ASTNode:

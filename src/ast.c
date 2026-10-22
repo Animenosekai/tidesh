@@ -774,3 +774,40 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
     }
     return cmd;
 }
+
+const char *node_type_to_string(NodeType type) {
+    switch (type) {
+        case NODE_COMMAND:
+            return "NODE_COMMAND";
+#ifndef TIDESH_DISABLE_PIPES
+        case NODE_PIPE:
+            return "NODE_PIPE";
+#endif
+#ifndef TIDESH_DISABLE_SEQUENCES
+        case NODE_AND:
+            return "NODE_AND";
+        case NODE_OR:
+            return "NODE_OR";
+        case NODE_SEQUENCE:
+            return "NODE_SEQUENCE";
+#endif
+#ifndef TIDESH_DISABLE_SUBSHELLS
+        case NODE_SUBSHELL:
+            return "NODE_SUBSHELL";
+#endif
+#ifndef TIDESH_DISABLE_BLOCKS
+        case NODE_BLOCK:
+            return "NODE_BLOCK";
+#endif
+#ifndef TIDESH_DISABLE_CONDITIONALS
+        case NODE_CONDITIONAL:
+            return "NODE_CONDITIONAL";
+#endif
+#ifndef TIDESH_DISABLE_FUNCTIONS
+        case NODE_FUNCTION_DEF:
+            return "NODE_FUNCTION_DEF";
+#endif
+        default:
+            return "NODE_UNKNOWN";
+    }
+}
