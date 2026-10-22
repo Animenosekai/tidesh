@@ -586,6 +586,68 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should redirect both stdout and stderr with &>") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        const char *outfile = "/tmp/test_redir_amp_gt.txt";
+        unlink(outfile);
+
+        int st = execute_string("echo out_msg &> /tmp/test_redir_amp_gt.txt", session);
+        asserteq(st, 0);
+
+        FILE *f = fopen(outfile, "r");
+        assertneq(f, NULL);
+        char buf[256] = {0};
+        assertneq(fgets(buf, sizeof(buf), f), NULL);
+        assert(strstr(buf, "out_msg") != NULL);
+        fclose(f);
+        unlink(outfile);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should append both stdout and stderr with &>>") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        const char *outfile = "/tmp/test_redir_amp_append.txt";
+        unlink(outfile);
+
+        execute_string("echo first_line > /tmp/test_redir_amp_append.txt", session);
+        execute_string("echo second_line &>> /tmp/test_redir_amp_append.txt", session);
+
+        FILE *f = fopen(outfile, "r");
+        assertneq(f, NULL);
+        char buf[512] = {0};
+        size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+        buf[n] = '\0';
+        assert(strstr(buf, "first_line") != NULL);
+        assert(strstr(buf, "second_line") != NULL);
+        fclose(f);
+        unlink(outfile);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should duplicate file descriptors with 2>&1") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        const char *outfile = "/tmp/test_redir_dup2.txt";
+        unlink(outfile);
+
+        int st = execute_string("echo stdout_msg > /tmp/test_redir_dup2.txt 2>&1", session);
+        asserteq(st, 0);
+
+        FILE *f = fopen(outfile, "r");
+        assertneq(f, NULL);
+        char buf[256] = {0};
+        assertneq(fgets(buf, sizeof(buf), f), NULL);
+        assert(strstr(buf, "stdout_msg") != NULL);
+        fclose(f);
+        unlink(outfile);
+
+        free_session(session);
+        free(session);
+    }
 }
 
 

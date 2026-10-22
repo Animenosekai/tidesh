@@ -556,6 +556,21 @@ static int handle_redirections(ASTNode *node, Session *session) {
     }
     Redirection *redirect = node->redirects;
     while (redirect) {
+        if (redirect->type == TOKEN_FD_DUPLICATION) {
+            if (strcmp(redirect->target, "-") == 0) {
+                close(redirect->fd);
+            } else {
+                int src_fd = atoi(redirect->target);
+                if (dup2(src_fd, redirect->fd) < 0) {
+                    fprintf(stderr, "tidesh: %d: %s\n", src_fd,
+                            strerror(errno));
+                    return -1;
+                }
+            }
+            redirect = redirect->next;
+            continue;
+        }
+
         int fd_file = -1;
 #ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
         if (redirect->type == TOKEN_HEREDOC ||
@@ -607,7 +622,8 @@ static int handle_redirections(ASTNode *node, Session *session) {
         } else {
 #endif
             int flags = O_WRONLY | O_CREAT;
-            if (redirect->type == TOKEN_REDIRECT_APPEND)
+            if (redirect->type == TOKEN_REDIRECT_APPEND ||
+                redirect->type == TOKEN_REDIRECT_APPEND_ERR)
                 flags |= O_APPEND;
             else if (redirect->type == TOKEN_REDIRECT_OUT ||
                      redirect->type == TOKEN_REDIRECT_OUT_ERR)
@@ -627,7 +643,8 @@ static int handle_redirections(ASTNode *node, Session *session) {
         }
 
         dup2(fd_file, redirect->fd);
-        if (redirect->type == TOKEN_REDIRECT_OUT_ERR) {
+        if (redirect->type == TOKEN_REDIRECT_OUT_ERR ||
+            redirect->type == TOKEN_REDIRECT_APPEND_ERR) {
             dup2(fd_file, STDERR_FILENO);
         }
         close(fd_file);
@@ -694,7 +711,8 @@ static bool apply_in_process_redirections(ASTNode *node, Session *session,
     Redirection *redirect = node->redirects;
     while (redirect) {
         save_fd(state, redirect->fd);
-        if (redirect->type == TOKEN_REDIRECT_OUT_ERR) {
+        if (redirect->type == TOKEN_REDIRECT_OUT_ERR ||
+            redirect->type == TOKEN_REDIRECT_APPEND_ERR) {
             save_fd(state, STDERR_FILENO);
         }
         redirect = redirect->next;

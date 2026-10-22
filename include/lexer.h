@@ -68,9 +68,11 @@ typedef enum TokenType {
     TOKEN_HEREDOC,        // <<
     TOKEN_HERESTRING,     // <<<
 
-    TOKEN_REDIRECT_OUT,     // >
-    TOKEN_REDIRECT_APPEND,  // >>
-    TOKEN_REDIRECT_OUT_ERR, // >&
+    TOKEN_REDIRECT_OUT,        // >
+    TOKEN_REDIRECT_APPEND,     // >>
+    TOKEN_REDIRECT_OUT_ERR,    // >&
+    TOKEN_REDIRECT_ALL,        // &>
+    TOKEN_REDIRECT_APPEND_ERR, // &>>, >>&
 #endif
 
 #ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION

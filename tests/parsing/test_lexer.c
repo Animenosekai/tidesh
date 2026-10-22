@@ -367,4 +367,32 @@ describe(lexer) {
         free_lexer_input(input);
         free(input);
     }
+
+    it("should handle &> and &>> redirection operators") {
+        LexerInput *input1 = init_lexer_input(NULL, "echo hello &> out.txt", NULL, NULL);
+        assertneq(input1, NULL);
+        assert(contains_token_type(input1, TOKEN_REDIRECT_ALL));
+        free_lexer_input(input1);
+        free(input1);
+
+        LexerInput *input2 = init_lexer_input(NULL, "echo hello &>> out.txt", NULL, NULL);
+        assertneq(input2, NULL);
+        assert(contains_token_type(input2, TOKEN_REDIRECT_APPEND_ERR));
+        free_lexer_input(input2);
+        free(input2);
+    }
+
+    it("should handle >>& and >| redirection operators") {
+        LexerInput *input1 = init_lexer_input(NULL, "echo hello >>& out.txt", NULL, NULL);
+        assertneq(input1, NULL);
+        assert(contains_token_type(input1, TOKEN_REDIRECT_APPEND_ERR));
+        free_lexer_input(input1);
+        free(input1);
+
+        LexerInput *input2 = init_lexer_input(NULL, "echo hello >| out.txt", NULL, NULL);
+        assertneq(input2, NULL);
+        assert(contains_token_type(input2, TOKEN_REDIRECT_OUT));
+        free_lexer_input(input2);
+        free(input2);
+    }
 }

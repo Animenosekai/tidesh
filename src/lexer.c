@@ -307,6 +307,19 @@ LexerToken lexer_next_token(LexerInput *input) {
                     token.type  = TOKEN_WORD;
                     token.value = strdup("&");
 #endif
+                } else if (peek(input) == '>') {
+#ifndef TIDESH_DISABLE_REDIRECTIONS
+                    advance(input);
+                    if (peek(input) == '>') {
+                        advance(input);
+                        token.type = TOKEN_REDIRECT_APPEND_ERR;
+                    } else {
+                        token.type = TOKEN_REDIRECT_ALL;
+                    }
+#else
+                    token.type  = TOKEN_WORD;
+                    token.value = strdup("&");
+#endif
                 } else {
 #ifndef TIDESH_DISABLE_JOB_CONTROL
                     token.type = TOKEN_BACKGROUND;
@@ -330,6 +343,24 @@ LexerToken lexer_next_token(LexerInput *input) {
                     }
 #else
                     // Sequences disabled, treat & as a normal word
+                    token.type  = TOKEN_WORD;
+                    token.value = strdup("&");
+#endif
+                } else if (peek(input) == '>') {
+#ifndef TIDESH_DISABLE_REDIRECTIONS
+                    if (input->session->features.redirections) {
+                        advance(input);
+                        if (peek(input) == '>') {
+                            advance(input);
+                            token.type = TOKEN_REDIRECT_APPEND_ERR;
+                        } else {
+                            token.type = TOKEN_REDIRECT_ALL;
+                        }
+                    } else {
+                        token.type  = TOKEN_WORD;
+                        token.value = strdup("&");
+                    }
+#else
                     token.type  = TOKEN_WORD;
                     token.value = strdup("&");
 #endif
@@ -508,10 +539,18 @@ LexerToken lexer_next_token(LexerInput *input) {
                 char next_char = peek(input);
                 if (next_char == '>') {
                     advance(input);
-                    token.type = TOKEN_REDIRECT_APPEND;
+                    if (peek(input) == '&') {
+                        advance(input);
+                        token.type = TOKEN_REDIRECT_APPEND_ERR;
+                    } else {
+                        token.type = TOKEN_REDIRECT_APPEND;
+                    }
                 } else if (next_char == '&') {
                     advance(input);
                     token.type = TOKEN_REDIRECT_OUT_ERR;
+                } else if (next_char == '|') {
+                    advance(input);
+                    token.type = TOKEN_REDIRECT_OUT;
                 } else if (next_char == '(') {
                     // Handle process substitution >(
 #ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
@@ -776,6 +815,10 @@ const char *token_type_to_string(TokenType type) {
             return "TOKEN_REDIRECT_APPEND";
         case TOKEN_REDIRECT_OUT_ERR:
             return "TOKEN_REDIRECT_OUT_ERR";
+        case TOKEN_REDIRECT_ALL:
+            return "TOKEN_REDIRECT_ALL";
+        case TOKEN_REDIRECT_APPEND_ERR:
+            return "TOKEN_REDIRECT_APPEND_ERR";
 #endif
 #ifndef TIDESH_DISABLE_ASSIGNMENTS
         case TOKEN_ASSIGNMENT:

@@ -1,3 +1,4 @@
+#include <ctype.h>  /* isdigit */
 #include <stdio.h>  /* fprintf, NULL */
 #include <stdlib.h> /* malloc, free, realloc, atoi, calloc */
 #include <string.h> /* strlen, strdup, snprintf */
@@ -8,6 +9,16 @@
 #include "expansions/aliases.h" /* alias_expansion */
 #include "lexer.h" /* LexerInput, LexerToken, lexer_next_token, free_lexer_token, TOKEN_* */
 #include "session.h" /* Session */
+
+static bool is_all_digits(const char *str) {
+    if (!str || !*str)
+        return false;
+    for (const char *p = str; *p; p++) {
+        if (!isdigit((unsigned char)*p))
+            return false;
+    }
+    return true;
+}
 
 /* Create a new AST node of given type */
 static ASTNode *init_ast(ASTNode *node, NodeType type) {
@@ -607,7 +618,7 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
              token->type <= TOKEN_HERESTRING &&
              token->type != TOKEN_PROCESS_SUBSTITUTION_IN) ||
             (token->type >= TOKEN_REDIRECT_OUT &&
-             token->type <= TOKEN_REDIRECT_OUT_ERR)) {
+             token->type <= TOKEN_REDIRECT_APPEND_ERR)) {
             Redirection *redirect = calloc(1, sizeof(Redirection));
             redirect->type        = token->type;
 
@@ -675,9 +686,27 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
                     parser->error = true;
                 }
                 free_lexer_token(&target);
+
+                if (redirect->type == TOKEN_REDIRECT_OUT_ERR) {
+                    if (redirect->target &&
+                        (is_all_digits(redirect->target) ||
+                         strcmp(redirect->target, "-") == 0)) {
+                        redirect->type = TOKEN_FD_DUPLICATION;
+                    }
+                } else if (redirect->type == TOKEN_REDIRECT_ALL) {
+                    redirect->type = TOKEN_REDIRECT_OUT_ERR;
+                }
             }
-            redirect->next = cmd->redirects;
-            cmd->redirects = redirect;
+
+            if (!cmd->redirects) {
+                cmd->redirects = redirect;
+            } else {
+                Redirection *curr = cmd->redirects;
+                while (curr->next) {
+                    curr = curr->next;
+                }
+                curr->next = redirect;
+            }
             continue;
         }
 #endif /* TIDESH_DISABLE_REDIRECTIONS */

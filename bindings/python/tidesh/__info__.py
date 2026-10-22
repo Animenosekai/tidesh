@@ -19,8 +19,8 @@ __license__ = "MIT License"
 __copyright__ = f"Copyright {__year__}, {__module__}"
 
 __raw_version__ = "1.0"
-__version__ = "1.0-e346dc2"
-__git_version__ = "e346dc2"
+__version__ = "1.0-9ed3763"
+__git_version__ = "9ed3763"
 __build_date__ = datetime.datetime.strptime("2026-10-23", "%Y-%m-%d")
 __build_type__: typing.Literal["debug", "release"] = "release"
 __platform__: typing.Literal["linux", "macos", "windows"] = "macos"

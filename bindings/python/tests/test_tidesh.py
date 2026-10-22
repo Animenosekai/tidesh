@@ -168,6 +168,57 @@ def test_command_substitution_lazy() -> None:
     assert session.environ.get("BAR") == "hello_py"
 
 
+def test_redirection_syntax() -> None:
+    session = tidesh.Session()
+
+    # Lexing &> and &>>
+    lex_res1 = tidesh.lex("echo test &> file.txt")
+    assert any(t.type == tidesh.TokenType.REDIRECT_ALL for t in lex_res1)
+
+    lex_res2 = tidesh.lex("echo test &>> file.txt")
+    assert any(t.type == tidesh.TokenType.REDIRECT_APPEND_ERR for t in lex_res2)
+
+    # AST generation for &>
+    ast_res = tidesh.ast("echo test &> file.txt")
+    assert ast_res.root is not None
+    assert len(ast_res.root.redirects) == 1
+    assert ast_res.root.redirects[0].target == "file.txt"
+    assert ast_res.root.redirects[0].type == tidesh.TokenType.REDIRECT_OUT_ERR
+
+    # Execution with &>
+    tmp_file = "/tmp/test_py_redir.txt"
+    if os.path.exists(tmp_file):
+        os.remove(tmp_file)
+
+    session.execute(f"echo py_redir &> {tmp_file}")
+    with open(tmp_file, "r") as f:
+        content = f.read()
+    assert "py_redir" in content
+
+    # Execution with &>>
+    session.execute(f"echo py_append &>> {tmp_file}")
+    with open(tmp_file, "r") as f:
+        content = f.read()
+    assert "py_redir" in content
+    assert "py_append" in content
+
+    # Execution with 2>&1
+    tmp_dup = "/tmp/test_py_dup.txt"
+    if os.path.exists(tmp_dup):
+        os.remove(tmp_dup)
+
+    session.execute(f"ls /nonexistent_py_dir > {tmp_dup} 2>&1")
+    with open(tmp_dup, "r") as f:
+        dup_content = f.read()
+    assert "nonexistent_py_dir" in dup_content
+
+    if os.path.exists(tmp_file):
+        os.remove(tmp_file)
+    if os.path.exists(tmp_dup):
+        os.remove(tmp_dup)
+
+
+
 if __name__ == "__main__":
     import inspect
     import sys
