@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include "dirstack.h"
 #include "snow/snow.h"
 
@@ -15,6 +16,7 @@ describe(dirstack) {
     }
 
     it("should push directory onto stack") {
+        char *orig_cwd = getcwd(NULL, 0);
         DirStack *stack = init_dirstack(NULL);
         char *tmpdir = "/tmp";
         
@@ -24,9 +26,15 @@ describe(dirstack) {
         
         free_dirstack(stack);
         free(stack);
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
     }
 
     it("should peek at directory in stack") {
+        char *orig_cwd = getcwd(NULL, 0);
+        chdir("/tmp");
         DirStack *stack = init_dirstack(NULL);
         dirstack_pushd(stack, "/tmp");
         
@@ -38,13 +46,16 @@ describe(dirstack) {
         free(dir);
         free_dirstack(stack);
         free(stack);
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
     }
 
     it("should pop directory from stack") {
+        char *original_cwd = getcwd(NULL, 0);
         DirStack *stack = init_dirstack(NULL);
         dirstack_pushd(stack, "/tmp");
-        
-        char *original_cwd = getcwd(NULL, 0);
         
         bool result = dirstack_popd(stack);
         assert(result);
@@ -60,9 +71,11 @@ describe(dirstack) {
     }
 
     it("should handle push pop sequence") {
+        char *orig_cwd = getcwd(NULL, 0);
+        mkdir("/tmp/test_dirstack_1", 0755);
         DirStack *stack = init_dirstack(NULL);
         dirstack_pushd(stack, "/tmp");
-        dirstack_pushd(stack, "/var");
+        dirstack_pushd(stack, "/tmp/test_dirstack_1");
         
         asserteq(stack->stack->count, 2);
         
@@ -74,6 +87,11 @@ describe(dirstack) {
         
         free_dirstack(stack);
         free(stack);
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
+        rmdir("/tmp/test_dirstack_1");
     }
 
     it("should return false for popd on empty stack") {
@@ -86,10 +104,13 @@ describe(dirstack) {
     }
 
     it("should peek at multiple levels") {
+        char *orig_cwd = getcwd(NULL, 0);
+        mkdir("/tmp/test_dirstack_1", 0755);
+        mkdir("/tmp/test_dirstack_2", 0755);
         DirStack *stack = init_dirstack(NULL);
         dirstack_pushd(stack, "/tmp");
-        dirstack_pushd(stack, "/var");
-        dirstack_pushd(stack, "/etc");
+        dirstack_pushd(stack, "/tmp/test_dirstack_1");
+        dirstack_pushd(stack, "/tmp/test_dirstack_2");
         
         char *dir0 = dirstack_peek(stack, 0);
         char *dir1 = dirstack_peek(stack, 1);
@@ -104,9 +125,16 @@ describe(dirstack) {
         free(dir2);
         free_dirstack(stack);
         free(stack);
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
+        rmdir("/tmp/test_dirstack_1");
+        rmdir("/tmp/test_dirstack_2");
     }
 
     it("should return NULL for peek out of bounds") {
+        char *orig_cwd = getcwd(NULL, 0);
         DirStack *stack = init_dirstack(NULL);
         dirstack_pushd(stack, "/tmp");
         
@@ -115,24 +143,36 @@ describe(dirstack) {
         
         free_dirstack(stack);
         free(stack);
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
     }
 
     it("should swap directories") {
+        char *orig_cwd = getcwd(NULL, 0);
+        mkdir("/tmp/test_dirstack_1", 0755);
+        mkdir("/tmp/test_dirstack_2", 0755);
         DirStack *stack = init_dirstack(NULL);
         dirstack_pushd(stack, "/tmp");
-        dirstack_pushd(stack, "/var");
-        dirstack_pushd(stack, "/etc");
+        dirstack_pushd(stack, "/tmp/test_dirstack_1");
+        dirstack_pushd(stack, "/tmp/test_dirstack_2");
         
-        // After pushd with full path, we're at /etc
-        // swap(0) should swap /etc with /tmp
         bool result = dirstack_swap(stack, 0);
         assert(result);
         
         free_dirstack(stack);
         free(stack);
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
+        rmdir("/tmp/test_dirstack_1");
+        rmdir("/tmp/test_dirstack_2");
     }
 
     it("should handle invalid dirstack swap") {
+        char *orig_cwd = getcwd(NULL, 0);
         DirStack *stack = init_dirstack(NULL);
         dirstack_pushd(stack, "/tmp");
         
@@ -141,9 +181,14 @@ describe(dirstack) {
         
         free_dirstack(stack);
         free(stack);
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
     }
 
     it("should preserve stack after peek") {
+        char *orig_cwd = getcwd(NULL, 0);
         DirStack *stack = init_dirstack(NULL);
         dirstack_pushd(stack, "/tmp");
         
@@ -156,9 +201,14 @@ describe(dirstack) {
         free(dir);
         free_dirstack(stack);
         free(stack);
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
     }
 
     it("should handle multiple pushd and popd cycles") {
+        char *orig_cwd = getcwd(NULL, 0);
         DirStack *stack = init_dirstack(NULL);
         
         for (int i = 0; i < 5; i++) {
@@ -175,5 +225,9 @@ describe(dirstack) {
         
         free_dirstack(stack);
         free(stack);
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
     }
 }

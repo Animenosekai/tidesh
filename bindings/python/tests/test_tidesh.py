@@ -140,3 +140,50 @@ def test_ast_api() -> None:
     assert empty_res.root is None
     assert empty_res.json == "null"
     assert empty_res.pretty == "(empty AST)"
+
+
+def test_command_substitution_lazy() -> None:
+    session = tidesh.Session()
+
+    # AST generation must not evaluate command substitution
+    ast_res = tidesh.ast("echo $(nonexistent_cmd_xyz_999)")
+    assert ast_res.root is not None
+    assert ast_res.root.argv == ["echo", "$(nonexistent_cmd_xyz_999)"]
+
+    # Lexer must preserve $(...) literally
+    lex_res = tidesh.lex("echo $(nonexistent_cmd_xyz_999)")
+    tokens = [t.value for t in lex_res if t.type == tidesh.TokenType.WORD]
+    assert tokens == ["echo", "$(nonexistent_cmd_xyz_999)"]
+
+    # Execution in false branch must not evaluate
+    session.execute("FOO=initial; if false; then FOO=$(echo changed); fi")
+    assert session.environ.get("FOO") == "initial"
+
+    # Execution in true branch must evaluate
+    session.execute("FOO=initial; if true; then FOO=$(echo changed); fi")
+    assert session.environ.get("FOO") == "changed"
+
+    # Execution in assignment
+    session.execute("BAR=$(echo hello_py)")
+    assert session.environ.get("BAR") == "hello_py"
+
+
+if __name__ == "__main__":
+    import inspect
+    import sys
+
+    passed = 0
+    failed = 0
+    current_module = sys.modules[__name__]
+    for name, func in inspect.getmembers(current_module, inspect.isfunction):
+        if name.startswith("test_"):
+            try:
+                func()
+                print(f"✓ {name}")
+                passed += 1
+            except Exception as e:
+                print(f"✗ {name}: {e}")
+                failed += 1
+                raise
+    print(f"\n{passed} passed, {failed} failed")
+

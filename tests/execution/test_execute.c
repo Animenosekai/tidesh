@@ -530,6 +530,62 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should not evaluate command substitution in false branch of conditional") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        int st = execute_string("FOO=initial; if false; then FOO=$(echo changed); fi", session);
+        asserteq(st, 0);
+
+        char *val = environ_get(session->environ, "FOO");
+        assertneq(val, NULL);
+        asserteq_str(val, "initial");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should evaluate command substitution when branch is taken") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        int st = execute_string("FOO=initial; if true; then FOO=$(echo changed); fi", session);
+        asserteq(st, 0);
+
+        char *val = environ_get(session->environ, "FOO");
+        assertneq(val, NULL);
+        asserteq_str(val, "changed");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should not evaluate command substitution on right side of short-circuited &&") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        int st = execute_string("FOO=initial; false && FOO=$(echo changed)", session);
+        assertneq(st, 0);
+
+        char *val = environ_get(session->environ, "FOO");
+        assertneq(val, NULL);
+        asserteq_str(val, "initial");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should evaluate command substitution in variable assignments") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        int st = execute_string("BAR=$(echo hello_world)", session);
+        asserteq(st, 0);
+
+        char *val = environ_get(session->environ, "BAR");
+        assertneq(val, NULL);
+        asserteq_str(val, "hello_world");
+
+        free_session(session);
+        free(session);
+    }
 }
 
 

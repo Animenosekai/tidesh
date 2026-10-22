@@ -35,6 +35,15 @@ static char *expand_assignment_value(const char *raw_value, Session *session) {
     }
     char *current = strdup(raw_value);
 
+    // 0. Command substitution $(...)
+    if (session && session->features.command_substitution) {
+        char *after_cmd = expand_command_substitution(current, session);
+        if (after_cmd) {
+            free(current);
+            current = after_cmd;
+        }
+    }
+
     // 1. Variable expansion
     if (session && session->features.variable_expansion) {
         Array *var_arr = variable_expansion(current, session);
@@ -1426,7 +1435,7 @@ int execute_string(const char *cmd, Session *session) {
     run_cwd_hook_with_vars(session, HOOK_BEFORE_CMD, cmd_vars, 2);
 
     LexerInput lexer_in = {0};
-    init_lexer_input(&lexer_in, (char *)cmd, execute_string_stdout, session);
+    init_lexer_input(&lexer_in, (char *)cmd, NULL, session);
 
     ASTNode *tree   = parse(&lexer_in, session);
     int      result = 0;
@@ -1500,8 +1509,7 @@ char *execute_string_stdout(const char *cmd, Session *session) {
         // Execute the command
         // Note: we are not using execute_string to avoid writing to history
         LexerInput lexer_in = {0};
-        init_lexer_input(&lexer_in, (char *)cmd, execute_string_stdout,
-                         session);
+        init_lexer_input(&lexer_in, (char *)cmd, NULL, session);
 
         ASTNode *tree   = parse(&lexer_in, session);
         int      status = 1;

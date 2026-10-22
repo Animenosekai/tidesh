@@ -3,7 +3,9 @@
 #include <string.h> /* strcmp, strlen */
 
 #include "data/array.h" /* init_array, array_extend, free_array, Array */
-#include "expand.h"     /* Array */
+#include "data/dynamic.h"
+#include "execute.h" /* execute_string_stdout */
+#include "expand.h"  /* Array */
 #ifndef TIDESH_DISABLE_ALIASES
 #include "expansions/aliases.h" /* alias_expansion */
 #endif
@@ -33,6 +35,106 @@ static Array *apply(Array *inputs, Array *(*expansion_func)(char *, Session *),
     return results;
 }
 
+char *expand_command_substitution(const char *input, Session *session) {
+    if (!input) {
+        return NULL;
+    }
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
+    if (!session || !session->features.command_substitution) {
+        return strdup(input);
+    }
+    if (strstr(input, "$(") == NULL) {
+        return strdup(input);
+    }
+
+    Dynamic result = {0};
+    init_dynamic(&result);
+    size_t i   = 0;
+    size_t len = strlen(input);
+
+    while (i < len) {
+        if (input[i] == '\\' && input[i + 1] == '$') {
+            dynamic_append(&result, '\\');
+            dynamic_append(&result, '$');
+            i += 2;
+            continue;
+        }
+
+        if (input[i] == '$' && input[i + 1] == '(') {
+            i += 2; // skip "$("
+            size_t  depth   = 1;
+            Dynamic cmd_dyn = {0};
+            init_dynamic(&cmd_dyn);
+
+            while (i < len && depth > 0) {
+                char c = input[i++];
+                if (c == '\\' && i < len) {
+                    dynamic_append(&cmd_dyn, c);
+                    dynamic_append(&cmd_dyn, input[i++]);
+                    continue;
+                }
+                if (c == '\'') {
+                    dynamic_append(&cmd_dyn, c);
+                    while (i < len && input[i] != '\'') {
+                        dynamic_append(&cmd_dyn, input[i++]);
+                    }
+                    if (i < len) {
+                        dynamic_append(&cmd_dyn,
+                                       input[i++]); // consume closing '
+                    }
+                    continue;
+                }
+                if (c == '"') {
+                    dynamic_append(&cmd_dyn, c);
+                    while (i < len && input[i] != '"') {
+                        if (input[i] == '\\' && i + 1 < len) {
+                            dynamic_append(&cmd_dyn, input[i++]);
+                        }
+                        dynamic_append(&cmd_dyn, input[i++]);
+                    }
+                    if (i < len) {
+                        dynamic_append(&cmd_dyn,
+                                       input[i++]); // consume closing "
+                    }
+                    continue;
+                }
+                if (c == '(') {
+                    depth++;
+                    dynamic_append(&cmd_dyn, c);
+                } else if (c == ')') {
+                    depth--;
+                    if (depth > 0) {
+                        dynamic_append(&cmd_dyn, c);
+                    }
+                } else {
+                    dynamic_append(&cmd_dyn, c);
+                }
+            }
+
+            char *cmd = dynamic_to_string(&cmd_dyn);
+            free_dynamic(&cmd_dyn);
+
+            if (cmd) {
+                char *output = execute_string_stdout(cmd, session);
+                if (output) {
+                    dynamic_extend(&result, output);
+                    free(output);
+                }
+                free(cmd);
+            }
+        } else {
+            dynamic_append(&result, input[i++]);
+        }
+    }
+
+    char *ret = dynamic_to_string(&result);
+    free_dynamic(&result);
+    return ret;
+#else
+    return strdup(input);
+#endif
+}
+
 Array *full_expansion(char *input, Session *session) {
     if (!session) {
         Array *results = init_array(NULL);
@@ -41,17 +143,29 @@ Array *full_expansion(char *input, Session *session) {
         return results;
     }
 
-    // Variable expansion (always first)
+    // Command substitution $(...)
+    char *after_cmd_sub = NULL;
+    if (session->features.command_substitution) {
+        after_cmd_sub = expand_command_substitution(input, session);
+        if (after_cmd_sub == NULL) {
+            return NULL;
+        }
+    } else {
+        after_cmd_sub = strdup(input);
+    }
+
+    // Variable expansion
     Array *after_variables = NULL;
     if (session->features.variable_expansion) {
-        after_variables = variable_expansion(input, session);
+        after_variables = variable_expansion(after_cmd_sub, session);
+        free(after_cmd_sub);
         if (after_variables == NULL) {
             return NULL;
         }
     } else {
-        // Skip variable expansion, create single-item array
         after_variables = init_array(NULL);
-        array_add(after_variables, input);
+        array_add(after_variables, after_cmd_sub);
+        free(after_cmd_sub);
     }
 
     // Tilde expansion

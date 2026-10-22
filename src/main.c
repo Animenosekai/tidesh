@@ -30,7 +30,7 @@ bool should_return(char *input, Session *session) {
 
     // Check if the lexer returns an EOL right before the EOF
     LexerInput lexer_input = {0};
-    init_lexer_input(&lexer_input, new_input, execute_string_stdout, session);
+    init_lexer_input(&lexer_input, new_input, NULL, session);
 
     LexerToken token;
     TokenType  last_type = TOKEN_EOF;

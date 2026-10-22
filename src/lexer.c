@@ -135,19 +135,9 @@ static Dynamic read_single_word(LexerInput *input) {
 #ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
             advance(input); // consume '$'
             char *command = command_substitution(input);
-            if (input->execute &&
-                (!input->session ||
-                 input->session->features.command_substitution)) {
-                char *substitution = input->execute(command, input->session);
-                if (substitution) {
-                    dynamic_extend(&word_value, substitution);
-                    free(substitution);
-                }
-            } else {
-                dynamic_extend(&word_value, "$(");
-                dynamic_extend(&word_value, command);
-                dynamic_append(&word_value, ')');
-            }
+            dynamic_extend(&word_value, "$(");
+            dynamic_extend(&word_value, command);
+            dynamic_append(&word_value, ')');
             free(command);
 #else
             dynamic_append(&word_value, c);
@@ -193,19 +183,9 @@ static Dynamic read_quoted_word(LexerInput *input) {
 #ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
             advance(input); // consume '$'
             char *command = command_substitution(input);
-            if (input->execute &&
-                (!input->session ||
-                 input->session->features.command_substitution)) {
-                char *substitution = input->execute(command, input->session);
-                if (substitution) {
-                    dynamic_extend(&word_value, substitution);
-                    free(substitution);
-                }
-            } else {
-                dynamic_extend(&word_value, "$(");
-                dynamic_extend(&word_value, command);
-                dynamic_append(&word_value, ')');
-            }
+            dynamic_extend(&word_value, "$(");
+            dynamic_extend(&word_value, command);
+            dynamic_append(&word_value, ')');
             free(command);
 #else
             dynamic_append(&word_value, c);
@@ -710,20 +690,9 @@ LexerToken lexer_next_token(LexerInput *input) {
 #ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
                     advance(input); // consume '$'
                     char *command = command_substitution(input);
-                    if (input->execute &&
-                        (!input->session ||
-                         input->session->features.command_substitution)) {
-                        char *substitution =
-                            input->execute(command, input->session);
-                        if (substitution) {
-                            dynamic_extend(&word_value, substitution);
-                            free(substitution);
-                        }
-                    } else {
-                        dynamic_extend(&word_value, "$(");
-                        dynamic_extend(&word_value, command);
-                        dynamic_append(&word_value, ')');
-                    }
+                    dynamic_extend(&word_value, "$(");
+                    dynamic_extend(&word_value, command);
+                    dynamic_append(&word_value, ')');
                     free(command);
 #else
                     dynamic_append(&word_value, c);
