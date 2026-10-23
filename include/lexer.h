@@ -115,10 +115,11 @@ typedef enum TokenType {
 #endif
 
 #ifndef TIDESH_DISABLE_LOOPS
-    TOKEN_FOR,  // for
-    TOKEN_IN,   // in
-    TOKEN_DO,   // do
-    TOKEN_DONE, // done
+    TOKEN_FOR,   // for
+    TOKEN_WHILE, // while
+    TOKEN_IN,    // in
+    TOKEN_DO,    // do
+    TOKEN_DONE,  // done
 #endif
 
     TOKEN_EOL, // end of command (real newline)

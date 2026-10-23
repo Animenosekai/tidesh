@@ -275,6 +275,44 @@ def test_for_loop() -> None:
     assert out_ctrl.strip() == "1 3"
 
 
+def test_while_loop() -> None:
+    session = tidesh.Session()
+
+    # Lexer
+    lex_res = tidesh.lex("while true; do echo loop; done")
+    assert any(t.type == tidesh.TokenType.WHILE for t in lex_res)
+    assert any(t.type == tidesh.TokenType.DO for t in lex_res)
+    assert any(t.type == tidesh.TokenType.DONE for t in lex_res)
+
+    # AST
+    ast_res = tidesh.ast("while test $x != 3; do echo $x; done")
+    assert isinstance(ast_res, tidesh.ASTResult)
+    assert ast_res.root is not None
+    assert ast_res.type == tidesh.NodeType.WHILE
+    assert ast_res.root.condition is not None
+    assert ast_res.root.body is not None
+
+    # AST JSON
+    data = json.loads(ast_res.json)
+    assert data["type"] == "WHILE"
+    assert "condition" in data
+    assert "body" in data
+    assert "condition: COMMAND" in ast_res.pretty
+    assert "body: COMMAND" in ast_res.pretty
+
+    # Execution
+    session.execute(
+        'I=""; ACC=""; while test "$I" != "aaa"; do I="${I}a"; ACC="${ACC}$I,"; done'
+    )
+    assert session.environ.get("ACC") == "a,aa,aaa,"
+
+    # Execution with break and continue
+    session.execute(
+        'I=""; ACC=""; while test "$I" != "aaaaa"; do I="${I}a"; if test "$I" = "aa"; then continue; fi; if test "$I" = "aaaa"; then break; fi; ACC="${ACC}$I,"; done'
+    )
+    assert session.environ.get("ACC") == "a,aaa,"
+
+
 if __name__ == "__main__":
     import inspect
     import sys

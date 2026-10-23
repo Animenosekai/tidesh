@@ -24,6 +24,7 @@ class NodeType(IntEnum):
     CONDITIONAL = lib.NODE_CONDITIONAL
     FUNCTION_DEF = lib.NODE_FUNCTION_DEF
     FOR = lib.NODE_FOR
+    WHILE = lib.NODE_WHILE
 
 
 class Redirection:
@@ -187,6 +188,13 @@ class ASTNode:
         return ASTNode(self._node.right) if self._node.right != ffi.NULL else None
 
     @property
+    def condition(self) -> ASTNode | None:
+        """Get the condition AST node for WHILE nodes."""
+        if self.type == NodeType.WHILE:
+            return self.left
+        return None
+
+    @property
     def body(self) -> ASTNode | None:
         """Get the body AST node for blocks, subshells, loops, and function definitions."""
         if self.type in (
@@ -196,6 +204,8 @@ class ASTNode:
             NodeType.FOR,
         ):
             return self.left
+        if self.type == NodeType.WHILE:
+            return self.right
         return None
 
     @property
@@ -284,6 +294,9 @@ class ASTNode:
             data["variable"] = self.var_name
             if self.has_in:
                 data["words"] = self.words
+            data["body"] = self.body.to_dict() if self.body else None
+        elif self.type == NodeType.WHILE:
+            data["condition"] = self.condition.to_dict() if self.condition else None
             data["body"] = self.body.to_dict() if self.body else None
         else:
             if self.left:
@@ -407,6 +420,13 @@ class ASTNode:
                     lines.append(f"{prefix}{branch}words: {node.words!r}")
                 new_stack = cur_stack + [False]
                 _format(node.left, "body", new_stack, depth + 1, True)
+                return
+
+            if node.type == NodeType.WHILE:
+                new_stack = cur_stack + [False]
+                _format(node.left, "condition", new_stack, depth + 1, False)
+                new_stack = cur_stack + [True]
+                _format(node.right, "body", new_stack, depth + 1, True)
                 return
 
             if node.type == NodeType.CONDITIONAL:

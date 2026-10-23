@@ -176,6 +176,7 @@ typedef enum TokenType {
     TOKEN_ELIF,
     TOKEN_FI,
     TOKEN_FOR,
+    TOKEN_WHILE,
     TOKEN_IN,
     TOKEN_DO,
     TOKEN_DONE,
@@ -207,7 +208,8 @@ typedef enum NodeType {
     NODE_BLOCK,
     NODE_CONDITIONAL,
     NODE_FUNCTION_DEF,
-    NODE_FOR
+    NODE_FOR,
+    NODE_WHILE
 } NodeType;
 
 struct ConditionalBranch {

@@ -455,4 +455,47 @@ describe(lexer) {
         free_lexer_input(input);
         free(input);
     }
+
+    it("should tokenize while loop keywords") {
+        LexerInput *input = init_lexer_input(NULL, "while true; do echo loop; done", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WHILE);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "true");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_SEMICOLON);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_DO);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "loop");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_SEMICOLON);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_DONE);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
 }

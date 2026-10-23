@@ -180,7 +180,10 @@ static ASTNode *parse_command(Parser *parser, Session *session);
 static ASTNode *parse_conditional(Parser *parser, Session *session);
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
+static void     parse_loop_redirects(Parser *parser, ASTNode *node,
+                                     Session *session);
 static ASTNode *parse_for(Parser *parser, Session *session);
+static ASTNode *parse_while(Parser *parser, Session *session);
 #endif
 
 ASTNode *parse(LexerInput *lexer, Session *session) {
@@ -752,9 +755,16 @@ static ASTNode *parse_for(Parser *parser, Session *session) {
     for_node->left = body;
 
     // Parse any redirections after 'done' (e.g. for ... done > out.txt)
+    parse_loop_redirects(parser, for_node, session);
+
+    return for_node;
+}
+
+static void parse_loop_redirects(Parser *parser, ASTNode *node,
+                                 Session *session) {
     while (true) {
-        token  = parser_peek(parser);
-        int fd = -1;
+        LexerToken *token = parser_peek(parser);
+        int         fd    = -1;
 #ifndef TIDESH_DISABLE_REDIRECTIONS
         if (token->type == TOKEN_IO_NUMBER) {
             LexerToken io_token = parser_next(parser);
@@ -826,10 +836,10 @@ static ASTNode *parse_for(Parser *parser, Session *session) {
                 }
             }
 
-            if (!for_node->redirects) {
-                for_node->redirects = redirect;
+            if (!node->redirects) {
+                node->redirects = redirect;
             } else {
-                Redirection *curr = for_node->redirects;
+                Redirection *curr = node->redirects;
                 while (curr->next) {
                     curr = curr->next;
                 }
@@ -840,8 +850,155 @@ static ASTNode *parse_for(Parser *parser, Session *session) {
 #endif
         break;
     }
+}
 
-    return for_node;
+/* Parse a while loop */
+static ASTNode *parse_while(Parser *parser, Session *session) {
+    LexerToken *token = parser_peek(parser);
+    if (token->type != TOKEN_WHILE) {
+        return NULL;
+    }
+
+    // Consume 'while'
+    parser_skip(parser);
+
+    // Skip newlines or comments after 'while'
+    token = parser_peek(parser);
+    while (token->type == TOKEN_EOL || token->type == TOKEN_COMMENT) {
+        parser_skip(parser);
+        token = parser_peek(parser);
+    }
+
+    ASTNode *while_node = init_ast(NULL, NODE_WHILE);
+
+    // Parse the condition commands until 'do'
+    ASTNode *condition = NULL;
+    while (true) {
+        token = parser_peek(parser);
+        if (token->type == TOKEN_DO) {
+            break;
+        }
+        if (token->type == TOKEN_EOF) {
+            fprintf(stderr,
+                    "Syntax error: unexpected EOF in while loop condition\n");
+            parser->error = true;
+            break;
+        }
+
+        ASTNode *cmd = parse_conditional(parser, session);
+        if (!cmd) {
+            token = parser_peek(parser);
+            if (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+                token->type == TOKEN_COMMENT) {
+                parser_skip(parser);
+            } else {
+                break;
+            }
+            continue;
+        }
+
+        if (!condition) {
+            condition = cmd;
+        } else {
+            ASTNode *seq = init_ast(NULL, NODE_SEQUENCE);
+            seq->left    = condition;
+            seq->right   = cmd;
+            condition    = seq;
+        }
+
+        token = parser_peek(parser);
+        if (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+            token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+        }
+    }
+
+    if (!condition) {
+        fprintf(stderr, "Syntax error: expected condition in while loop\n");
+        parser->error = true;
+        free_ast(while_node);
+        free(while_node);
+        return NULL;
+    }
+
+    // Expect and consume 'do'
+    token = parser_peek(parser);
+    if (token->type != TOKEN_DO) {
+        fprintf(stderr, "Syntax error: expected 'do' in while loop\n");
+        parser->error = true;
+        free_ast(condition);
+        free(condition);
+        free_ast(while_node);
+        free(while_node);
+        return NULL;
+    }
+    parser_skip(parser); // consume 'do'
+
+    // Skip newlines, semicolons, comments after 'do'
+    token = parser_peek(parser);
+    while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+           token->type == TOKEN_COMMENT) {
+        parser_skip(parser);
+        token = parser_peek(parser);
+    }
+
+    // Parse the body commands until 'done'
+    ASTNode *body = NULL;
+    while (true) {
+        token = parser_peek(parser);
+        if (token->type == TOKEN_DONE) {
+            break;
+        }
+        if (token->type == TOKEN_EOF) {
+            fprintf(stderr, "Syntax error: unexpected EOF in while loop\n");
+            parser->error = true;
+            break;
+        }
+
+        ASTNode *cmd = parse_conditional(parser, session);
+        if (!cmd) {
+            token = parser_peek(parser);
+            if (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+                token->type == TOKEN_COMMENT) {
+                parser_skip(parser);
+            } else {
+                break;
+            }
+            continue;
+        }
+
+        if (!body) {
+            body = cmd;
+        } else {
+            ASTNode *seq = init_ast(NULL, NODE_SEQUENCE);
+            seq->left    = body;
+            seq->right   = cmd;
+            body         = seq;
+        }
+
+        token = parser_peek(parser);
+        if (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+            token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+        }
+    }
+
+    // Expect and consume 'done'
+    token = parser_peek(parser);
+    if (token->type == TOKEN_DONE) {
+        parser_skip(parser);
+    } else {
+        fprintf(stderr, "Syntax error: expected 'done' to close while loop\n");
+        parser->error = true;
+    }
+
+    while_node->left  = condition;
+    while_node->right = body;
+
+    // Parse any redirections after 'done'
+    parse_loop_redirects(parser, while_node, session);
+
+    return while_node;
 }
 #endif
 
@@ -888,6 +1045,9 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
     if (peek->type == TOKEN_FOR) {
         return parse_for(parser, session);
     }
+    if (peek->type == TOKEN_WHILE) {
+        return parse_while(parser, session);
+    }
 #endif
 
     ASTNode *cmd        = init_ast(NULL, NODE_COMMAND);
@@ -900,7 +1060,8 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
         if (token->type == TOKEN_IN) {
             token->type = TOKEN_WORD;
         } else if (!first_word &&
-                   (token->type == TOKEN_DO || token->type == TOKEN_DONE)) {
+                   (token->type == TOKEN_FOR || token->type == TOKEN_WHILE ||
+                    token->type == TOKEN_DO || token->type == TOKEN_DONE)) {
             token->type = TOKEN_WORD;
         }
 #endif
@@ -1139,6 +1300,8 @@ const char *node_type_to_string(NodeType type) {
 #ifndef TIDESH_DISABLE_LOOPS
         case NODE_FOR:
             return "NODE_FOR";
+        case NODE_WHILE:
+            return "NODE_WHILE";
 #endif
         default:
             return "NODE_UNKNOWN";

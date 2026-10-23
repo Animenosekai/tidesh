@@ -1021,6 +1021,66 @@ int execute(ASTNode *node, Session *session) {
         environ_set_exit_status(session->environ, last_exit_status);
         return last_exit_status;
     }
+
+    if (node->type == NODE_WHILE) {
+        RedirectionState redir_state = {0};
+        if (!apply_in_process_redirections(node, session, &redir_state)) {
+            restore_in_process_redirections(&redir_state);
+            environ_set_exit_status(session->environ, 1);
+            return 1;
+        }
+
+        session->loop_depth++;
+        int last_exit_status = 0;
+
+        while (true) {
+            if (session->exit_requested) {
+                break;
+            }
+
+            int cond_status = 0;
+            if (node->left) {
+                cond_status = execute(node->left, session);
+            }
+
+            if (cond_status != 0) {
+                break;
+            }
+
+            if (session->loop_break > 0 || session->loop_continue > 0 ||
+                session->exit_requested) {
+                break;
+            }
+
+            if (node->right) {
+                last_exit_status = execute(node->right, session);
+            } else {
+                last_exit_status = 0;
+            }
+
+            if (session->loop_continue > 0) {
+                session->loop_continue--;
+                if (session->loop_continue > 0) {
+                    break;
+                }
+                continue;
+            }
+
+            if (session->loop_break > 0) {
+                session->loop_break--;
+                break;
+            }
+
+            if (session->exit_requested) {
+                break;
+            }
+        }
+
+        session->loop_depth--;
+        restore_in_process_redirections(&redir_state);
+        environ_set_exit_status(session->environ, last_exit_status);
+        return last_exit_status;
+    }
 #endif
 
     if (node->type == NODE_COMMAND) {

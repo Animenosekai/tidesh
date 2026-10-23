@@ -45,6 +45,7 @@ class TokenType(IntEnum):
     ELIF = lib.TOKEN_ELIF
     FI = lib.TOKEN_FI
     FOR = lib.TOKEN_FOR
+    WHILE = lib.TOKEN_WHILE
     IN = lib.TOKEN_IN
     DO = lib.TOKEN_DO
     DONE = lib.TOKEN_DONE
@@ -315,6 +316,10 @@ class ForToken(Token):
     """A for token (FOR)."""
 
 
+class WhileToken(Token):
+    """A while token (WHILE)."""
+
+
 class InToken(Token):
     """An in token (IN)."""
 
@@ -365,6 +370,7 @@ _TOKEN_CLASS_MAP = {
     TokenType.ELIF: ElifToken,
     TokenType.FI: FiToken,
     TokenType.FOR: ForToken,
+    TokenType.WHILE: WhileToken,
     TokenType.IN: InToken,
     TokenType.DO: DoToken,
     TokenType.DONE: DoneToken,

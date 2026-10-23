@@ -256,6 +256,15 @@ static void ast_pretty_print_node(FILE *out, const ASTNode *node,
                               depth + 1, true);
         return;
     }
+    if (node->type == NODE_WHILE) {
+        is_last_stack[depth] = false;
+        ast_pretty_print_node(out, node->left, "condition", box, is_last_stack,
+                              depth + 1, false);
+        is_last_stack[depth] = true;
+        ast_pretty_print_node(out, node->right, "body", box, is_last_stack,
+                              depth + 1, true);
+        return;
+    }
 #endif
 
 #ifndef TIDESH_DISABLE_CONDITIONALS
@@ -463,6 +472,16 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
         fputs("\"body\": ", out);
         ast_json_print(out, node->left, indent + 1);
     }
+    if (node->type == NODE_WHILE) {
+        fputs(",\n", out);
+        print_indent(out, indent + 1);
+        fputs("\"condition\": ", out);
+        ast_json_print(out, node->left, indent + 1);
+        fputs(",\n", out);
+        print_indent(out, indent + 1);
+        fputs("\"body\": ", out);
+        ast_json_print(out, node->right, indent + 1);
+    }
 #endif
 
     if (node->type != NODE_COMMAND &&
@@ -480,6 +499,7 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
         node->type != NODE_FOR &&
+        node->type != NODE_WHILE &&
 #endif
         (node->left || node->right)) {
         if (node->left) {

@@ -63,6 +63,12 @@
       - [Loop Control: `break` and `continue`](#loop-control-break-and-continue)
       - [Redirections and Pipelines](#redirections-and-pipelines)
       - [Notes](#notes-1)
+    - [While Loops](#while-loops)
+      - [Basic Syntax](#basic-syntax-2)
+      - [Combining Conditions](#combining-conditions)
+      - [Loop Control: `break` and `continue`](#loop-control-break-and-continue-1)
+      - [Redirections and Pipelines](#redirections-and-pipelines-1)
+      - [Notes](#notes-2)
 - [Python Bindings](#python-bindings)
   - [Installation](#installation-1)
   - [Usage](#usage)
@@ -606,7 +612,7 @@ Available compile-time flags:
 | `TIDESH_DISABLE_COMMAND_SUBSTITUTION` | Disable `$(...)` |
 | `TIDESH_DISABLE_ASSIGNMENTS` | Disable `VAR=value` assignments |
 | `TIDESH_DISABLE_CONDITIONALS` | Disable `if/then/elif/else/fi` statements |
-| `TIDESH_DISABLE_LOOPS` | Disable `for` loops |
+| `TIDESH_DISABLE_LOOPS` | Disable `for` and `while` loops |
 
 Build with compile-time flags:
 
@@ -896,6 +902,80 @@ for name in alice bob charlie; do echo "$name"; done | grep "li"
 - `for` loops can be disabled at compile-time with `TIDESH_DISABLE_LOOPS`.
 - The variable name must be a valid identifier (alphanumeric and underscores, not starting with a digit).
 - Redirections applied to a loop execute in the main shell process so variables set inside the loop persist.
+
+#### While Loops
+
+`tidesh` supports standard POSIX-compatible `while` loops, executing a body of commands repeatedly as long as the condition evaluates to exit status 0 (success).
+
+##### Basic Syntax
+
+```sh
+while condition
+do
+    command1
+    command2
+done
+```
+
+Or compact one-line format:
+
+```sh
+while test "$count" -lt 5; do echo "$count"; count=$(expr "$count" + 1); done
+```
+
+##### Combining Conditions
+
+Any command or pipeline/operator sequence can be used as the condition:
+
+```sh
+# Using test or [ ]
+while [ "$X" != "done" ]; do
+    read -r X
+done
+
+# Combining with && / ||
+while test -f lock.txt && ! test -f stop.txt; do
+    echo "Working..."
+    sleep 1
+done
+```
+
+##### Loop Control: `break` and `continue`
+
+Inside `while` loops, `break [n]` and `continue [n]` control iteration flow:
+
+```sh
+while true; do
+    if [ "$stop_flag" = "1" ]; then
+        break
+    fi
+    # do work
+done
+```
+
+##### Redirections and Pipelines
+
+`while` loops support redirections on the loop block and can be part of pipelines:
+
+```sh
+# Read file line by line
+while read -r line; do
+    echo "Line: $line"
+done < input.txt
+
+# Pipe while loop output
+count=0
+while [ "$count" -lt 10 ]; do
+    echo "entry $count"
+    count=$(expr "$count" + 1)
+done | grep "5"
+```
+
+##### Notes
+
+- `while` loops can be disabled at compile-time with `TIDESH_DISABLE_LOOPS`.
+- The condition list is evaluated at the start of each iteration. If the condition fails on the initial check, the body is never executed and the loop exits with status 0.
+- Loop redirections execute in-process so environment modifications persist across iterations.
 
 ## Python Bindings
 

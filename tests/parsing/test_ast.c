@@ -484,4 +484,53 @@ describe(ast) {
         free_session(session);
         free(session);
     }
+
+    it("should parse while loop with condition and body") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer = init_lexer_input(NULL, "while test $x -lt 5; do echo $x; done", NULL, session);
+        ASTNode *ast = parse(lexer, session);
+
+        assertneq(ast, NULL);
+        asserteq(ast->type, NODE_WHILE);
+        assertneq(ast->left, NULL);
+        assertneq(ast->right, NULL);
+
+        free_ast(ast);
+        free(ast);
+        free_lexer_input(lexer);
+        free(lexer);
+        free_session(session);
+        free(session);
+    }
+
+    it("should return NULL on syntax errors in while loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Missing condition
+        LexerInput *l1 = init_lexer_input(NULL, "while; do echo 1; done", NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        asserteq(ast1, NULL);
+        free_lexer_input(l1);
+        free(l1);
+
+        // Missing do
+        LexerInput *l2 = init_lexer_input(NULL, "while true; echo 1; done", NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+        asserteq(ast2, NULL);
+        free_lexer_input(l2);
+        free(l2);
+
+        // Missing done
+        LexerInput *l3 = init_lexer_input(NULL, "while true; do echo 1", NULL, session);
+        ASTNode *ast3 = parse(l3, session);
+        if (ast3) {
+            free_ast(ast3);
+            free(ast3);
+        }
+        free_lexer_input(l3);
+        free(l3);
+
+        free_session(session);
+        free(session);
+    }
 }

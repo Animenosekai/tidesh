@@ -815,6 +815,108 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should execute basic while loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"\"; I=\"\"; while test \"$I\" != \"aaa\"; do I=\"${I}a\"; ACC=\"${ACC}$I,\"; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "a,aa,aaa,");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should not execute while loop body when condition is false initially") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"untouched\"; while false; do ACC=\"changed\"; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "untouched");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support multi-line formatting in while loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        const char *script =
+            "ACC=\"init\"\n"
+            "X=\"start\"\n"
+            "while test \"$X\" = \"start\"\n"
+            "do\n"
+            "    ACC=\"done\"\n"
+            "    X=\"stop\"\n"
+            "done\n";
+        int st = execute_string(script, session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "done");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support break and continue in while loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"\"; I=\"\"; while test \"$I\" != \"aaaaa\"; do I=\"${I}a\"; if test \"$I\" = \"aa\"; then continue; fi; if test \"$I\" = \"aaaa\"; then break; fi; ACC=\"${ACC}$I,\"; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "a,aaa,");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support nested while loops and multi-level break") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"\"; I=\"\"; while test \"$I\" != \"aa\"; do I=\"${I}a\"; J=\"\"; while test \"$J\" != \"bb\"; do J=\"${J}b\"; if test \"$I\" = \"aa\"; then break 2; fi; ACC=\"${ACC}$I-$J,\"; done; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "a-b,a-bb,");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support redirections on while loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        const char *outfile = "/tmp/test_while_redir.txt";
+        unlink(outfile);
+
+        int st = execute_string("I=\"\"; while test \"$I\" != \"aaa\"; do I=\"${I}a\"; echo \"run_$I\"; done > /tmp/test_while_redir.txt", session);
+        asserteq(st, 0);
+
+        FILE *f = fopen(outfile, "r");
+        assertneq(f, NULL);
+        char buf[256] = {0};
+        size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+        buf[n] = '\0';
+        assert(strstr(buf, "run_a") != NULL);
+        assert(strstr(buf, "run_aa") != NULL);
+        assert(strstr(buf, "run_aaa") != NULL);
+        fclose(f);
+        unlink(outfile);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support while loop in pipeline") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        char *out = execute_string_stdout("I=\"\"; while test \"$I\" != \"aaa\"; do I=\"${I}a\"; echo \"val_$I\"; done | grep val_aa", session);
+        assertneq(out, NULL);
+        assert(strstr(out, "val_aa") != NULL);
+        free(out);
+
+        free_session(session);
+        free(session);
+    }
 }
 
 
