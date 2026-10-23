@@ -498,8 +498,7 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
         node->type != NODE_CONDITIONAL &&
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
-        node->type != NODE_FOR &&
-        node->type != NODE_WHILE &&
+        node->type != NODE_FOR && node->type != NODE_WHILE &&
 #endif
         (node->left || node->right)) {
         if (node->left) {

@@ -498,4 +498,229 @@ describe(lexer) {
         free_lexer_input(input);
         free(input);
     }
+
+    it("should handle line continuation with trailing backslash") {
+        LexerInput *input = init_lexer_input(NULL, "echo foo \\\nbar", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "foo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "bar");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
+    it("should handle line continuation with indentation") {
+        LexerInput *input = init_lexer_input(NULL, "echo \\\n    first \\\n    second", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "first");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "second");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
+    it("should handle line continuation inside a word") {
+        LexerInput *input = init_lexer_input(NULL, "echo foo\\\nbar", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "foobar");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
+    it("should handle line continuation with operators") {
+        LexerInput *input = init_lexer_input(NULL, "cmd1 && \\\ncmd2", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "cmd1");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_SEQUENCE);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "cmd2");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
+    it("should handle line continuation inside double quotes") {
+        LexerInput *input = init_lexer_input(NULL, "echo \"hello \\\nworld\"", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "hello world");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
+    it("should preserve literal backslash and newline in single quotes") {
+        LexerInput *input = init_lexer_input(NULL, "echo 'hello \\\nworld'", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "hello \\\nworld");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
+    it("should handle CRLF line continuation") {
+        LexerInput *input = init_lexer_input(NULL, "echo foo \\\r\nbar", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "foo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "bar");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
+    it("should handle line continuation in comments") {
+        LexerInput *input = init_lexer_input(NULL, "# comment \\\ncontinuation\necho test", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_COMMENT);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOL);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "test");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
+    it("should not return EOL when line continuation is at end of input") {
+        LexerInput *input = init_lexer_input(NULL, "echo foo \\\n", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "foo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
 }

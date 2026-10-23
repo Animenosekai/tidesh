@@ -29,6 +29,82 @@ static char advance(LexerInput *input) {
     return is_at_end(input) ? '\0' : input->data[input->pos++];
 }
 
+/* Remove line continuations (<backslash><newline>) from input data */
+static char *remove_line_continuations(const char *input) {
+    if (!input) {
+        return NULL;
+    }
+    size_t len    = strlen(input);
+    char  *result = malloc(len + 1);
+    if (!result) {
+        return NULL;
+    }
+
+    size_t r               = 0;
+    bool   in_single_quote = false;
+    bool   in_double_quote = false;
+    size_t i               = 0;
+
+    while (i < len) {
+        if (!in_single_quote && !in_double_quote) {
+            if (input[i] == '\'') {
+                in_single_quote = true;
+                result[r++]     = input[i++];
+            } else if (input[i] == '"') {
+                in_double_quote = true;
+                result[r++]     = input[i++];
+            } else if (input[i] == '\\') {
+                if (i + 1 < len && input[i + 1] == '\n') {
+                    // Line continuation: skip '\\' and '\n'
+                    i += 2;
+                } else if (i + 2 < len && input[i + 1] == '\r' &&
+                           input[i + 2] == '\n') {
+                    // Line continuation: skip '\\', '\r', and '\n'
+                    i += 3;
+                } else {
+                    // Normal backslash outside quotes: copy '\\' and the next
+                    // char (if any)
+                    result[r++] = input[i++];
+                    if (i < len) {
+                        result[r++] = input[i++];
+                    }
+                }
+            } else {
+                result[r++] = input[i++];
+            }
+        } else if (in_single_quote) {
+            if (input[i] == '\'') {
+                in_single_quote = false;
+            }
+            result[r++] = input[i++];
+        } else if (in_double_quote) {
+            if (input[i] == '"') {
+                in_double_quote = false;
+                result[r++]     = input[i++];
+            } else if (input[i] == '\\') {
+                if (i + 1 < len && input[i + 1] == '\n') {
+                    // Line continuation inside double quotes
+                    i += 2;
+                } else if (i + 2 < len && input[i + 1] == '\r' &&
+                           input[i + 2] == '\n') {
+                    // Line continuation inside double quotes (CRLF)
+                    i += 3;
+                } else {
+                    result[r++] = input[i++];
+                    if (i < len) {
+                        result[r++] = input[i++];
+                    }
+                }
+            } else {
+                result[r++] = input[i++];
+            }
+        }
+    }
+
+    result[r] = '\0';
+    return result;
+}
+
 LexerInput *init_lexer_input(LexerInput *input, char *data,
                              char *(*execute)(const char *cmd,
                                               Session    *session),
@@ -39,7 +115,7 @@ LexerInput *init_lexer_input(LexerInput *input, char *data,
             return NULL;
         }
     }
-    input->data    = strdup(data);
+    input->data    = remove_line_continuations(data);
     input->pos     = 0;
     input->execute = execute;
     input->session = session;
@@ -177,6 +253,12 @@ static Dynamic read_quoted_word(LexerInput *input) {
     char c          = peek(input);
 
     while (!is_at_end(input) && c != quote_char) {
+        if (quote_char == '\'') {
+            dynamic_append(&word_value, c);
+            advance(input);
+            c = peek(input);
+            continue;
+        }
         if (!escaped && c == '\\' && peek_next(input) == '$') {
             advance(input); // consume '\\'
             dynamic_append(&word_value, '\\');
