@@ -9,8 +9,9 @@
 #include "builtins/unalias.h" /* builtin_unalias */
 #endif
 #include "builtins/ast.h"      /* builtin_ast */
-#include "builtins/break.h"    /* builtin_break, builtin_continue */
+#include "builtins/break.h"    /* builtin_break */
 #include "builtins/clear.h"    /* builtin_clear */
+#include "builtins/continue.h" /* builtin_continue */
 #include "builtins/eval.h"     /* builtin_eval */
 #include "builtins/exit.h"     /* builtin_exit */
 #include "builtins/export.h"   /* builtin_export */

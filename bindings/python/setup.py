@@ -151,6 +151,7 @@ sources = [
     "builtins/not.c",
     "builtins/unset.c",
     "builtins/break.c",
+    "builtins/continue.c",
     "builtins/lexer.c",
     "builtins/ast.c",
 ]
