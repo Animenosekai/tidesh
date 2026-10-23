@@ -9,6 +9,7 @@
 #include "builtins/unalias.h" /* builtin_unalias */
 #endif
 #include "builtins/ast.h"      /* builtin_ast */
+#include "builtins/break.h"    /* builtin_break, builtin_continue */
 #include "builtins/clear.h"    /* builtin_clear */
 #include "builtins/eval.h"     /* builtin_eval */
 #include "builtins/exit.h"     /* builtin_exit */
@@ -45,23 +46,23 @@
 #endif
 #include "session.h" /* Session */
 
-const char *builtins[] = {"exit",     "pwd",     "clear", "help", "printenv",
-                          "which",    "export",  "unset", "eval", "terminal",
-                          "info",     "source",  "type",  "test", "hooks",
-                          "features", "not",     "lexer", "ast",
+const char *builtins[] = {
+    "exit",    "pwd",      "clear",    "help",  "printenv", "which", "export",
+    "unset",   "eval",     "terminal", "info",  "source",   "type",  "test",
+    "hooks",   "features", "not",      "lexer", "ast",      "break", "continue",
 #ifndef TIDESH_DISABLE_ALIASES
-                          "alias",    "unalias",
+    "alias",   "unalias",
 #endif
 #ifndef TIDESH_DISABLE_HISTORY
-                          "history",
+    "history",
 #endif
 #ifndef TIDESH_DISABLE_DIRSTACK
-                          "cd",       "pushd",   "popd",
+    "cd",      "pushd",    "popd",
 #endif
 #ifndef TIDESH_DISABLE_JOB_CONTROL
-                          "jobs",     "fg",      "bg",
+    "jobs",    "fg",       "bg",
 #endif
-                          NULL};
+    NULL};
 
 int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
     if (strcmp(name, "exit") == 0)
@@ -126,6 +127,10 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_lexer;
     if (strcmp(name, "ast") == 0)
         return builtin_ast;
+    if (strcmp(name, "break") == 0)
+        return builtin_break;
+    if (strcmp(name, "continue") == 0)
+        return builtin_continue;
 #ifndef TIDESH_DISABLE_JOB_CONTROL
     if (strcmp(name, "jobs") == 0)
         return builtin_jobs;
@@ -147,7 +152,8 @@ bool is_special_builtin(const char *name) {
         strcmp(name, "type") == 0 || strcmp(name, "not") == 0 ||
         strcmp(name, "!") == 0 || strcmp(name, "hooks") == 0 ||
         strcmp(name, "features") == 0 || strcmp(name, "lexer") == 0 ||
-        strcmp(name, "ast") == 0) {
+        strcmp(name, "ast") == 0 || strcmp(name, "break") == 0 ||
+        strcmp(name, "continue") == 0) {
         return true;
     }
 #ifndef TIDESH_DISABLE_ALIASES

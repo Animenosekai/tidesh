@@ -114,6 +114,13 @@ typedef enum TokenType {
     TOKEN_FI,   // fi
 #endif
 
+#ifndef TIDESH_DISABLE_LOOPS
+    TOKEN_FOR,  // for
+    TOKEN_IN,   // in
+    TOKEN_DO,   // do
+    TOKEN_DONE, // done
+#endif
+
     TOKEN_EOL, // end of command (real newline)
     TOKEN_EOF  // end of file
 } TokenType;

@@ -9,6 +9,7 @@
 #include "ast.h"
 #include "builtins/ast.h"
 #include "builtins/bg.h"
+#include "builtins/break.h"
 #include "builtins/cd.h"
 #include "builtins/fg.h"
 #include "builtins/hooks.h"

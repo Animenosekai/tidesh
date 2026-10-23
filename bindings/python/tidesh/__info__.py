@@ -19,11 +19,11 @@ __license__ = "MIT License"
 __copyright__ = f"Copyright {__year__}, {__module__}"
 
 __raw_version__ = "1.0"
-__version__ = "1.0-a79899b"
-__git_version__ = "a79899b"
+__version__ = "1.0-unknown"
+__git_version__ = "unknown"
 __build_date__ = datetime.datetime.strptime("2026-10-23", "%Y-%m-%d")
 __build_type__: typing.Literal["debug", "release"] = "release"
-__platform__: typing.Literal["linux", "macos", "windows"] = "macos"
+__platform__: typing.Literal["linux", "macos", "windows"] = "unknown"
 __brief__ = "A lightweight but fully-featured shell"
 
 from ._tidesh import ffi, lib

@@ -15,6 +15,8 @@ describe(builtin) {
         assert(is_builtin("exit"));
         assert(is_builtin("lexer"));
         assert(is_builtin("ast"));
+        assert(is_builtin("break"));
+        assert(is_builtin("continue"));
         assert(is_builtin("echo") == false);
         assert(is_builtin("nonexistent") == false);
     }
@@ -28,6 +30,8 @@ describe(builtin) {
         assert(is_special_builtin("."));
         assert(is_special_builtin("lexer"));
         assert(is_special_builtin("ast"));
+        assert(is_special_builtin("break"));
+        assert(is_special_builtin("continue"));
         assert(is_special_builtin("pwd") == false);
         assert(is_special_builtin("help") == false);
     }

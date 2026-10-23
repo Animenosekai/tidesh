@@ -9,6 +9,7 @@
 // Builtins
 #include "builtins/alias.h"
 #include "builtins/bg.h"
+#include "builtins/break.h"
 #include "builtins/cd.h"
 #include "builtins/clear.h"
 #include "builtins/eval.h"

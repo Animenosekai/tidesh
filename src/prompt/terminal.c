@@ -68,7 +68,9 @@ static void cleanup_sessions(void) {
         curr = next;
     }
     g_sessions.next = NULL;
-    terminal_show_cursor();
+    if (isatty(STDOUT_FILENO)) {
+        terminal_show_cursor();
+    }
 }
 
 // Helpers

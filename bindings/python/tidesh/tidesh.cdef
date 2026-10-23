@@ -175,6 +175,10 @@ typedef enum TokenType {
     TOKEN_ELSE,
     TOKEN_ELIF,
     TOKEN_FI,
+    TOKEN_FOR,
+    TOKEN_IN,
+    TOKEN_DO,
+    TOKEN_DONE,
     TOKEN_EOL,
     TOKEN_EOF
 } TokenType;
@@ -202,7 +206,8 @@ typedef enum NodeType {
     NODE_SUBSHELL,
     NODE_BLOCK,
     NODE_CONDITIONAL,
-    NODE_FUNCTION_DEF
+    NODE_FUNCTION_DEF,
+    NODE_FOR
 } NodeType;
 
 struct ConditionalBranch {
@@ -232,6 +237,7 @@ struct ASTNode {
     struct ASTNode *right;
     bool background;
     ConditionalBranch *branches;
+    bool for_has_in;
     ...;
 };
 
@@ -286,6 +292,8 @@ int builtin_bg(int argc, char **argv, Session *session);
 int builtin_hooks(int argc, char **argv, Session *session);
 int builtin_lexer(int argc, char **argv, Session *session);
 int builtin_ast(int argc, char **argv, Session *session);
+int builtin_break(int argc, char **argv, Session *session);
+int builtin_continue(int argc, char **argv, Session *session);
 
 extern const char *tidesh_compiler;
 

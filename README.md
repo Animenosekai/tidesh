@@ -56,6 +56,13 @@
       - [Multi-line Formatting](#multi-line-formatting)
       - [Nested Conditionals](#nested-conditionals)
       - [Notes](#notes)
+    - [For Loops](#for-loops)
+      - [Basic Syntax](#basic-syntax-1)
+      - [Looping over Positional Parameters](#looping-over-positional-parameters)
+      - [Expansions in Word Lists](#expansions-in-word-lists)
+      - [Loop Control: `break` and `continue`](#loop-control-break-and-continue)
+      - [Redirections and Pipelines](#redirections-and-pipelines)
+      - [Notes](#notes-1)
 - [Python Bindings](#python-bindings)
   - [Installation](#installation-1)
   - [Usage](#usage)
@@ -599,6 +606,7 @@ Available compile-time flags:
 | `TIDESH_DISABLE_COMMAND_SUBSTITUTION` | Disable `$(...)` |
 | `TIDESH_DISABLE_ASSIGNMENTS` | Disable `VAR=value` assignments |
 | `TIDESH_DISABLE_CONDITIONALS` | Disable `if/then/elif/else/fi` statements |
+| `TIDESH_DISABLE_LOOPS` | Disable `for` loops |
 
 Build with compile-time flags:
 
@@ -802,6 +810,92 @@ fi
 - Conditionals can be disabled at compile-time with `TIDESH_DISABLE_CONDITIONALS`
 - Any command can be used as a condition, not just `test`
 - Multiple commands can be included in each block (then/elif/else)
+
+#### For Loops
+
+`tidesh` supports standard POSIX-compatible `for` loops, including word lists, positional parameter fallback, full shell expansions, loop control (`break` / `continue`), and I/O redirection.
+
+##### Basic Syntax
+
+```sh
+for var in word1 word2 word3
+do
+    echo "Value: $var"
+done
+```
+
+Or compact one-line format:
+
+```sh
+for var in word1 word2 word3; do echo "$var"; done
+```
+
+##### Looping over Positional Parameters
+
+Omitting `in ...` iterates over positional parameters (`$1`, `$2`, ...):
+
+```sh
+for arg
+do
+    echo "Argument: $arg"
+done
+```
+
+You can also use a semicolon:
+
+```sh
+for arg; do echo "$arg"; done
+```
+
+##### Expansions in Word Lists
+
+The word list supports brace expansion, globbing, variable expansion, and command substitution:
+
+```sh
+# Brace expansion
+for i in {1..5}; do echo "$i"; done
+
+# Filename expansion (globbing)
+for file in *.txt; do cat "$file"; done
+
+# Command substitution
+for item in $(cat items.txt); do echo "$item"; done
+```
+
+##### Loop Control: `break` and `continue`
+
+- `break [n]`: Terminate loop execution immediately (optionally breaking out of `n` nested loops).
+- `continue [n]`: Resume next iteration of the loop (optionally continuing at the `n`-th enclosing loop level).
+
+```sh
+for i in {1..10}; do
+    if [ "$i" -eq 3 ]; then
+        continue
+    fi
+    if [ "$i" -eq 6 ]; then
+        break
+    fi
+    echo "$i"
+done
+```
+
+##### Redirections and Pipelines
+
+Loops support redirections and can be part of pipelines:
+
+```sh
+# Redirect loop output to a file
+for i in {1..5}; do echo "$i"; done > output.txt
+
+# Pipe loop output to another command
+for name in alice bob charlie; do echo "$name"; done | grep "li"
+```
+
+##### Notes
+
+- `for` loops can be disabled at compile-time with `TIDESH_DISABLE_LOOPS`.
+- The variable name must be a valid identifier (alphanumeric and underscores, not starting with a digit).
+- Redirections applied to a loop execute in the main shell process so variables set inside the loop persist.
 
 ## Python Bindings
 

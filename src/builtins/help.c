@@ -35,6 +35,8 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool bg       = false;
     bool lexer    = false;
     bool ast      = false;
+    bool b_break  = false;
+    bool b_cont   = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -97,12 +99,17 @@ int builtin_help(int argc, char **argv, Session *session) {
             lexer = true;
         else if (strcmp(argv[i], "ast") == 0)
             ast = true;
+        else if (strcmp(argv[i], "break") == 0)
+            b_break = true;
+        else if (strcmp(argv[i], "continue") == 0)
+            b_cont = true;
     }
 
-    bool all = !(cd || clear || exit || export || unset || eval || alias ||
-                 unalias || help || features || hooks || history || info ||
-                 printenv || pwd || pushd || popd || terminal || which ||
-                 source || type || test || jobs || fg || bg);
+    bool all =
+        !(cd || clear || exit || export || unset || eval || alias || unalias ||
+          help || features || hooks || history || info || printenv || pwd ||
+          pushd || popd || terminal || which || source || type || test ||
+          jobs || fg || bg || lexer || ast || b_break || b_cont);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -261,6 +268,14 @@ int builtin_help(int argc, char **argv, Session *session) {
     if (all || ast)
         printf("  %s%-9s %s%-14s%s - Parse a command and display its AST\n",
                command_clr, "ast", argument_clr, "[options] [cmd]", reset);
+
+    if (all || b_break)
+        printf("  %s%-9s %s%-14s%s - Exit from within a loop\n", command_clr,
+               "break", argument_clr, "[n?]", reset);
+
+    if (all || b_cont)
+        printf("  %s%-9s %s%-14s%s - Resume the next iteration of a loop\n",
+               command_clr, "continue", argument_clr, "[n?]", reset);
 
     return 0;
 }

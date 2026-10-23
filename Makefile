@@ -447,6 +447,10 @@ build/no-functions:
 	@echo "$(BOLD)🔨 Building without shell functions...$(SGR0)"
 	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_FUNCTIONS"
 
+build/no-loops:
+	@echo "$(BOLD)🔨 Building without for loops...$(SGR0)"
+	@$(MAKE) clean build EXTRA_CFLAGS="-DTIDESH_DISABLE_LOOPS"
+
 python/stage: $(SRC) $(INCLUDES_DIR)/*.h
 	@echo "$(BOLD)📦 Staging C sources for Python bindings...$(SGR0)"
 	$(SILENT)mkdir -p bindings/python/src bindings/python/include

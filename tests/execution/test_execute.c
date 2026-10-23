@@ -648,6 +648,173 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should iterate over words in for loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"\"; for x in a b c; do ACC=\"${ACC}$x\"; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "abc");
+        char *last_x = environ_get(session->environ, "x");
+        assertneq(last_x, NULL);
+        asserteq_str(last_x, "c");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support multi-line formatting in for loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"\"\nfor item in 1 2 3\ndo\nACC=\"${ACC}${item}\"\ndone", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "123");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should expand braces, variables and command substitution in for loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st1 = execute_string("ACC=\"\"; for num in {1..3}; do ACC=\"${ACC}$num\"; done", session);
+        asserteq(st1, 0);
+        char *val1 = environ_get(session->environ, "ACC");
+        assertneq(val1, NULL);
+        asserteq_str(val1, "123");
+
+        int st2 = execute_string("OUT=\"\"; for w in $(echo alpha) $(echo beta); do OUT=\"${OUT}:${w}\"; done", session);
+        asserteq(st2, 0);
+        char *val2 = environ_get(session->environ, "OUT");
+        assertneq(val2, NULL);
+        asserteq_str(val2, ":alpha:beta");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should handle empty in list in for loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        environ_set(session->environ, "VAR", "untouched");
+        int st = execute_string("for VAR in; do VAR=\"changed\"; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "VAR");
+        assertneq(val, NULL);
+        asserteq_str(val, "untouched");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should iterate over positional parameters when in is omitted") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int def = execute_string("test_for_pos() { RES=\"\"; for arg; do RES=\"${RES}${arg}.\"; done; }", session);
+        asserteq(def, 0);
+        int run = execute_string("test_for_pos one two three", session);
+        asserteq(run, 0);
+        char *res = environ_get(session->environ, "RES");
+        assertneq(res, NULL);
+        asserteq_str(res, "one.two.three.");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support break in for loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"\"; for x in 1 2 3 4 5; do if test \"$x\" = \"3\"; then break; fi; ACC=\"${ACC}$x\"; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "12");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support continue in for loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"\"; for x in 1 2 3 4 5; do if test \"$x\" = \"3\"; then continue; fi; ACC=\"${ACC}$x\"; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "1245");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support nested for loops") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"\"; for i in 1 2; do for j in a b; do ACC=\"${ACC}$i$j,\"; done; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "1a,1b,2a,2b,");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support redirections on for loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        const char *outfile = "/tmp/test_for_redir.txt";
+        unlink(outfile);
+
+        int st = execute_string("for i in x y z; do echo \"item_$i\"; done > /tmp/test_for_redir.txt", session);
+        asserteq(st, 0);
+
+        FILE *f = fopen(outfile, "r");
+        assertneq(f, NULL);
+        char buf[256] = {0};
+        size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+        buf[n] = '\0';
+        assert(strstr(buf, "item_x") != NULL);
+        assert(strstr(buf, "item_y") != NULL);
+        assert(strstr(buf, "item_z") != NULL);
+        fclose(f);
+        unlink(outfile);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support for loop in pipeline") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        char *out = execute_string_stdout("for item in red green blue; do echo $item; done | grep green", session);
+        assertneq(out, NULL);
+        assert(strstr(out, "green") != NULL);
+        assert(strstr(out, "red") == NULL);
+        free(out);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support multi-level break in nested loops") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"\"; for i in 1 2 3; do for j in a b c; do if test \"$j\" = \"b\"; then break 2; fi; ACC=\"${ACC}$i$j,\"; done; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "1a,");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support multi-level continue in nested loops") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        int st = execute_string("ACC=\"\"; for i in 1 2; do for j in a b; do if test \"$j\" = \"b\"; then continue 2; fi; ACC=\"${ACC}$i$j,\"; done; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "1a,2a,");
+
+        free_session(session);
+        free(session);
+    }
 }
 
 

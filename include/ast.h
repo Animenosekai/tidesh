@@ -37,6 +37,10 @@ typedef enum NodeType {
     ,
     NODE_FUNCTION_DEF
 #endif
+#ifndef TIDESH_DISABLE_LOOPS
+    ,
+    NODE_FOR
+#endif
 } NodeType;
 
 /* Descibes an I/O redirection */
@@ -84,6 +88,10 @@ typedef struct ASTNode {
 #ifndef TIDESH_DISABLE_CONDITIONALS
     /* For conditional nodes */
     ConditionalBranch *branches;
+#endif
+#ifndef TIDESH_DISABLE_LOOPS
+    /* For for loop nodes */
+    bool for_has_in;
 #endif
 } ASTNode;
 

@@ -229,6 +229,35 @@ static void ast_pretty_print_node(FILE *out, const ASTNode *node,
     }
 #endif
 
+#ifndef TIDESH_DISABLE_LOOPS
+    if (node->type == NODE_FOR) {
+        for (int i = 0; i < depth; i++) {
+            fputs(is_last_stack[i] ? box->space : box->vertical, out);
+        }
+        fputs(box->branch, out);
+        fprintf(out, "variable: \"%s\"\n",
+                (node->argc > 0 && node->argv && node->argv[0]) ? node->argv[0]
+                                                                : "");
+        if (node->for_has_in) {
+            for (int i = 0; i < depth; i++) {
+                fputs(is_last_stack[i] ? box->space : box->vertical, out);
+            }
+            fputs(box->branch, out);
+            fputs("words: [", out);
+            for (int i = 1; i < node->argc; i++) {
+                if (i > 1)
+                    fputs(", ", out);
+                fprintf(out, "\"%s\"", node->argv[i] ? node->argv[i] : "");
+            }
+            fputs("]\n", out);
+        }
+        is_last_stack[depth] = false;
+        ast_pretty_print_node(out, node->left, "body", box, is_last_stack,
+                              depth + 1, true);
+        return;
+    }
+#endif
+
 #ifndef TIDESH_DISABLE_CONDITIONALS
     if (node->type == NODE_CONDITIONAL) {
         int b_count = 0;
@@ -410,6 +439,32 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
     }
 #endif
 
+#ifndef TIDESH_DISABLE_LOOPS
+    if (node->type == NODE_FOR) {
+        fputs(",\n", out);
+        print_indent(out, indent + 1);
+        fputs("\"variable\": ", out);
+        print_json_escaped(out, (node->argc > 0 && node->argv && node->argv[0])
+                                    ? node->argv[0]
+                                    : "");
+        if (node->for_has_in) {
+            fputs(",\n", out);
+            print_indent(out, indent + 1);
+            fputs("\"words\": [", out);
+            for (int i = 1; i < node->argc; i++) {
+                if (i > 1)
+                    fputs(", ", out);
+                print_json_escaped(out, node->argv[i] ? node->argv[i] : "");
+            }
+            fputs("]", out);
+        }
+        fputs(",\n", out);
+        print_indent(out, indent + 1);
+        fputs("\"body\": ", out);
+        ast_json_print(out, node->left, indent + 1);
+    }
+#endif
+
     if (node->type != NODE_COMMAND &&
 #ifndef TIDESH_DISABLE_FUNCTIONS
         node->type != NODE_FUNCTION_DEF &&
@@ -422,6 +477,9 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
 #endif
 #ifndef TIDESH_DISABLE_CONDITIONALS
         node->type != NODE_CONDITIONAL &&
+#endif
+#ifndef TIDESH_DISABLE_LOOPS
+        node->type != NODE_FOR &&
 #endif
         (node->left || node->right)) {
         if (node->left) {

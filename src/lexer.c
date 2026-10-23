@@ -115,13 +115,19 @@ static Dynamic read_single_word(LexerInput *input) {
     init_dynamic(&word_value);
     char c = peek(input);
 
-    bool escaped = false;
+    bool escaped     = false;
+    int  brace_depth = 0;
     while (!is_at_end(input) && c != ' ' && c != '\t' && c != '\n' &&
            c != '\r') {
         if (!escaped &&
             (c == ';' || c == '&' || c == '|' || c == '<' || c == '>' ||
-             c == '(' || c == ')' || c == '{' || c == '}')) {
+             c == '(' || c == ')' || (brace_depth == 0 && c == '}'))) {
             break;
+        }
+        if (c == '{') {
+            brace_depth++;
+        } else if (c == '}' && brace_depth > 0) {
+            brace_depth--;
         }
         if (!escaped && c == '\\' && peek_next(input) == '$') {
             advance(input); // consume '\\'
@@ -237,6 +243,22 @@ static TokenType check_conditional_keyword(const char *word) {
         return TOKEN_ELIF;
     } else if (strcmp(word, "fi") == 0) {
         return TOKEN_FI;
+    }
+    return TOKEN_WORD;
+}
+#endif
+
+#ifndef TIDESH_DISABLE_LOOPS
+/* Check if a word is a loop keyword */
+static TokenType check_loop_keyword(const char *word) {
+    if (strcmp(word, "for") == 0) {
+        return TOKEN_FOR;
+    } else if (strcmp(word, "in") == 0) {
+        return TOKEN_IN;
+    } else if (strcmp(word, "do") == 0) {
+        return TOKEN_DO;
+    } else if (strcmp(word, "done") == 0) {
+        return TOKEN_DONE;
     }
     return TOKEN_WORD;
 }
@@ -614,46 +636,35 @@ LexerToken lexer_next_token(LexerInput *input) {
             break;
         case '{':
 #ifndef TIDESH_DISABLE_BLOCKS
-            // Check if blocks feature is enabled
+            // Check if blocks feature is enabled and followed by whitespace or
+            // delimiter
             if (!input->session || input->session->features.blocks) {
-                advance(input);
-                token.type = TOKEN_LBRACE;
-            } else {
-                // Blocks disabled, treat { as a normal word
-                Dynamic word_value = read_single_word(input);
-                token.type         = TOKEN_WORD;
-                token.value        = dynamic_to_string(&word_value);
-                free_dynamic(&word_value);
+                char next = peek_next(input);
+                if (next == ' ' || next == '\t' || next == '\n' ||
+                    next == '\r' || next == '\0' || next == ';') {
+                    advance(input);
+                    token.type = TOKEN_LBRACE;
+                    break;
+                }
             }
-#else
-            // Blocks disabled, treat { as a normal word
-            Dynamic word_value = read_single_word(input);
-            token.type         = TOKEN_WORD;
-            token.value        = dynamic_to_string(&word_value);
-            free_dynamic(&word_value);
 #endif
-            break;
+            goto handle_word;
         case '}':
 #ifndef TIDESH_DISABLE_BLOCKS
-            // Check if blocks feature is enabled
+            // Check if blocks feature is enabled and followed by whitespace or
+            // delimiter
             if (!input->session || input->session->features.blocks) {
-                advance(input);
-                token.type = TOKEN_RBRACE;
-            } else {
-                // Blocks disabled, treat } as a normal word
-                Dynamic word_value = read_single_word(input);
-                token.type         = TOKEN_WORD;
-                token.value        = dynamic_to_string(&word_value);
-                free_dynamic(&word_value);
+                char next = peek_next(input);
+                if (next == ' ' || next == '\t' || next == '\n' ||
+                    next == '\r' || next == '\0' || next == ';' ||
+                    next == '&' || next == '|') {
+                    advance(input);
+                    token.type = TOKEN_RBRACE;
+                    break;
+                }
             }
-#else
-            // Blocks disabled, treat } as a normal word
-            Dynamic word_value = read_single_word(input);
-            token.type         = TOKEN_WORD;
-            token.value        = dynamic_to_string(&word_value);
-            free_dynamic(&word_value);
 #endif
-            break;
+            goto handle_word;
         case ')':
 #ifndef TIDESH_DISABLE_SUBSHELLS
             // Check if subshells feature is enabled
@@ -700,17 +711,24 @@ LexerToken lexer_next_token(LexerInput *input) {
             free_dynamic(&word_value);
         } break;
 
+        handle_word:
         default:
             // Handle words, IO numbers and assignments
             token.type           = TOKEN_WORD;
             bool    is_io_number = true;
             bool    escaped      = false;
+            int     brace_depth  = 0;
             Dynamic word_value   = {0};
             init_dynamic(&word_value);
 
             while (!is_at_end(input) && c != ' ' && c != '\t' && c != '\n' &&
                    c != '\r' && c != '|' && c != '&' && c != ';' && c != '(' &&
-                   c != ')' && c != '{' && c != '}') {
+                   c != ')' && (brace_depth > 0 || c != '}')) {
+                if (!escaped && c == '{') {
+                    brace_depth++;
+                } else if (!escaped && c == '}' && brace_depth > 0) {
+                    brace_depth--;
+                }
 #ifndef TIDESH_DISABLE_REDIRECTIONS
                 if (is_io_number && (c < '0' || c > '9')) {
                     if (c == '>' || c == '<') {
@@ -785,6 +803,12 @@ LexerToken lexer_next_token(LexerInput *input) {
             // Check if the word is a conditional keyword
             if (token.type == TOKEN_WORD) {
                 token.type = check_conditional_keyword(token.value);
+            }
+#endif
+#ifndef TIDESH_DISABLE_LOOPS
+            // Check if the word is a loop keyword
+            if (token.type == TOKEN_WORD) {
+                token.type = check_loop_keyword(token.value);
             }
 #endif
             break;
@@ -869,6 +893,16 @@ const char *token_type_to_string(TokenType type) {
             return "TOKEN_ELIF";
         case TOKEN_FI:
             return "TOKEN_FI";
+#endif
+#ifndef TIDESH_DISABLE_LOOPS
+        case TOKEN_FOR:
+            return "TOKEN_FOR";
+        case TOKEN_IN:
+            return "TOKEN_IN";
+        case TOKEN_DO:
+            return "TOKEN_DO";
+        case TOKEN_DONE:
+            return "TOKEN_DONE";
 #endif
         case TOKEN_EOL:
             return "TOKEN_EOL";

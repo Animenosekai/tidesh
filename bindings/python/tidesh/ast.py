@@ -23,6 +23,7 @@ class NodeType(IntEnum):
     BLOCK = lib.NODE_BLOCK
     CONDITIONAL = lib.NODE_CONDITIONAL
     FUNCTION_DEF = lib.NODE_FUNCTION_DEF
+    FOR = lib.NODE_FOR
 
 
 class Redirection:
@@ -187,8 +188,13 @@ class ASTNode:
 
     @property
     def body(self) -> ASTNode | None:
-        """Get the body AST node for blocks, subshells, and function definitions."""
-        if self.type in (NodeType.BLOCK, NodeType.SUBSHELL, NodeType.FUNCTION_DEF):
+        """Get the body AST node for blocks, subshells, loops, and function definitions."""
+        if self.type in (
+            NodeType.BLOCK,
+            NodeType.SUBSHELL,
+            NodeType.FUNCTION_DEF,
+            NodeType.FOR,
+        ):
             return self.left
         return None
 
@@ -222,6 +228,39 @@ class ASTNode:
             curr = curr.next
         return res
 
+    @property
+    def has_in(self) -> bool:
+        """Check if this for loop has an explicit 'in' clause."""
+        if self.type != NodeType.FOR:
+            return False
+        return bool(self._node.for_has_in)
+
+    @property
+    def var_name(self) -> str | None:
+        """Get loop variable name for FOR nodes."""
+        if (
+            self.type != NodeType.FOR
+            or self._node.argc == 0
+            or self._node.argv == ffi.NULL
+        ):
+            return None
+        return (
+            ffi.string(self._node.argv[0]).decode()
+            if self._node.argv[0] != ffi.NULL
+            else None
+        )
+
+    @property
+    def words(self) -> list[str]:
+        """Get words to iterate over for FOR nodes."""
+        if self.type != NodeType.FOR or self._node.argv == ffi.NULL:
+            return []
+        res: list[str] = []
+        for i in range(1, self._node.argc):
+            if self._node.argv[i] != ffi.NULL:
+                res.append(ffi.string(self._node.argv[i]).decode())
+        return res
+
     def to_dict(self) -> dict[str, typing.Any]:
         """Serialize the AST node recursively to a Python dictionary."""
         data: dict[str, typing.Any] = {
@@ -241,6 +280,11 @@ class ASTNode:
             data["body"] = self.body.to_dict() if self.body else None
         elif self.type == NodeType.CONDITIONAL:
             data["branches"] = [b.to_dict() for b in self.branches]
+        elif self.type == NodeType.FOR:
+            data["variable"] = self.var_name
+            if self.has_in:
+                data["words"] = self.words
+            data["body"] = self.body.to_dict() if self.body else None
         else:
             if self.left:
                 data["left"] = self.left.to_dict()
@@ -351,6 +395,17 @@ class ASTNode:
 
             if node.type in (NodeType.BLOCK, NodeType.SUBSHELL):
                 new_stack = cur_stack + [True]
+                _format(node.left, "body", new_stack, depth + 1, True)
+                return
+
+            if node.type == NodeType.FOR:
+                prefix = "".join(
+                    space if cur_stack[i] else vertical for i in range(depth)
+                )
+                lines.append(f"{prefix}{branch}variable: {node.var_name!r}")
+                if node.has_in:
+                    lines.append(f"{prefix}{branch}words: {node.words!r}")
+                new_stack = cur_stack + [False]
                 _format(node.left, "body", new_stack, depth + 1, True)
                 return
 

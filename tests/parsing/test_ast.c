@@ -403,4 +403,85 @@ describe(ast) {
         free_lexer_input(lexer);
         free(lexer);
     }
+
+    it("should parse for loop with in") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer = init_lexer_input(NULL, "for x in a b c; do echo $x; done", NULL, session);
+        ASTNode *ast = parse(lexer, session);
+
+        assertneq(ast, NULL);
+        asserteq(ast->type, NODE_FOR);
+        assert(ast->for_has_in);
+        asserteq(ast->argc, 4);
+        asserteq_str(ast->argv[0], "x");
+        asserteq_str(ast->argv[1], "a");
+        asserteq_str(ast->argv[2], "b");
+        asserteq_str(ast->argv[3], "c");
+        assertneq(ast->left, NULL);
+
+        free_ast(ast);
+        free(ast);
+        free_lexer_input(lexer);
+        free(lexer);
+        free_session(session);
+        free(session);
+    }
+
+    it("should parse for loop without in") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer = init_lexer_input(NULL, "for item; do echo $item; done", NULL, session);
+        ASTNode *ast = parse(lexer, session);
+
+        assertneq(ast, NULL);
+        asserteq(ast->type, NODE_FOR);
+        assert(!ast->for_has_in);
+        asserteq(ast->argc, 1);
+        asserteq_str(ast->argv[0], "item");
+        assertneq(ast->left, NULL);
+
+        free_ast(ast);
+        free(ast);
+        free_lexer_input(lexer);
+        free(lexer);
+        free_session(session);
+        free(session);
+    }
+
+    it("should return NULL on syntax errors in for loop") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Missing variable name
+        LexerInput *l1 = init_lexer_input(NULL, "for; do echo 1; done", NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        asserteq(ast1, NULL);
+        free_lexer_input(l1);
+        free(l1);
+
+        // Invalid variable name
+        LexerInput *l2 = init_lexer_input(NULL, "for 123 in a b; do echo 1; done", NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+        asserteq(ast2, NULL);
+        free_lexer_input(l2);
+        free(l2);
+
+        // Missing do
+        LexerInput *l3 = init_lexer_input(NULL, "for x in a b; echo 1; done", NULL, session);
+        ASTNode *ast3 = parse(l3, session);
+        asserteq(ast3, NULL);
+        free_lexer_input(l3);
+        free(l3);
+
+        // Missing done
+        LexerInput *l4 = init_lexer_input(NULL, "for x in a b; do echo 1", NULL, session);
+        ASTNode *ast4 = parse(l4, session);
+        if (ast4) {
+            free_ast(ast4);
+            free(ast4);
+        }
+        free_lexer_input(l4);
+        free(l4);
+
+        free_session(session);
+        free(session);
+    }
 }

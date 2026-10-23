@@ -54,6 +54,9 @@ typedef struct Session {
     bool     hooks_disabled; // Prevent hook recursion during hook execution
     bool     initial_parent_hooks_run; // Track if initial HOOK_ENTER has been
                                        // executed
+    int      loop_depth;               // Current nesting depth of loops
+    int      loop_break;               // Pending break levels to propagate
+    int      loop_continue;            // Pending continue levels to propagate
 } Session;
 
 /**

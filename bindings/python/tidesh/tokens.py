@@ -44,6 +44,10 @@ class TokenType(IntEnum):
     ELSE = lib.TOKEN_ELSE
     ELIF = lib.TOKEN_ELIF
     FI = lib.TOKEN_FI
+    FOR = lib.TOKEN_FOR
+    IN = lib.TOKEN_IN
+    DO = lib.TOKEN_DO
+    DONE = lib.TOKEN_DONE
     EOL = lib.TOKEN_EOL
     EOF = lib.TOKEN_EOF
 
@@ -307,6 +311,22 @@ class FiToken(Token):
     """A fi token (FI)."""
 
 
+class ForToken(Token):
+    """A for token (FOR)."""
+
+
+class InToken(Token):
+    """An in token (IN)."""
+
+
+class DoToken(Token):
+    """A do token (DO)."""
+
+
+class DoneToken(Token):
+    """A done token (DONE)."""
+
+
 class EOLToken(Token):
     """An end-of-line token (EOL)."""
 
@@ -344,6 +364,10 @@ _TOKEN_CLASS_MAP = {
     TokenType.ELSE: ElseToken,
     TokenType.ELIF: ElifToken,
     TokenType.FI: FiToken,
+    TokenType.FOR: ForToken,
+    TokenType.IN: InToken,
+    TokenType.DO: DoToken,
+    TokenType.DONE: DoneToken,
     TokenType.EOL: EOLToken,
     TokenType.EOF: EOFToken,
 }

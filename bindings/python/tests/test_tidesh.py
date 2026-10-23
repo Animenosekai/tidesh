@@ -235,6 +235,46 @@ def test_redirection_syntax() -> None:
         os.remove(tmp_dup)
 
 
+def test_for_loop() -> None:
+    session = tidesh.Session()
+
+    # Lexer
+    lex_res = tidesh.lex("for i in a b; do echo $i; done")
+    assert any(t.type == tidesh.TokenType.FOR for t in lex_res)
+    assert any(t.type == tidesh.TokenType.IN for t in lex_res)
+    assert any(t.type == tidesh.TokenType.DO for t in lex_res)
+    assert any(t.type == tidesh.TokenType.DONE for t in lex_res)
+
+    # AST with in
+    ast_res = tidesh.ast("for x in 1 2 3; do echo $x; done")
+    assert isinstance(ast_res, tidesh.ASTResult)
+    assert ast_res.root is not None
+    assert ast_res.type == tidesh.NodeType.FOR
+    assert ast_res.root.var_name == "x"
+    assert ast_res.root.has_in is True
+    assert ast_res.root.words == ["1", "2", "3"]
+    assert ast_res.root.body is not None
+
+    # AST JSON
+    data = json.loads(ast_res.json)
+    assert data["type"] == "FOR"
+    assert data["variable"] == "x"
+    assert data["words"] == ["1", "2", "3"]
+    assert "variable: 'x'" in ast_res.pretty
+    assert "words: ['1', '2', '3']" in ast_res.pretty
+    assert "body: COMMAND" in ast_res.pretty
+
+    # Execution
+    out = session.capture('for i in hello world; do echo -n "$i "; done')
+    assert out.strip() == "hello world"
+
+    # Execution with break and continue
+    out_ctrl = session.capture(
+        'for i in 1 2 3 4; do if test $i -eq 2; then continue; fi; if test $i -eq 4; then break; fi; echo -n "$i "; done',
+    )
+    assert out_ctrl.strip() == "1 3"
+
+
 if __name__ == "__main__":
     import inspect
     import sys

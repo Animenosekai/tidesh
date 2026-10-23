@@ -12,7 +12,11 @@ VERSION = os.environ.get("RAW_VERSION", "1.0")
 BRIEF = os.environ.get("BRIEF", "A lightweight but fully-featured shell")
 PLATFORM = os.environ.get("PLATFORM", "unknown")
 GIT_VERSION = os.environ.get("GIT_VERSION", "unknown")
-BUILD_DATE = os.environ.get("BUILD_DATE", "unknown")
+BUILD_DATE = os.environ.get("BUILD_DATE")
+if not BUILD_DATE or BUILD_DATE == "unknown":
+    import datetime
+
+    BUILD_DATE = datetime.date.today().strftime("%Y-%m-%d")
 BUILD_TYPE = os.environ.get("BUILD_TYPE", "release")
 
 FULL_VERSION = f"{VERSION}-{GIT_VERSION}"
@@ -146,6 +150,7 @@ sources = [
     "builtins/features.c",
     "builtins/not.c",
     "builtins/unset.c",
+    "builtins/break.c",
     "builtins/lexer.c",
     "builtins/ast.c",
 ]
