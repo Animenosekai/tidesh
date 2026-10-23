@@ -1,7 +1,7 @@
-
 """Stores information on the current module version"""
-import typing
+
 import datetime
+import typing
 
 # Authors
 __author__ = "Anime no Sekai"
@@ -19,13 +19,13 @@ __license__ = "MIT License"
 __copyright__ = f"Copyright {__year__}, {__module__}"
 
 __raw_version__ = "1.0"
-__version__ = "1.0-9ed3763"
-__git_version__ = "9ed3763"
+__version__ = "1.0-a79899b"
+__git_version__ = "a79899b"
 __build_date__ = datetime.datetime.strptime("2026-10-23", "%Y-%m-%d")
 __build_type__: typing.Literal["debug", "release"] = "release"
 __platform__: typing.Literal["linux", "macos", "windows"] = "macos"
 __brief__ = "A lightweight but fully-featured shell"
 
 from ._tidesh import ffi, lib
-__compiler__ = ffi.string(lib.tidesh_compiler).decode()
 
+__compiler__ = ffi.string(lib.tidesh_compiler).decode()

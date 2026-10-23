@@ -1,5 +1,6 @@
 import json
 import os
+
 import tidesh
 
 
@@ -23,6 +24,22 @@ def test_cwd() -> None:
     assert session.cwd == os.getcwd()
     session.execute("cd /tmp")
     assert session.cwd in ("/tmp", "/private/tmp")
+
+
+def test_builtin_cd() -> None:
+    session = tidesh.Session()
+    initial_cwd = session.cwd
+    assert session.cd("/tmp") == 0
+    assert session.cwd in ("/tmp", "/private/tmp")
+    session.cwd = initial_cwd
+    assert session.cwd == initial_cwd
+
+
+def test_builtin_methods() -> None:
+    session = tidesh.Session()
+    assert session.list_jobs() == 0
+    assert session.hooks("status") == 0
+    session.run_hook("test", {"FOO": "BAR"})
 
 
 def test_capture() -> None:
@@ -191,13 +208,13 @@ def test_redirection_syntax() -> None:
         os.remove(tmp_file)
 
     session.execute(f"echo py_redir &> {tmp_file}")
-    with open(tmp_file, "r") as f:
+    with open(tmp_file) as f:
         content = f.read()
     assert "py_redir" in content
 
     # Execution with &>>
     session.execute(f"echo py_append &>> {tmp_file}")
-    with open(tmp_file, "r") as f:
+    with open(tmp_file) as f:
         content = f.read()
     assert "py_redir" in content
     assert "py_append" in content
@@ -208,7 +225,7 @@ def test_redirection_syntax() -> None:
         os.remove(tmp_dup)
 
     session.execute(f"ls /nonexistent_py_dir > {tmp_dup} 2>&1")
-    with open(tmp_dup, "r") as f:
+    with open(tmp_dup) as f:
         dup_content = f.read()
     assert "nonexistent_py_dir" in dup_content
 
@@ -216,7 +233,6 @@ def test_redirection_syntax() -> None:
         os.remove(tmp_file)
     if os.path.exists(tmp_dup):
         os.remove(tmp_dup)
-
 
 
 if __name__ == "__main__":
@@ -237,4 +253,3 @@ if __name__ == "__main__":
                 failed += 1
                 raise
     print(f"\n{passed} passed, {failed} failed")
-

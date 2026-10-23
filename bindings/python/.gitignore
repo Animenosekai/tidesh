@@ -25,6 +25,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+src/
+include/
 # Ignore object files in obj/ but allow source files for builds
 obj/**/*.o
 obj/**/*.so

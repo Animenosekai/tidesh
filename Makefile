@@ -212,7 +212,7 @@ clean/all: clean clean/python
 
 clean/python:
 	@echo "$(BOLD)🧹 Cleaning Python bindings...$(SGR0)"
-	$(SILENT)rm -rf bindings/python/dist bindings/python/build bindings/python/*.egg-info bindings/python/obj
+	$(SILENT)rm -rf bindings/python/dist bindings/python/build bindings/python/*.egg-info bindings/python/obj bindings/python/src bindings/python/include
 
 # Linting commands
 .PHONY: lint lint/tests

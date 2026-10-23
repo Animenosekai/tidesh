@@ -68,6 +68,18 @@ class ExternalCommandInfo(CommandInfo):
     """The full path to the external command."""
 
 
+def _build_argv(*args: str) -> tuple[list[typing.Any], typing.Any]:
+    """
+    Build a C-compatible argv array from Python strings.
+
+    Returns the list of allocated C string pointers and the argv array pointer.
+    Both must be kept alive for the duration of the C call.
+    """
+    c_args = [ffi.new("char[]", a.encode()) for a in args]
+    c_argv = ffi.new("char*[]", [*c_args, ffi.NULL])
+    return c_args, c_argv
+
+
 class Session:
     """
     Represents a tidesh shell session.
@@ -249,9 +261,8 @@ class Session:
         int
             The exit status.
         """
-        c_args = [b"cd", *[a.encode() for a in args]]
-        c_argv = ffi.new("char*[]", c_args)
-        return bool(lib.builtin_cd(len(c_args), c_argv, self._session))
+        c_args, c_argv = _build_argv("cd", *args)
+        return int(lib.builtin_cd(len(c_args), c_argv, self._session))
 
     def bg(self, *args: str) -> int:
         """
@@ -267,8 +278,7 @@ class Session:
         int
             The exit status.
         """
-        c_args = [b"bg", *[a.encode() for a in args]]
-        c_argv = ffi.new("char*[]", c_args)
+        c_args, c_argv = _build_argv("bg", *args)
         return int(lib.builtin_bg(len(c_args), c_argv, self._session))
 
     def fg(self, *args: str) -> int:
@@ -285,8 +295,7 @@ class Session:
         int
             The exit status.
         """
-        c_args = [b"fg", *[a.encode() for a in args]]
-        c_argv = ffi.new("char*[]", c_args)
+        c_args, c_argv = _build_argv("fg", *args)
         return int(lib.builtin_fg(len(c_args), c_argv, self._session))
 
     def hooks(self, *args: str) -> int:
@@ -310,8 +319,7 @@ class Session:
         int
             The exit status.
         """
-        c_args = [b"hooks", *[a.encode() for a in args]]
-        c_argv = ffi.new("char*[]", c_args)
+        c_args, c_argv = _build_argv("hooks", *args)
         return int(lib.builtin_hooks(len(c_args), c_argv, self._session))
 
     def run_hook(self, hook_name: str, env_vars: dict[str, str] | None = None) -> None:
@@ -327,19 +335,17 @@ class Session:
         """
         if env_vars:
             # Create HookEnvVar array
-            hook_vars = []
-            for key, value in env_vars.items():
-                hook_var = ffi.new("HookEnvVar *")
-                hook_var.key = key.encode()
-                hook_var.value = value.encode()
-                hook_vars.append(hook_var)
-
-            vars_array = ffi.new("HookEnvVar[]", hook_vars)
+            c_keys = [ffi.new("char[]", k.encode()) for k in env_vars]
+            c_vals = [ffi.new("char[]", v.encode()) for v in env_vars.values()]
+            vars_array = ffi.new(
+                "HookEnvVar[]",
+                [{"key": k, "value": v} for k, v in zip(c_keys, c_vals)],
+            )
             lib.run_cwd_hook_with_vars(
                 self._session,
                 hook_name.encode(),
                 vars_array,
-                len(hook_vars),
+                len(env_vars),
             )
         else:
             lib.run_cwd_hook(self._session, hook_name.encode())
@@ -385,8 +391,7 @@ class Session:
         int
             The exit status.
         """
-        c_args = [b"jobs", *[a.encode() for a in args]]
-        c_argv = ffi.new("char*[]", c_args)
+        c_args, c_argv = _build_argv("jobs", *args)
         return int(lib.builtin_jobs(len(c_args), c_argv, self._session))
 
     def which(self, *args: str) -> list[CommandInfo]:
