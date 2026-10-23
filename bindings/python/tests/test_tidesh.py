@@ -115,10 +115,20 @@ def test_ast_api() -> None:
     assert ast_res.type == tidesh.NodeType.PIPE
 
     # Node structure
+    assert isinstance(ast_res.root, tidesh.PipeNode)
+    assert isinstance(ast_res.root, tidesh.BinaryNode)
+    assert isinstance(ast_res.root, tidesh.ASTNode)
+    assert not hasattr(ast_res.root, "condition")
+    assert not hasattr(ast_res.root, "body")
     assert ast_res.left is not None
+    assert isinstance(ast_res.left, tidesh.CommandNode)
+    assert not hasattr(ast_res.left, "condition")
+    assert not hasattr(ast_res.left, "body")
+    assert not hasattr(ast_res.left, "left")
     assert ast_res.left.type == tidesh.NodeType.COMMAND
     assert ast_res.left.argv == ["cat", "file"]
     assert ast_res.right is not None
+    assert isinstance(ast_res.right, tidesh.CommandNode)
     assert ast_res.right.type == tidesh.NodeType.COMMAND
     assert len(ast_res.right.redirects) == 1
     assert ast_res.right.redirects[0].target == "out.txt"
@@ -141,14 +151,51 @@ def test_ast_api() -> None:
     # Block and Function AST
     block_res = tidesh.ast("{ echo inside; }")
     assert isinstance(block_res, tidesh.ASTResult)
+    assert isinstance(block_res.root, tidesh.BlockNode)
+    assert isinstance(block_res.root, tidesh.ASTNode)
+    assert not hasattr(block_res.root, "condition")
+    assert not hasattr(block_res.root, "argv")
     assert block_res.type == tidesh.NodeType.BLOCK
     assert block_res.body is not None
 
     func_res = tidesh.ast("foo() { echo in_foo; }")
     assert isinstance(func_res, tidesh.ASTResult)
+    assert isinstance(func_res.root, tidesh.FunctionDefNode)
+    assert isinstance(func_res.root, tidesh.ASTNode)
+    assert not hasattr(func_res.root, "condition")
+    assert not hasattr(func_res.root, "argv")
     assert func_res.type == tidesh.NodeType.FUNCTION_DEF
     assert func_res.name == "foo"
     assert func_res.body is not None
+
+    # Subshell AST
+    subshell_res = tidesh.ast("( echo subshell )")
+    assert isinstance(subshell_res, tidesh.ASTResult)
+    assert isinstance(subshell_res.root, tidesh.SubshellNode)
+    assert isinstance(subshell_res.root, tidesh.ASTNode)
+    assert not hasattr(subshell_res.root, "condition")
+    assert not hasattr(subshell_res.root, "argv")
+    assert subshell_res.type == tidesh.NodeType.SUBSHELL
+    assert subshell_res.body is not None
+
+    # Conditional AST
+    if_res = tidesh.ast("if true; then echo yes; else echo no; fi")
+    assert isinstance(if_res, tidesh.ASTResult)
+    assert isinstance(if_res.root, tidesh.ConditionalNode)
+    assert isinstance(if_res.root, tidesh.ASTNode)
+    assert not hasattr(if_res.root, "condition")
+    assert not hasattr(if_res.root, "body")
+    assert not hasattr(if_res.root, "argv")
+    assert not hasattr(if_res.root, "left")
+    assert if_res.type == tidesh.NodeType.CONDITIONAL
+    assert len(if_res.root.branches) == 2
+    assert if_res.root.branches[0].condition is not None
+    assert isinstance(if_res.root.branches[0].condition, tidesh.CommandNode)
+    assert if_res.root.branches[0].body is not None
+    assert isinstance(if_res.root.branches[0].body, tidesh.CommandNode)
+    assert if_res.root.branches[1].condition is None
+    assert if_res.root.branches[1].body is not None
+    assert isinstance(if_res.root.branches[1].body, tidesh.CommandNode)
 
     # Empty command AST
     empty_res = tidesh.ast("")
@@ -249,11 +296,17 @@ def test_for_loop() -> None:
     ast_res = tidesh.ast("for x in 1 2 3; do echo $x; done")
     assert isinstance(ast_res, tidesh.ASTResult)
     assert ast_res.root is not None
+    assert isinstance(ast_res.root, tidesh.ForNode)
+    assert isinstance(ast_res.root, tidesh.ASTNode)
+    assert not hasattr(ast_res.root, "condition")
+    assert not hasattr(ast_res.root, "argv")
+    assert not hasattr(ast_res.root, "left")
     assert ast_res.type == tidesh.NodeType.FOR
     assert ast_res.root.var_name == "x"
     assert ast_res.root.has_in is True
     assert ast_res.root.words == ["1", "2", "3"]
     assert ast_res.root.body is not None
+    assert isinstance(ast_res.root.body, tidesh.CommandNode)
 
     # AST JSON
     data = json.loads(ast_res.json)
@@ -288,9 +341,17 @@ def test_while_loop() -> None:
     ast_res = tidesh.ast("while test $x != 3; do echo $x; done")
     assert isinstance(ast_res, tidesh.ASTResult)
     assert ast_res.root is not None
+    assert isinstance(ast_res.root, tidesh.WhileNode)
+    assert isinstance(ast_res.root, tidesh.ASTNode)
+    assert not hasattr(ast_res.root, "var_name")
+    assert not hasattr(ast_res.root, "words")
+    assert not hasattr(ast_res.root, "argv")
+    assert not hasattr(ast_res.root, "left")
     assert ast_res.type == tidesh.NodeType.WHILE
     assert ast_res.root.condition is not None
+    assert isinstance(ast_res.root.condition, tidesh.CommandNode)
     assert ast_res.root.body is not None
+    assert isinstance(ast_res.root.body, tidesh.CommandNode)
 
     # AST JSON
     data = json.loads(ast_res.json)
@@ -302,13 +363,13 @@ def test_while_loop() -> None:
 
     # Execution
     session.execute(
-        'I=""; ACC=""; while test "$I" != "aaa"; do I="${I}a"; ACC="${ACC}$I,"; done'
+        'I=""; ACC=""; while test "$I" != "aaa"; do I="${I}a"; ACC="${ACC}$I,"; done',
     )
     assert session.environ.get("ACC") == "a,aa,aaa,"
 
     # Execution with break and continue
     session.execute(
-        'I=""; ACC=""; while test "$I" != "aaaaa"; do I="${I}a"; if test "$I" = "aa"; then continue; fi; if test "$I" = "aaaa"; then break; fi; ACC="${ACC}$I,"; done'
+        'I=""; ACC=""; while test "$I" != "aaaaa"; do I="${I}a"; if test "$I" = "aa"; then continue; fi; if test "$I" = "aaaa"; then break; fi; ACC="${ACC}$I,"; done',
     )
     assert session.environ.get("ACC") == "a,aaa,"
 

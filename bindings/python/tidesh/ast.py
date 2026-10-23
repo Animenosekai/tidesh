@@ -90,7 +90,7 @@ class ConditionalBranch:
     def condition(self) -> ASTNode | None:
         """Get the condition AST node, or None for else branches."""
         return (
-            ASTNode(self._branch.condition)
+            create_ast_node(self._branch.condition)
             if self._branch.condition != ffi.NULL
             else None
         )
@@ -98,7 +98,11 @@ class ConditionalBranch:
     @property
     def body(self) -> ASTNode | None:
         """Get the body AST node."""
-        return ASTNode(self._branch.body) if self._branch.body != ffi.NULL else None
+        return (
+            create_ast_node(self._branch.body)
+            if self._branch.body != ffi.NULL
+            else None
+        )
 
     def to_dict(self) -> dict[str, typing.Any]:
         """Convert branch to dictionary."""
@@ -114,7 +118,7 @@ class ConditionalBranch:
 
 class ASTNode:
     """
-    Represents a node in the abstract syntax tree (AST) of a shell command.
+    Base class representing a node in the abstract syntax tree (AST) of a shell command.
 
     Attributes
     ----------
@@ -124,187 +128,30 @@ class ASTNode:
         Whether the command should run in the background.
     """
 
-    def __init__(self, c_node: typing.Any) -> None:
-        """
-        Initialize the AST node from a C node struct.
+    def __new__(cls, c_node: typing.Any) -> ASTNode:
+        """Instantiate the appropriate ASTNode subclass based on node type."""
+        if c_node == ffi.NULL or c_node is None:
+            msg = "Cannot create ASTNode from NULL pointer"
+            raise ValueError(msg)
+        if cls is not ASTNode:
+            return super().__new__(cls)
+        node_type = NodeType(c_node.type)
+        subclass = _NODE_CLASS_MAP.get(node_type, ASTNode)
+        return super().__new__(subclass)
 
-        Parameters
-        ----------
-        c_node : typing.Any
-            The C AST node structure from the FFI layer.
-        """
+    def __init__(self, c_node: typing.Any) -> None:
+        """Initialize the AST node from a C node struct."""
         super().__init__()
         self._node = c_node
-        self.type = NodeType(c_node.type)
-        self.background = bool(c_node.background)
-
-    @property
-    def argv(self) -> list[str]:
-        """
-        Get the command arguments.
-
-        Returns
-        -------
-        list[str]
-            The command arguments if this is a COMMAND or FUNCTION_DEF node, empty list otherwise.
-        """
-        if self._node.argv == ffi.NULL:
-            return []
-        return [ffi.string(self._node.argv[i]).decode() for i in range(self._node.argc)]
-
-    @property
-    def name(self) -> str | None:
-        """Get the function name for FUNCTION_DEF nodes."""
-        if (
-            self.type == NodeType.FUNCTION_DEF
-            and self._node.argc > 0
-            and self._node.argv != ffi.NULL
-        ):
-            return ffi.string(self._node.argv[0]).decode()
-        return None
-
-    @property
-    def left(self) -> ASTNode | None:
-        """
-        Get the left child node.
-
-        Returns
-        -------
-        ASTNode | None
-            The left child node, or None if not present.
-        """
-        return ASTNode(self._node.left) if self._node.left != ffi.NULL else None
-
-    @property
-    def right(self) -> ASTNode | None:
-        """
-        Get the right child node.
-
-        Returns
-        -------
-        ASTNode | None
-            The right child node, or None if not present.
-        """
-        return ASTNode(self._node.right) if self._node.right != ffi.NULL else None
-
-    @property
-    def condition(self) -> ASTNode | None:
-        """Get the condition AST node for WHILE nodes."""
-        if self.type == NodeType.WHILE:
-            return self.left
-        return None
-
-    @property
-    def body(self) -> ASTNode | None:
-        """Get the body AST node for blocks, subshells, loops, and function definitions."""
-        if self.type in (
-            NodeType.BLOCK,
-            NodeType.SUBSHELL,
-            NodeType.FUNCTION_DEF,
-            NodeType.FOR,
-        ):
-            return self.left
-        if self.type == NodeType.WHILE:
-            return self.right
-        return None
-
-    @property
-    def assignments(self) -> list[str]:
-        """Get variable assignments defined on this node."""
-        if self._node.assignments == ffi.NULL:
-            return []
-        arr = self._node.assignments
-        return [ffi.string(arr.items[i]).decode() for i in range(arr.count)]
-
-    @property
-    def redirects(self) -> list[Redirection]:
-        """Get I/O redirections attached to this node."""
-        res: list[Redirection] = []
-        curr = self._node.redirects
-        while curr != ffi.NULL:
-            res.append(Redirection(curr))
-            curr = curr.next
-        return res
-
-    @property
-    def branches(self) -> list[ConditionalBranch]:
-        """Get conditional branches for CONDITIONAL nodes."""
-        if self.type != NodeType.CONDITIONAL or self._node.branches == ffi.NULL:
-            return []
-        res: list[ConditionalBranch] = []
-        curr = self._node.branches
-        while curr != ffi.NULL:
-            res.append(ConditionalBranch(curr))
-            curr = curr.next
-        return res
-
-    @property
-    def has_in(self) -> bool:
-        """Check if this for loop has an explicit 'in' clause."""
-        if self.type != NodeType.FOR:
-            return False
-        return bool(self._node.for_has_in)
-
-    @property
-    def var_name(self) -> str | None:
-        """Get loop variable name for FOR nodes."""
-        if (
-            self.type != NodeType.FOR
-            or self._node.argc == 0
-            or self._node.argv == ffi.NULL
-        ):
-            return None
-        return (
-            ffi.string(self._node.argv[0]).decode()
-            if self._node.argv[0] != ffi.NULL
-            else None
-        )
-
-    @property
-    def words(self) -> list[str]:
-        """Get words to iterate over for FOR nodes."""
-        if self.type != NodeType.FOR or self._node.argv == ffi.NULL:
-            return []
-        res: list[str] = []
-        for i in range(1, self._node.argc):
-            if self._node.argv[i] != ffi.NULL:
-                res.append(ffi.string(self._node.argv[i]).decode())
-        return res
+        self.type: NodeType = NodeType(c_node.type)
+        self.background: bool = bool(c_node.background)
 
     def to_dict(self) -> dict[str, typing.Any]:
         """Serialize the AST node recursively to a Python dictionary."""
-        data: dict[str, typing.Any] = {
+        return {
             "type": self.type.name,
             "background": self.background,
         }
-
-        if self.type == NodeType.COMMAND:
-            data["argv"] = self.argv
-            data["argc"] = len(self.argv)
-            data["assignments"] = self.assignments
-            data["redirects"] = [r.to_dict() for r in self.redirects]
-        elif self.type == NodeType.FUNCTION_DEF:
-            data["name"] = self.name
-            data["body"] = self.body.to_dict() if self.body else None
-        elif self.type in (NodeType.BLOCK, NodeType.SUBSHELL):
-            data["body"] = self.body.to_dict() if self.body else None
-        elif self.type == NodeType.CONDITIONAL:
-            data["branches"] = [b.to_dict() for b in self.branches]
-        elif self.type == NodeType.FOR:
-            data["variable"] = self.var_name
-            if self.has_in:
-                data["words"] = self.words
-            data["body"] = self.body.to_dict() if self.body else None
-        elif self.type == NodeType.WHILE:
-            data["condition"] = self.condition.to_dict() if self.condition else None
-            data["body"] = self.body.to_dict() if self.body else None
-        else:
-            if self.left:
-                data["left"] = self.left.to_dict()
-            if self.right:
-                data["right"] = self.right.to_dict()
-
-        return data
 
     def to_json(self, indent: int | None = 2) -> str:
         """Serialize the AST node to a JSON string."""
@@ -355,7 +202,7 @@ class ASTNode:
 
             cur_stack = is_last_stack[: depth - 1] + [is_last] if depth > 0 else []
 
-            if node.type == NodeType.COMMAND:
+            if isinstance(node, CommandNode):
                 children: list[str] = []
                 if node.assignments:
                     children.append(f"assignments: {node.assignments!r}")
@@ -397,21 +244,21 @@ class ASTNode:
                         )
                 return
 
-            if node.type == NodeType.FUNCTION_DEF:
+            if isinstance(node, FunctionDefNode):
                 prefix = "".join(
                     space if cur_stack[i] else vertical for i in range(depth)
                 )
                 lines.append(f"{prefix}{branch}name: {node.name!r}")
                 new_stack = cur_stack + [False]
-                _format(node.left, "body", new_stack, depth + 1, True)
+                _format(node.body, "body", new_stack, depth + 1, True)
                 return
 
-            if node.type in (NodeType.BLOCK, NodeType.SUBSHELL):
+            if isinstance(node, (BlockNode, SubshellNode)):
                 new_stack = cur_stack + [True]
-                _format(node.left, "body", new_stack, depth + 1, True)
+                _format(node.body, "body", new_stack, depth + 1, True)
                 return
 
-            if node.type == NodeType.FOR:
+            if isinstance(node, ForNode):
                 prefix = "".join(
                     space if cur_stack[i] else vertical for i in range(depth)
                 )
@@ -419,17 +266,17 @@ class ASTNode:
                 if node.has_in:
                     lines.append(f"{prefix}{branch}words: {node.words!r}")
                 new_stack = cur_stack + [False]
-                _format(node.left, "body", new_stack, depth + 1, True)
+                _format(node.body, "body", new_stack, depth + 1, True)
                 return
 
-            if node.type == NodeType.WHILE:
+            if isinstance(node, WhileNode):
                 new_stack = cur_stack + [False]
-                _format(node.left, "condition", new_stack, depth + 1, False)
+                _format(node.condition, "condition", new_stack, depth + 1, False)
                 new_stack = cur_stack + [True]
-                _format(node.right, "body", new_stack, depth + 1, True)
+                _format(node.body, "body", new_stack, depth + 1, True)
                 return
 
-            if node.type == NodeType.CONDITIONAL:
+            if isinstance(node, ConditionalNode):
                 branches = node.branches
                 b_total = len(branches)
                 for b_idx, b in enumerate(branches):
@@ -453,16 +300,18 @@ class ASTNode:
                         _format(b.body, "body", new_stack, depth + 1, True)
                 return
 
-            if node.left and node.right:
-                new_stack = cur_stack + [False]
-                _format(node.left, "left", new_stack, depth + 1, False)
-                _format(node.right, "right", new_stack, depth + 1, True)
-            elif node.left:
-                new_stack = cur_stack + [True]
-                _format(node.left, "left", new_stack, depth + 1, True)
-            elif node.right:
-                new_stack = cur_stack + [True]
-                _format(node.right, "right", new_stack, depth + 1, True)
+            if isinstance(node, BinaryNode):
+                if node.left and node.right:
+                    new_stack = cur_stack + [False]
+                    _format(node.left, "left", new_stack, depth + 1, False)
+                    _format(node.right, "right", new_stack, depth + 1, True)
+                elif node.left:
+                    new_stack = cur_stack + [True]
+                    _format(node.left, "left", new_stack, depth + 1, True)
+                elif node.right:
+                    new_stack = cur_stack + [True]
+                    _format(node.right, "right", new_stack, depth + 1, True)
+                return
 
         _format(self, None, [], 0, True)
         return "\n".join(lines)
@@ -471,6 +320,294 @@ class ASTNode:
     def json(self) -> str:
         """Serialize the AST node to a JSON string."""
         return self.to_json()
+
+    def __repr__(self) -> str:
+        """String representation of AST node."""
+        return f"<{self.__class__.__name__} type={self.type.name}>"
+
+
+class HasRedirectsMixin:
+    """Mixin for AST nodes that support I/O redirections."""
+
+    _node: typing.Any
+
+    @property
+    def redirects(self) -> list[Redirection]:
+        """Get I/O redirections attached to this node."""
+        res: list[Redirection] = []
+        curr = self._node.redirects
+        while curr != ffi.NULL:
+            res.append(Redirection(curr))
+            curr = curr.next
+        return res
+
+
+class CommandNode(HasRedirectsMixin, ASTNode):
+    """Represents a simple command AST node (NODE_COMMAND)."""
+
+    @property
+    def argv(self) -> list[str]:
+        """Get the command arguments."""
+        if self._node.argv == ffi.NULL:
+            return []
+        return [
+            ffi.string(self._node.argv[i]).decode()
+            for i in range(self._node.argc)
+            if self._node.argv[i] != ffi.NULL
+        ]
+
+    @property
+    def assignments(self) -> list[str]:
+        """Get variable assignments defined on this command node."""
+        if self._node.assignments == ffi.NULL:
+            return []
+        arr = self._node.assignments
+        return [ffi.string(arr.items[i]).decode() for i in range(arr.count)]
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Serialize command node to dictionary."""
+        data = super().to_dict()
+        data["argv"] = self.argv
+        data["argc"] = len(self.argv)
+        data["assignments"] = self.assignments
+        data["redirects"] = [r.to_dict() for r in self.redirects]
+        return data
+
+    def __repr__(self) -> str:
+        """String representation of command node."""
+        return f"<CommandNode argv={self.argv!r}>"
+
+
+class BinaryNode(ASTNode):
+    """Base class for binary AST nodes with left and right children."""
+
+    @property
+    def left(self) -> ASTNode | None:
+        """Get the left child node."""
+        return create_ast_node(self._node.left)
+
+    @property
+    def right(self) -> ASTNode | None:
+        """Get the right child node."""
+        return create_ast_node(self._node.right)
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Serialize binary node to dictionary."""
+        data = super().to_dict()
+        if self.left:
+            data["left"] = self.left.to_dict()
+        if self.right:
+            data["right"] = self.right.to_dict()
+        return data
+
+    def __repr__(self) -> str:
+        """String representation of binary node."""
+        return f"<{self.__class__.__name__} left={self.left!r} right={self.right!r}>"
+
+
+class PipeNode(BinaryNode):
+    """A pipeline AST node (NODE_PIPE)."""
+
+
+class AndNode(BinaryNode):
+    """A logical AND sequence AST node (NODE_AND)."""
+
+
+class OrNode(BinaryNode):
+    """A logical OR sequence AST node (NODE_OR)."""
+
+
+class SequenceNode(BinaryNode):
+    """A command sequence AST node (NODE_SEQUENCE)."""
+
+
+class BlockNode(HasRedirectsMixin, ASTNode):
+    """A command block AST node ({ ... }, NODE_BLOCK)."""
+
+    @property
+    def body(self) -> ASTNode | None:
+        """Get the block body AST node."""
+        return create_ast_node(self._node.left)
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Serialize block node to dictionary."""
+        data = super().to_dict()
+        data["body"] = self.body.to_dict() if self.body else None
+        return data
+
+    def __repr__(self) -> str:
+        """String representation of block node."""
+        return f"<BlockNode body={self.body!r}>"
+
+
+class SubshellNode(HasRedirectsMixin, ASTNode):
+    """A subshell AST node (( ... ), NODE_SUBSHELL)."""
+
+    @property
+    def body(self) -> ASTNode | None:
+        """Get the subshell body AST node."""
+        return create_ast_node(self._node.left)
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Serialize subshell node to dictionary."""
+        data = super().to_dict()
+        data["body"] = self.body.to_dict() if self.body else None
+        return data
+
+    def __repr__(self) -> str:
+        """String representation of subshell node."""
+        return f"<SubshellNode body={self.body!r}>"
+
+
+class FunctionDefNode(ASTNode):
+    """A function definition AST node (NODE_FUNCTION_DEF)."""
+
+    @property
+    def name(self) -> str:
+        """Get the function name."""
+        if (
+            self._node.argc > 0
+            and self._node.argv != ffi.NULL
+            and self._node.argv[0] != ffi.NULL
+        ):
+            return ffi.string(self._node.argv[0]).decode()
+        return ""
+
+    @property
+    def body(self) -> ASTNode | None:
+        """Get the function body AST node."""
+        return create_ast_node(self._node.left)
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Serialize function definition node to dictionary."""
+        data = super().to_dict()
+        data["name"] = self.name
+        data["body"] = self.body.to_dict() if self.body else None
+        return data
+
+    def __repr__(self) -> str:
+        """String representation of function definition node."""
+        return f"<FunctionDefNode name={self.name!r} body={self.body!r}>"
+
+
+class ConditionalNode(ASTNode):
+    """A conditional statement AST node (if/elif/else/fi, NODE_CONDITIONAL)."""
+
+    @property
+    def branches(self) -> list[ConditionalBranch]:
+        """Get conditional branches for this statement."""
+        res: list[ConditionalBranch] = []
+        curr = self._node.branches
+        while curr != ffi.NULL:
+            res.append(ConditionalBranch(curr))
+            curr = curr.next
+        return res
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Serialize conditional statement node to dictionary."""
+        data = super().to_dict()
+        data["branches"] = [b.to_dict() for b in self.branches]
+        return data
+
+    def __repr__(self) -> str:
+        """String representation of conditional node."""
+        return f"<ConditionalNode branches={len(self.branches)}>"
+
+
+class ForNode(HasRedirectsMixin, ASTNode):
+    """A for loop AST node (NODE_FOR)."""
+
+    @property
+    def var_name(self) -> str:
+        """Get the loop variable name."""
+        if (
+            self._node.argc > 0
+            and self._node.argv != ffi.NULL
+            and self._node.argv[0] != ffi.NULL
+        ):
+            return ffi.string(self._node.argv[0]).decode()
+        return ""
+
+    @property
+    def has_in(self) -> bool:
+        """Check if this for loop has an explicit 'in' clause."""
+        return bool(self._node.for_has_in)
+
+    @property
+    def words(self) -> list[str]:
+        """Get words to iterate over."""
+        if self._node.argv == ffi.NULL:
+            return []
+        res: list[str] = []
+        for i in range(1, self._node.argc):
+            if self._node.argv[i] != ffi.NULL:
+                res.append(ffi.string(self._node.argv[i]).decode())
+        return res
+
+    @property
+    def body(self) -> ASTNode | None:
+        """Get the loop body AST node."""
+        return create_ast_node(self._node.left)
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Serialize for loop node to dictionary."""
+        data = super().to_dict()
+        data["variable"] = self.var_name
+        if self.has_in:
+            data["words"] = self.words
+        data["body"] = self.body.to_dict() if self.body else None
+        return data
+
+    def __repr__(self) -> str:
+        """String representation of for loop node."""
+        return f"<ForNode var={self.var_name!r} words={self.words!r}>"
+
+
+class WhileNode(HasRedirectsMixin, ASTNode):
+    """A while loop AST node (NODE_WHILE)."""
+
+    @property
+    def condition(self) -> ASTNode | None:
+        """Get the loop condition AST node."""
+        return create_ast_node(self._node.left)
+
+    @property
+    def body(self) -> ASTNode | None:
+        """Get the loop body AST node."""
+        return create_ast_node(self._node.right)
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Serialize while loop node to dictionary."""
+        data = super().to_dict()
+        data["condition"] = self.condition.to_dict() if self.condition else None
+        data["body"] = self.body.to_dict() if self.body else None
+        return data
+
+    def __repr__(self) -> str:
+        """String representation of while loop node."""
+        return f"<WhileNode condition={self.condition!r} body={self.body!r}>"
+
+
+_NODE_CLASS_MAP: dict[NodeType, type[ASTNode]] = {
+    NodeType.COMMAND: CommandNode,
+    NodeType.PIPE: PipeNode,
+    NodeType.AND: AndNode,
+    NodeType.OR: OrNode,
+    NodeType.SEQUENCE: SequenceNode,
+    NodeType.SUBSHELL: SubshellNode,
+    NodeType.BLOCK: BlockNode,
+    NodeType.CONDITIONAL: ConditionalNode,
+    NodeType.FUNCTION_DEF: FunctionDefNode,
+    NodeType.FOR: ForNode,
+    NodeType.WHILE: WhileNode,
+}
+
+
+def create_ast_node(c_node: typing.Any) -> ASTNode | None:
+    """Create an ASTNode subclass instance from a C ASTNode struct, or None if NULL."""
+    if c_node == ffi.NULL or c_node is None:
+        return None
+    return ASTNode(c_node)
 
 
 class PrettyString(str):
