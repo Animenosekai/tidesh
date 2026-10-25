@@ -28,6 +28,10 @@
 #include "jobs.h" /* Jobs */
 #endif
 
+#ifndef TIDESH_MAX_SIGNALS
+#define TIDESH_MAX_SIGNALS 64
+#endif
+
 typedef struct ShellOptions {
     bool allexport; // -a: Automatically export modified/created variables
     bool errexit;   // -e: Exit immediately if a command exits with non-zero
@@ -73,13 +77,22 @@ typedef struct Session {
     int      loop_depth;               // Current nesting depth of loops
     int      loop_break;               // Pending break levels to propagate
     int      loop_continue;            // Pending continue levels to propagate
-    int      function_depth;     // Current nesting depth of functions / sourced
-                                 // scripts
-    bool     return_requested;   // Whether return has been requested
-    int      return_status;      // Return status code
-    bool permanent_redirections; // Leave redirections active in current shell
-    ShellOptions options;        // Shell options (set builtin)
-    int ignore_errexit; // Ignore errexit in conditions and and/or lists
+    int      function_depth;   // Current nesting depth of functions / sourced
+                               // scripts
+    bool     return_requested; // Whether return has been requested
+    int      return_status;    // Return status code
+    bool  permanent_redirections; // Leave redirections active in current shell
+    char *trap_exit;              // Action for EXIT trap (condition 0)
+    char *trap_signals[TIDESH_MAX_SIGNALS]; // Action for signals 1..63
+    void (*original_handlers[TIDESH_MAX_SIGNALS])(
+        int);                                  // Original signal handlers
+    bool has_orig_handler[TIDESH_MAX_SIGNALS]; // Whether original handler was
+                                               // saved
+    bool in_trap;         // Reentrancy guard for trap execution
+    bool is_subshell;     // Whether session is in a subshell
+    bool trap_exit_local; // Whether EXIT trap was set within this subshell
+    ShellOptions options; // Shell options (set builtin)
+    int ignore_errexit;   // Ignore errexit in conditions and and/or lists
 } Session;
 
 /**

@@ -13,8 +13,9 @@
 #include <termios.h>  /* tcsetpgrp, tcgetattr, tcsetattr, TCSADRAIN */
 #include <unistd.h> /* fork, access, X_OK, dup2, close, write, execve, pipe, STDOUT_FILENO, STDIN_FILENO, STDERR_FILENO, read */
 
-#include "ast.h"        /* ASTNode, NODE_*, parse, free_ast */
-#include "builtin.h"    /* is_special_builtin, get_builtin, is_builtin */
+#include "ast.h"     /* ASTNode, NODE_*, parse, free_ast */
+#include "builtin.h" /* is_special_builtin, get_builtin, is_builtin */
+#include "builtins/trap.h"
 #include "data/array.h" /* Array, free_array, init_array, array_add */
 #include "data/dynamic.h"
 #include "data/trie.h" /* trie_get, trie_set */
@@ -785,6 +786,8 @@ int execute(ASTNode *node, Session *session) {
     if (!node)
         return 0;
 
+    check_pending_traps(session);
+
     fflush(stdout);
     fflush(stderr);
 
@@ -805,6 +808,7 @@ int execute(ASTNode *node, Session *session) {
             return 1;
         pid_t left = fork();
         if (left == 0) {
+            traps_reset_for_subshell(session);
             signal(SIGINT, SIG_DFL);
             signal(SIGQUIT, SIG_DFL);
             close(fds[0]);
@@ -814,6 +818,7 @@ int execute(ASTNode *node, Session *session) {
         }
         pid_t right = fork();
         if (right == 0) {
+            traps_reset_for_subshell(session);
             signal(SIGINT, SIG_DFL);
             signal(SIGQUIT, SIG_DFL);
             close(fds[1]);
@@ -854,6 +859,7 @@ int execute(ASTNode *node, Session *session) {
             return 127;
         }
         int st = execute(node->left, session);
+        check_pending_traps(session);
         if (session->loop_break > 0 || session->loop_continue > 0 ||
             session->exit_requested || session->return_requested) {
             return st;
@@ -911,9 +917,12 @@ int execute(ASTNode *node, Session *session) {
         run_cwd_hook(session, HOOK_ENTER_SUBSHELL);
         pid_t pid = fork();
         if (pid == 0) {
+            traps_reset_for_subshell(session);
             signal(SIGINT, SIG_DFL);
             signal(SIGQUIT, SIG_DFL);
-            exit(execute(node->left, session));
+            int ret = execute(node->left, session);
+            session_run_exit_trap(session);
+            exit(ret);
         }
         int st = 0;
         while (waitpid(pid, &st, 0) == -1 && errno == EINTR)
@@ -1529,6 +1538,7 @@ int execute(ASTNode *node, Session *session) {
 
         if (pid == 0) {
             /* Child Process */
+            traps_reset_for_subshell(session);
             signal(SIGINT, SIG_DFL);
             signal(SIGQUIT, SIG_DFL);
 
@@ -1770,10 +1780,12 @@ int execute(ASTNode *node, Session *session) {
             int status = 0;
             while (waitpid(pid, &status, WUNTRACED) == -1) {
                 if (errno == EINTR) {
+                    check_pending_traps(session);
                     continue;
                 }
                 break;
             }
+            check_pending_traps(session);
 
             if (session->terminal && isatty(STDIN_FILENO)) {
                 tcsetattr(STDIN_FILENO, TCSADRAIN,
@@ -1901,6 +1913,7 @@ char *execute_string_stdout(const char *cmd, Session *session) {
 
     if (pid == 0) {
         /* Child Process */
+        traps_reset_for_subshell(session);
         signal(SIGINT, SIG_DFL);
         signal(SIGQUIT, SIG_DFL);
         close(pipe_fd[0]); // Close read end

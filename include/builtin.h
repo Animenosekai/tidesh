@@ -33,6 +33,7 @@
 #include "builtins/source.h"
 #include "builtins/terminal.h"
 #include "builtins/test.h"
+#include "builtins/trap.h"
 #include "builtins/type.h"
 #include "builtins/unalias.h"
 #include "builtins/unset.h"

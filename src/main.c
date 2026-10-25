@@ -7,9 +7,10 @@
 #include <string.h> /* strcmp, strdup */
 #include <unistd.h> /* getuid */
 
-#include "ast.h"        /* parse */
-#include "data/array.h" /* array_pop, free_array */
-#include "data/files.h" /* read_all */
+#include "ast.h"           /* parse */
+#include "builtins/trap.h" /* session_run_exit_trap, check_pending_traps */
+#include "data/array.h"    /* array_pop, free_array */
+#include "data/files.h"    /* read_all */
 #include "data/trie.h"
 #include "environ.h" /* environ_get */
 #include "execute.h" /* execute */
@@ -416,6 +417,7 @@ int main(int argc, char **argv) {
 
     // Interactive shell loop
     while (true) {
+        check_pending_traps(session);
         const char *applied_prompt;    // Prompt to display
         bool  ps1_should_free = false; // Whether applied_prompt was allocated
         char *temp_ps1        = NULL;  // Temporary buffer if expanded

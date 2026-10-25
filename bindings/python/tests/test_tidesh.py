@@ -540,6 +540,39 @@ def test_exec_builtin() -> None:
     )
 
 
+def test_trap_builtin() -> None:
+    session = tidesh.Session()
+
+    # trap -l returns 0
+    assert session.execute("trap -l") == 0
+
+    # Setting trap on EXIT
+    assert session.execute("trap 'echo exiting' EXIT") == 0
+    out = session.capture("trap -p EXIT")
+    assert out is not None and "exiting" in out
+
+    # Clear EXIT trap
+    assert session.execute("trap - EXIT") == 0
+    out_cleared = session.capture("trap -p EXIT")
+    assert out_cleared is None or out_cleared.strip() == ""
+
+    # Subshell EXIT trap executes independently
+    tmp_path = Path("/tmp/test_py_trap_subshell.txt")
+    if tmp_path.exists():
+        tmp_path.unlink()
+    try:
+        assert (
+            session.execute(
+                f"( trap 'echo trap_fired >> {tmp_path}' EXIT; echo inside >> {tmp_path} )"
+            )
+            == 0
+        )
+        assert tmp_path.read_text() == "inside\ntrap_fired\n"
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+
 if __name__ == "__main__":
     import inspect
     import sys

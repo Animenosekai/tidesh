@@ -42,6 +42,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool b_colon  = false;
     bool b_return = false;
     bool b_exec   = false;
+    bool b_trap   = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -118,6 +119,8 @@ int builtin_help(int argc, char **argv, Session *session) {
             b_return = true;
         else if (strcmp(argv[i], "exec") == 0)
             b_exec = true;
+        else if (strcmp(argv[i], "trap") == 0)
+            b_trap = true;
     }
 
     bool all =
@@ -125,7 +128,7 @@ int builtin_help(int argc, char **argv, Session *session) {
           help || features || hooks || history || info || printenv || pwd ||
           pushd || popd || terminal || which || source || type || test ||
           jobs || fg || bg || lexer || ast || b_break || b_cont || b_set ||
-          b_shift || b_colon || b_return || b_exec);
+          b_shift || b_colon || b_return || b_exec || b_trap);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -316,6 +319,11 @@ int builtin_help(int argc, char **argv, Session *session) {
                "redirections\n",
                command_clr, "exec", argument_clr,
                "[-cl] [-a name] [cmd [arg...]]", reset);
+
+    if (all || b_trap)
+        printf("  %s%-9s %s%-14s%s - Trap signals and other conditions\n",
+               command_clr, "trap", argument_clr,
+               "[-lp] [[action] condition ...]", reset);
 
     return 0;
 }

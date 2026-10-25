@@ -196,6 +196,7 @@ info
 | `source` | Execute commands from a file |
 | `type` | Show the type of a command |
 | `test` | Evaluate conditional expressions |
+| `trap` | Trap signals and shell exit conditions |
 | `not` | Negate a command's exit status |
 | `terminal` | Show or manage terminal settings |
 | `unalias` | Remove command aliases |

@@ -1,5 +1,6 @@
 #include <dirent.h>  /* DIR, opendir, readdir, closedir */
 #include <limits.h>  /* PATH_MAX */
+#include <signal.h>  /* signal */
 #include <stdbool.h> /* bool */
 #include <stdio.h>   /* snprintf */
 #include <stdlib.h>  /* malloc, free */
@@ -7,6 +8,7 @@
 #include <unistd.h>  /* getcwd */
 
 #include "ast.h"             /* free_ast */
+#include "builtins/trap.h"   /* session_run_exit_trap */
 #include "data/array.h"      /* array_add, free_array */
 #include "environ.h"         /* environ_get, environ_set, environ_get_default */
 #include "feature-flags.h"   /* Features */
@@ -112,6 +114,22 @@ Session *init_session(Session *session, char *history_path) {
 void free_session(Session *session) {
     if (!session)
         return;
+
+    session_run_exit_trap(session);
+
+    if (session->trap_exit) {
+        free(session->trap_exit);
+        session->trap_exit = NULL;
+    }
+    for (int i = 1; i < TIDESH_MAX_SIGNALS; i++) {
+        if (session->trap_signals[i]) {
+            free(session->trap_signals[i]);
+            session->trap_signals[i] = NULL;
+            if (session->has_orig_handler[i]) {
+                signal(i, session->original_handlers[i]);
+            }
+        }
+    }
 
     // Free working directories (session owns these)
     free(session->current_working_dir);
