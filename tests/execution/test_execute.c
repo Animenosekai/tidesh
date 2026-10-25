@@ -1246,4 +1246,174 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should support prefix parameter expansions") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        environ_set(session->environ, "FILEPATH", "path/to/my.tar.gz");
+
+        // Shortest prefix removal: ${FILEPATH#*/}
+        char *out1 =
+            execute_string_stdout("echo \"${FILEPATH#*/}\"", session);
+        assertneq(out1, NULL);
+        asserteq_str(out1, "to/my.tar.gz");
+        free(out1);
+
+        // Longest prefix removal: ${FILEPATH##*/}
+        char *out2 =
+            execute_string_stdout("echo \"${FILEPATH##*/}\"", session);
+        assertneq(out2, NULL);
+        asserteq_str(out2, "my.tar.gz");
+        free(out2);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support suffix parameter expansions") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        environ_set(session->environ, "FILEPATH", "path/to/my.tar.gz");
+
+        // Shortest suffix removal: ${FILEPATH%.*}
+        char *out1 =
+            execute_string_stdout("echo \"${FILEPATH%.*}\"", session);
+        assertneq(out1, NULL);
+        asserteq_str(out1, "path/to/my.tar");
+        free(out1);
+
+        // Longest suffix removal: ${FILEPATH%%.*}
+        char *out2 =
+            execute_string_stdout("echo \"${FILEPATH%%.*}\"", session);
+        assertneq(out2, NULL);
+        asserteq_str(out2, "path/to/my");
+        free(out2);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support pattern substitution expansions") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        environ_set(session->environ, "SENTENCE", "the cat sat on the mat");
+
+        // First occurrence replace: ${SENTENCE/cat/dog}
+        char *out1 =
+            execute_string_stdout("echo \"${SENTENCE/cat/dog}\"", session);
+        assertneq(out1, NULL);
+        asserteq_str(out1, "the dog sat on the mat");
+        free(out1);
+
+        // All occurrences replace: ${SENTENCE//the/a}
+        char *out2 =
+            execute_string_stdout("echo \"${SENTENCE//the/a}\"", session);
+        assertneq(out2, NULL);
+        asserteq_str(out2, "a cat sat on a mat");
+        free(out2);
+
+        // Prefix anchor: ${SENTENCE/#the/a}
+        char *out3 =
+            execute_string_stdout("echo \"${SENTENCE/#the/a}\"", session);
+        assertneq(out3, NULL);
+        asserteq_str(out3, "a cat sat on the mat");
+        free(out3);
+
+        // Suffix anchor: ${SENTENCE/%mat/rug}
+        char *out4 =
+            execute_string_stdout("echo \"${SENTENCE/%mat/rug}\"", session);
+        assertneq(out4, NULL);
+        asserteq_str(out4, "the cat sat on the rug");
+        free(out4);
+
+        // Delete pattern (empty replacement): ${SENTENCE/cat /}
+        char *out5 =
+            execute_string_stdout("echo \"${SENTENCE/cat /}\"", session);
+        assertneq(out5, NULL);
+        asserteq_str(out5, "the sat on the mat");
+        free(out5);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support substring expansions") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        environ_set(session->environ, "TEXT", "abcdefgh");
+
+        // Offset only: ${TEXT:2} -> cdefgh
+        char *out1 = execute_string_stdout("echo \"${TEXT:2}\"", session);
+        assertneq(out1, NULL);
+        asserteq_str(out1, "cdefgh");
+        free(out1);
+
+        // Offset and length: ${TEXT:2:3} -> cde
+        char *out2 = execute_string_stdout("echo \"${TEXT:2:3}\"", session);
+        assertneq(out2, NULL);
+        asserteq_str(out2, "cde");
+        free(out2);
+
+        // Negative offset: ${TEXT: -3} -> fgh
+        char *out3 = execute_string_stdout("echo \"${TEXT: -3}\"", session);
+        assertneq(out3, NULL);
+        asserteq_str(out3, "fgh");
+        free(out3);
+
+        // Negative offset with length: ${TEXT: -4:2} -> ef
+        char *out4 = execute_string_stdout("echo \"${TEXT: -4:2}\"", session);
+        assertneq(out4, NULL);
+        asserteq_str(out4, "ef");
+        free(out4);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support nested parameter expansions and leading whitespace trimming") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        environ_set(session->environ, "line", "   hello world");
+
+        // Trimming leading whitespace as in POSIX scripts (e.g. shellbench)
+        char *out = execute_string_stdout(
+            "echo \"${line#\"${line%%[![:space:]]*}\"}\"", session);
+        assertneq(out, NULL);
+        asserteq_str(out, "hello world");
+        free(out);
+
+        // Default value with spaces and inner quotes
+        char *out2 =
+            execute_string_stdout("echo \"${UNSET_FOO:-\"bar baz\"}\"", session);
+        assertneq(out2, NULL);
+        asserteq_str(out2, "bar baz");
+        free(out2);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should obey nounset (set -u) for parameter expansions") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        session->options.nounset = true;
+
+        // Missing variable with # should fail under nounset
+        int st1 = execute_string("echo \"${UNBOUND_PREFIX_VAR#*/}\"", session);
+        assertneq(st1, 0);
+
+        // Missing variable with % should fail under nounset
+        int st2 = execute_string("echo \"${UNBOUND_SUFFIX_VAR%.*}\"", session);
+        assertneq(st2, 0);
+
+        // Missing variable with / should fail under nounset
+        int st3 = execute_string("echo \"${UNBOUND_REPLACE_VAR/foo/bar}\"", session);
+        assertneq(st3, 0);
+
+        // Missing variable with : should fail under nounset
+        int st4 = execute_string("echo \"${UNBOUND_SUBSTR_VAR:2}\"", session);
+        assertneq(st4, 0);
+
+        free_session(session);
+        free(session);
+    }
 }

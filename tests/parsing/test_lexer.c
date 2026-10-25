@@ -891,4 +891,27 @@ describe(lexer) {
         free_lexer_input(input);
         free(input);
     }
+
+    it("should handle nested parameter expansions in double quotes") {
+        LexerInput *input = init_lexer_input(
+            NULL, "echo \"${line#\"${line%%[![:space:]]*}\"}\"", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "${line#\"${line%%[![:space:]]*}\"}");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
 }

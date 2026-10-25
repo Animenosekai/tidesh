@@ -187,6 +187,108 @@ static char *command_substitution(LexerInput *input) {
 #endif /* !TIDESH_DISABLE_COMMAND_SUBSTITUTION || !TIDESH_DISABLE_EXPANSIONS   \
         */
 
+#ifndef TIDESH_DISABLE_EXPANSIONS
+/* Handle parameter expansion body ${...} */
+static char *parameter_expansion_body(LexerInput *input) {
+    char    c               = advance(input); // Consume '{'
+    size_t  depth           = 1;
+    bool    escaped         = false;
+    bool    in_single_quote = false;
+    bool    in_double_quote = false;
+    Dynamic body            = {0};
+    init_dynamic(&body);
+
+    while (depth > 0 && !is_at_end(input)) {
+        c = advance(input);
+        if (escaped) {
+            escaped = false;
+            dynamic_append(&body, c);
+            continue;
+        }
+
+        if (c == '\\') {
+            if (in_single_quote) {
+                dynamic_append(&body, '\\');
+            } else {
+                escaped = true;
+                dynamic_append(&body, '\\');
+            }
+            continue;
+        }
+
+        if (in_single_quote) {
+            if (c == '\'') {
+                in_single_quote = false;
+            }
+            dynamic_append(&body, c);
+            continue;
+        }
+
+        if (c == '\'') {
+            if (!in_double_quote) {
+                in_single_quote = true;
+            }
+            dynamic_append(&body, c);
+            continue;
+        }
+
+        if (c == '"') {
+            in_double_quote = !in_double_quote;
+            dynamic_append(&body, c);
+            continue;
+        }
+
+        if (c == '$' && peek(input) == '(') {
+#if !defined(TIDESH_DISABLE_COMMAND_SUBSTITUTION) ||                           \
+    !defined(TIDESH_DISABLE_EXPANSIONS)
+            char *sub = command_substitution(input);
+            dynamic_extend(&body, "$(");
+            if (sub) {
+                dynamic_extend(&body, sub);
+                free(sub);
+            }
+            dynamic_append(&body, ')');
+#else
+            dynamic_append(&body, c);
+#endif
+            continue;
+        }
+
+        if (c == '$' && peek(input) == '{') {
+            char *sub = parameter_expansion_body(input);
+            dynamic_extend(&body, "${");
+            if (sub) {
+                dynamic_extend(&body, sub);
+                free(sub);
+            }
+            dynamic_append(&body, '}');
+            continue;
+        }
+
+        if (!in_double_quote && c == '{') {
+            depth++;
+            dynamic_append(&body, c);
+            continue;
+        }
+
+        if (!in_double_quote && c == '}') {
+            depth--;
+            if (depth == 0) {
+                break;
+            }
+            dynamic_append(&body, c);
+            continue;
+        }
+
+        dynamic_append(&body, c);
+    }
+
+    char *result_body = dynamic_to_string(&body);
+    free_dynamic(&body);
+    return result_body;
+}
+#endif /* !TIDESH_DISABLE_EXPANSIONS */
+
 /* Read a single unquoted word from the input */
 static Dynamic read_single_word(LexerInput *input) {
     Dynamic word_value = {0};
@@ -224,6 +326,23 @@ static Dynamic read_single_word(LexerInput *input) {
             dynamic_extend(&word_value, command);
             dynamic_append(&word_value, ')');
             free(command);
+#else
+            dynamic_append(&word_value, c);
+            advance(input);
+#endif
+            c = peek(input);
+            continue;
+        }
+        if (!escaped && c == '$' && peek_next(input) == '{') {
+#ifndef TIDESH_DISABLE_EXPANSIONS
+            advance(input); // consume '$'
+            char *param = parameter_expansion_body(input);
+            dynamic_extend(&word_value, "${");
+            if (param) {
+                dynamic_extend(&word_value, param);
+                free(param);
+            }
+            dynamic_append(&word_value, '}');
 #else
             dynamic_append(&word_value, c);
             advance(input);
@@ -279,6 +398,23 @@ static Dynamic read_quoted_word(LexerInput *input) {
             dynamic_extend(&word_value, command);
             dynamic_append(&word_value, ')');
             free(command);
+#else
+            dynamic_append(&word_value, c);
+            advance(input);
+#endif
+            c = peek(input);
+            continue;
+        }
+        if (!escaped && c == '$' && peek_next(input) == '{') {
+#ifndef TIDESH_DISABLE_EXPANSIONS
+            advance(input); // consume '$'
+            char *param = parameter_expansion_body(input);
+            dynamic_extend(&word_value, "${");
+            if (param) {
+                dynamic_extend(&word_value, param);
+                free(param);
+            }
+            dynamic_append(&word_value, '}');
 #else
             dynamic_append(&word_value, c);
             advance(input);
@@ -866,6 +1002,24 @@ LexerToken lexer_next_token(LexerInput *input) {
                     dynamic_extend(&word_value, command);
                     dynamic_append(&word_value, ')');
                     free(command);
+#else
+                    dynamic_append(&word_value, c);
+                    advance(input);
+#endif
+                    c = peek(input);
+                    continue;
+                }
+
+                if (!escaped && c == '$' && peek_next(input) == '{') {
+#ifndef TIDESH_DISABLE_EXPANSIONS
+                    advance(input); // consume '$'
+                    char *param = parameter_expansion_body(input);
+                    dynamic_extend(&word_value, "${");
+                    if (param) {
+                        dynamic_extend(&word_value, param);
+                        free(param);
+                    }
+                    dynamic_append(&word_value, '}');
 #else
                     dynamic_append(&word_value, c);
                     advance(input);

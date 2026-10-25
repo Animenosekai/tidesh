@@ -1,6 +1,7 @@
 /* Variables expansion implementation */
 
 #include <ctype.h>   /* isspace, isalnum, isdigit */
+#include <fnmatch.h> /* fnmatch */
 #include <stdbool.h> /* bool, true, false */
 #include <stdio.h>   /* fprintf, snprintf, stderr */
 #include <stdlib.h>  /* malloc, free, strtol */
@@ -40,16 +41,39 @@ static char *parse_varname(char *input, size_t *pos) {
     return varname;
 }
 
-/* Find the closing brace for ${...}, handling nested braces */
+/* Find the closing brace for ${...}, handling nested braces and quotes */
 static int find_closing_brace(char *input, size_t start) {
-    int    depth = 1;
-    size_t i     = start;
+    int    depth        = 1;
+    size_t i            = start;
+    bool   in_single    = false;
+    bool   in_double    = false;
+    int    double_depth = 0;
 
     while (input[i] && depth > 0) {
-        if (input[i] == '{')
-            depth++;
-        else if (input[i] == '}')
-            depth--;
+        if (input[i] == '\\' && input[i + 1] && (in_double || !in_single)) {
+            i += 2;
+            continue;
+        }
+        if (!in_double && input[i] == '\'') {
+            in_single = !in_single;
+        } else if (!in_single && input[i] == '"') {
+            in_double = !in_double;
+        } else if (!in_single && !in_double) {
+            if (input[i] == '{')
+                depth++;
+            else if (input[i] == '}')
+                depth--;
+        } else if (in_double) {
+            // Inside double quotes, only ${...} creates nested braces
+            if (input[i] == '$' && input[i + 1] == '{') {
+                depth++;
+                double_depth++;
+                i++;
+            } else if (input[i] == '}' && double_depth > 0) {
+                depth--;
+                double_depth--;
+            }
+        }
         i++;
     }
 
@@ -84,22 +108,322 @@ static Array *split_by_whitespace(char *str) {
     return result;
 }
 
+static bool is_nounset_exempt(const char *varname) {
+    return strcmp(varname, "@") == 0 || strcmp(varname, "*") == 0 ||
+           strcmp(varname, "#") == 0 || strcmp(varname, "?") == 0 ||
+           strcmp(varname, "!") == 0 || strcmp(varname, "$") == 0 ||
+           strcmp(varname, "0") == 0 || strcmp(varname, "_") == 0;
+}
+
+static char *expand_sub_expression(const char *raw, Session *session) {
+    if (!raw) {
+        return NULL;
+    }
+    char *copy = strdup(raw);
+    if (strchr(copy, '$') && session && session->features.variable_expansion) {
+        Array *arr = variable_expansion(copy, session);
+        if (arr && arr->count > 0) {
+            free(copy);
+            copy = strdup(arr->items[0]);
+        }
+        if (arr) {
+            free_array(arr);
+            free(arr);
+        }
+    }
+    return copy;
+}
+
+static char *strip_pattern_quotes(char *pat) {
+    if (!pat) {
+        return NULL;
+    }
+    Dynamic out = {0};
+    init_dynamic(&out);
+    bool in_single = false;
+    bool in_double = false;
+    bool escaped   = false;
+
+    for (size_t i = 0; pat[i]; i++) {
+        char c = pat[i];
+        if (escaped) {
+            escaped = false;
+            dynamic_append(&out, c);
+            continue;
+        }
+        if (c == '\\') {
+            if (in_single) {
+                dynamic_append(&out, '\\');
+            } else {
+                escaped = true;
+                dynamic_append(&out, '\\');
+            }
+            continue;
+        }
+        if (c == '\'' && !in_double) {
+            in_single = !in_single;
+            continue;
+        }
+        if (c == '"' && !in_single) {
+            in_double = !in_double;
+            continue;
+        }
+        dynamic_append(&out, c);
+    }
+
+    char *result = dynamic_to_string(&out);
+    free_dynamic(&out);
+    free(pat);
+    return result;
+}
+
+static char *remove_smallest_prefix(const char *val, const char *pattern) {
+    if (!val) {
+        return strdup("");
+    }
+    if (!pattern || !*pattern) {
+        return strdup(val);
+    }
+
+    size_t len = strlen(val);
+    for (size_t k = 0; k <= len; k++) {
+        char *sub = strndup(val, k);
+        if (fnmatch(pattern, sub, 0) == 0) {
+            free(sub);
+            return strdup(val + k);
+        }
+        free(sub);
+    }
+    return strdup(val);
+}
+
+static char *remove_largest_prefix(const char *val, const char *pattern) {
+    if (!val) {
+        return strdup("");
+    }
+    if (!pattern || !*pattern) {
+        return strdup(val);
+    }
+
+    size_t len = strlen(val);
+    for (size_t k = len;; k--) {
+        char *sub = strndup(val, k);
+        if (fnmatch(pattern, sub, 0) == 0) {
+            free(sub);
+            return strdup(val + k);
+        }
+        free(sub);
+        if (k == 0) {
+            break;
+        }
+    }
+    return strdup(val);
+}
+
+static char *remove_smallest_suffix(const char *val, const char *pattern) {
+    if (!val) {
+        return strdup("");
+    }
+    if (!pattern || !*pattern) {
+        return strdup(val);
+    }
+
+    size_t len = strlen(val);
+    for (size_t k = len;; k--) {
+        if (fnmatch(pattern, val + k, 0) == 0) {
+            return strndup(val, k);
+        }
+        if (k == 0) {
+            break;
+        }
+    }
+    return strdup(val);
+}
+
+static char *remove_largest_suffix(const char *val, const char *pattern) {
+    if (!val) {
+        return strdup("");
+    }
+    if (!pattern || !*pattern) {
+        return strdup(val);
+    }
+
+    size_t len = strlen(val);
+    for (size_t k = 0; k <= len; k++) {
+        if (fnmatch(pattern, val + k, 0) == 0) {
+            return strndup(val, k);
+        }
+    }
+    return strdup(val);
+}
+
+static char *substitute_pattern(const char *val, const char *raw_pattern,
+                                const char *raw_replacement, bool replace_all,
+                                bool anchor_prefix, bool anchor_suffix) {
+    if (!val) {
+        return strdup("");
+    }
+    if (!raw_pattern || !*raw_pattern) {
+        return strdup(val);
+    }
+
+    size_t      len  = strlen(val);
+    const char *repl = raw_replacement ? raw_replacement : "";
+
+    if (anchor_prefix) {
+        for (size_t k = len;; k--) {
+            char *sub = strndup(val, k);
+            if (fnmatch(raw_pattern, sub, 0) == 0) {
+                free(sub);
+                Dynamic res = {0};
+                init_dynamic(&res);
+                dynamic_extend(&res, (char *)repl);
+                dynamic_extend(&res, (char *)(val + k));
+                char *s = dynamic_to_string(&res);
+                free_dynamic(&res);
+                return s ? s : strdup("");
+            }
+            free(sub);
+            if (k == 0) {
+                break;
+            }
+        }
+        return strdup(val);
+    }
+
+    if (anchor_suffix) {
+        for (size_t k = 0; k <= len; k++) {
+            if (fnmatch(raw_pattern, val + k, 0) == 0) {
+                Dynamic res = {0};
+                init_dynamic(&res);
+                char *pref = strndup(val, k);
+                dynamic_extend(&res, pref);
+                free(pref);
+                dynamic_extend(&res, (char *)repl);
+                char *s = dynamic_to_string(&res);
+                free_dynamic(&res);
+                return s ? s : strdup("");
+            }
+        }
+        return strdup(val);
+    }
+
+    Dynamic res = {0};
+    init_dynamic(&res);
+    size_t i = 0;
+    while (i < len) {
+        bool   matched = false;
+        size_t best_j  = i;
+        for (size_t j = len; j > i; j--) {
+            char *sub = strndup(val + i, j - i);
+            if (fnmatch(raw_pattern, sub, 0) == 0) {
+                matched = true;
+                best_j  = j;
+                free(sub);
+                break;
+            }
+            free(sub);
+        }
+
+        if (matched) {
+            dynamic_extend(&res, (char *)repl);
+            i = best_j;
+            if (!replace_all) {
+                dynamic_extend(&res, (char *)(val + i));
+                break;
+            }
+        } else {
+            dynamic_append(&res, val[i]);
+            i++;
+        }
+    }
+
+    char *s = dynamic_to_string(&res);
+    free_dynamic(&res);
+    return s ? s : strdup("");
+}
+
+static char *expand_substring(const char *val, const char *spec,
+                              Session *session) {
+    if (!val) {
+        val = "";
+    }
+    size_t val_len = strlen(val);
+
+    char *colon      = strchr(spec, ':');
+    char *offset_str = NULL;
+    char *len_str    = NULL;
+    if (colon) {
+        offset_str = strndup(spec, colon - spec);
+        len_str    = strdup(colon + 1);
+    } else {
+        offset_str = strdup(spec);
+    }
+
+    char *exp_offset = expand_sub_expression(offset_str, session);
+    free(offset_str);
+
+    long offset = strtol(exp_offset ? exp_offset : "0", NULL, 10);
+    free(exp_offset);
+
+    if (offset < 0) {
+        offset = (long)val_len + offset;
+    }
+    if (offset < 0) {
+        offset = 0;
+    }
+    if (offset > (long)val_len) {
+        offset = (long)val_len;
+    }
+
+    if (len_str) {
+        char *exp_len = expand_sub_expression(len_str, session);
+        free(len_str);
+        long length = strtol(exp_len ? exp_len : "0", NULL, 10);
+        free(exp_len);
+
+        if (length < 0) {
+            length = (long)val_len + length - offset;
+        }
+        if (length < 0) {
+            length = 0;
+        }
+        if (offset + length > (long)val_len) {
+            length = (long)val_len - offset;
+        }
+        return strndup(val + offset, length);
+    }
+
+    return strdup(val + offset);
+}
+
 /* Expand ${VAR} with modifiers - returns NULL for split marker */
 static char *expand_brace_var(char *expr, Session *session, bool *is_split) {
     *is_split = false;
 
     // Handle ${#VAR} - length (but ${#} is the positional parameter count)
-    if (expr[0] == '#' && expr[1] != '\0') {
+    if (expr[0] == '#' && expr[1] != '\0' && expr[1] != '#' && expr[1] != '%' &&
+        expr[1] != '/' && expr[1] != ':') {
         char *varname = strdup(expr + 1);
         char *value   = environ_get(session->environ, varname);
+        if (!value && strcmp(varname, "#") == 0) {
+            value = "0";
+        }
+        if (!value && session->options.nounset && !is_nounset_exempt(varname)) {
+#ifdef PROJECT_NAME
+            fprintf(stderr, "%s: %s: unbound variable\n", PROJECT_NAME,
+                    varname);
+#else
+            fprintf(stderr, "tidesh: %s: unbound variable\n", varname);
+#endif
+            free(varname);
+            return NULL;
+        }
         free(varname);
 
-        if (value) {
-            char *result = malloc(32);
-            snprintf(result, 32, "%zu", strlen(value));
-            return result;
-        }
-        return strdup("0");
+        char result[32];
+        snprintf(result, sizeof(result), "%zu", value ? strlen(value) : 0);
+        return strdup(result);
     }
 
     // Handle ${=VAR...} - split
@@ -108,102 +432,39 @@ static char *expand_brace_var(char *expr, Session *session, bool *is_split) {
         expr++; // Skip =
     }
 
-    // Find modifier operator (check colon variants first, then non-colon)
-    char *colon_eq   = strstr(expr, ":=");
-    char *colon_dash = strstr(expr, ":-");
-    char *colon_plus = strstr(expr, ":+");
-    char *colon_q    = strstr(expr, ":?");
-    char *eq         = strchr(expr, '=');
-    char *dash       = strchr(expr, '-');
-    char *plus       = strchr(expr, '+');
-    char *q          = strchr(expr, '?');
-
-    // Exclude matches that are part of longer operators
-    if (eq && (colon_eq == (eq - 1)))
-        eq = NULL;
-    if (dash && (colon_dash == (dash - 1)))
-        dash = NULL;
-    if (plus && (colon_plus == (plus - 1)))
-        plus = NULL;
-    if (q && (colon_q == (q - 1)))
-        q = NULL;
-
-    char *varname     = NULL;
-    char *modifier    = NULL;
-    char *default_val = NULL;
-    bool  check_empty = false;
-
-    // Determine which modifier to use (prefer colon variants, fallback to
-    // non-colon)
-    if (colon_eq) {
-        varname     = strndup(expr, colon_eq - expr);
-        default_val = strdup(colon_eq + 2);
-        modifier    = ":=";
-        check_empty = true;
-    } else if (colon_plus) {
-        varname     = strndup(expr, colon_plus - expr);
-        default_val = strdup(colon_plus + 2);
-        modifier    = ":+";
-        check_empty = true;
-    } else if (colon_q) {
-        varname     = strndup(expr, colon_q - expr);
-        default_val = strdup(colon_q + 2);
-        modifier    = ":?";
-        check_empty = true;
-    } else if (colon_dash) {
-        varname     = strndup(expr, colon_dash - expr);
-        default_val = strdup(colon_dash + 2);
-        modifier    = ":-";
-        check_empty = true;
-    } else if (eq) {
-        varname     = strndup(expr, eq - expr);
-        default_val = strdup(eq + 1);
-        modifier    = "=";
-        check_empty = false;
-    } else if (plus) {
-        varname     = strndup(expr, plus - expr);
-        default_val = strdup(plus + 1);
-        modifier    = "+";
-        check_empty = false;
-    } else if (q) {
-        varname     = strndup(expr, q - expr);
-        default_val = strdup(q + 1);
-        modifier    = "?";
-        check_empty = false;
-    } else if (dash) {
-        varname     = strndup(expr, dash - expr);
-        default_val = strdup(dash + 1);
-        modifier    = "-";
-        check_empty = false;
+    // Parse varname from expr
+    size_t pos = 0;
+    if (expr[pos] == '?' || expr[pos] == '$' || expr[pos] == '!' ||
+        expr[pos] == '#' || expr[pos] == '@' || expr[pos] == '*' ||
+        expr[pos] == '0') {
+        pos++;
+    } else if (isdigit((unsigned char)expr[pos])) {
+        while (isdigit((unsigned char)expr[pos])) {
+            pos++;
+        }
+    } else if (expr[pos] == '_' && !isalnum((unsigned char)expr[pos + 1]) &&
+               expr[pos + 1] != '_') {
+        pos++;
     } else {
-        // ${VAR}
-        varname = strdup(expr);
+        while (expr[pos] &&
+               (isalnum((unsigned char)expr[pos]) || expr[pos] == '_')) {
+            pos++;
+        }
     }
+
+    char *varname = strndup(expr, pos);
+    char *op_ptr  = expr + pos;
 
     char *value = environ_get(session->environ, varname);
     if (!value && strcmp(varname, "#") == 0) {
         value = "0";
     }
+
     char *result = NULL;
 
-    // Expand nested variables in default_val if present
-    if (default_val && strchr(default_val, '$') &&
-        session->features.variable_expansion) {
-        Array *def_arr = variable_expansion(default_val, session);
-        if (def_arr && def_arr->count > 0) {
-            free(default_val);
-            default_val = strdup(def_arr->items[0]);
-            free_array(def_arr);
-            free(def_arr);
-        }
-    }
-
-    if (!modifier) {
-        if (!value && session->options.nounset && strcmp(varname, "@") != 0 &&
-            strcmp(varname, "*") != 0 && strcmp(varname, "#") != 0 &&
-            strcmp(varname, "?") != 0 && strcmp(varname, "!") != 0 &&
-            strcmp(varname, "$") != 0 && strcmp(varname, "0") != 0 &&
-            strcmp(varname, "_") != 0) {
+    if (*op_ptr == '\0') {
+        // Simple ${VAR}
+        if (!value && session->options.nounset && !is_nounset_exempt(varname)) {
 #ifdef PROJECT_NAME
             fprintf(stderr, "%s: %s: unbound variable\n", PROJECT_NAME,
                     varname);
@@ -211,71 +472,212 @@ static char *expand_brace_var(char *expr, Session *session, bool *is_split) {
             fprintf(stderr, "tidesh: %s: unbound variable\n", varname);
 #endif
             free(varname);
-            if (default_val)
-                free(default_val);
             return NULL;
         }
         result = value ? strdup(value) : strdup("");
-    } else if (strcmp(modifier, ":-") == 0) {
-        // ${VAR:-default} - use default if unset or empty
-        result = (value && *value) ? strdup(value) : strdup(default_val);
-    } else if (strcmp(modifier, "-") == 0) {
-        // ${VAR-default} - use default if unset
-        result = value ? strdup(value) : strdup(default_val);
-    } else if (strcmp(modifier, ":=") == 0) {
-        // ${VAR:=default} - set to default if unset or empty
-        if (!value || !*value) {
-            environ_set(session->environ, varname, default_val);
-            result = strdup(default_val);
-        } else {
-            result = strdup(value);
-        }
-    } else if (strcmp(modifier, "=") == 0) {
-        // ${VAR=default} - set to default if unset
-        if (!value) {
-            environ_set(session->environ, varname, default_val);
-            result = strdup(default_val);
-        } else {
-            result = strdup(value);
-        }
-    } else if (strcmp(modifier, ":+") == 0) {
-        // ${VAR:+alt} - use alt if set and non-empty
-        result = (value && *value) ? strdup(default_val) : strdup("");
-    } else if (strcmp(modifier, "+") == 0) {
-        // ${VAR+alt} - use alt if set
-        result = value ? strdup(default_val) : strdup("");
-    } else if (strcmp(modifier, ":?") == 0) {
-        // ${VAR:?error} - error if unset or empty
-        if (!value || !*value) {
+    } else if (*op_ptr == '#') {
+        // Prefix removal: ${VAR#pattern} or ${VAR##pattern}
+        if (!value && session->options.nounset && !is_nounset_exempt(varname)) {
 #ifdef PROJECT_NAME
-            fprintf(stderr, "%s: %s: %s\n", PROJECT_NAME, varname, default_val);
+            fprintf(stderr, "%s: %s: unbound variable\n", PROJECT_NAME,
+                    varname);
 #else
-            fprintf(stderr, "tidesh: %s: %s\n", varname, default_val);
+            fprintf(stderr, "tidesh: %s: unbound variable\n", varname);
 #endif
             free(varname);
-            free(default_val);
             return NULL;
-        } else {
-            result = strdup(value);
         }
-    } else if (strcmp(modifier, "?") == 0) {
-        // ${VAR?error} - error if unset
-        if (!value) {
+        bool  longest = (op_ptr[1] == '#');
+        char *raw_pat = op_ptr + (longest ? 2 : 1);
+        char *pat     = expand_sub_expression(raw_pat, session);
+        pat           = strip_pattern_quotes(pat);
+        if (longest) {
+            result = remove_largest_prefix(value ? value : "", pat);
+        } else {
+            result = remove_smallest_prefix(value ? value : "", pat);
+        }
+        free(pat);
+    } else if (*op_ptr == '%') {
+        // Suffix removal: ${VAR%pattern} or ${VAR%%pattern}
+        if (!value && session->options.nounset && !is_nounset_exempt(varname)) {
 #ifdef PROJECT_NAME
-            fprintf(stderr, "%s: %s: %s\n", PROJECT_NAME, varname, default_val);
+            fprintf(stderr, "%s: %s: unbound variable\n", PROJECT_NAME,
+                    varname);
 #else
-            fprintf(stderr, "tidesh: %s: %s\n", varname, default_val);
+            fprintf(stderr, "tidesh: %s: unbound variable\n", varname);
 #endif
             free(varname);
-            free(default_val);
             return NULL;
+        }
+        bool  longest = (op_ptr[1] == '%');
+        char *raw_pat = op_ptr + (longest ? 2 : 1);
+        char *pat     = expand_sub_expression(raw_pat, session);
+        pat           = strip_pattern_quotes(pat);
+        if (longest) {
+            result = remove_largest_suffix(value ? value : "", pat);
         } else {
+            result = remove_smallest_suffix(value ? value : "", pat);
+        }
+        free(pat);
+    } else if (*op_ptr == '/') {
+        // Pattern substitution: ${VAR/pattern/repl} or ${VAR//pattern/repl}
+        if (!value && session->options.nounset && !is_nounset_exempt(varname)) {
+#ifdef PROJECT_NAME
+            fprintf(stderr, "%s: %s: unbound variable\n", PROJECT_NAME,
+                    varname);
+#else
+            fprintf(stderr, "tidesh: %s: unbound variable\n", varname);
+#endif
+            free(varname);
+            return NULL;
+        }
+        bool  replace_all   = (op_ptr[1] == '/');
+        char *spec          = op_ptr + (replace_all ? 2 : 1);
+        bool  anchor_prefix = (*spec == '#');
+        bool  anchor_suffix = (*spec == '%');
+        if (anchor_prefix || anchor_suffix) {
+            spec++;
+        }
+        char *slash = strchr(spec, '/');
+        char *pat   = NULL;
+        char *repl  = NULL;
+        if (slash) {
+            pat  = strndup(spec, slash - spec);
+            repl = expand_sub_expression(slash + 1, session);
+        } else {
+            pat  = strdup(spec);
+            repl = strdup("");
+        }
+        char *exp_pat = expand_sub_expression(pat, session);
+        free(pat);
+        exp_pat = strip_pattern_quotes(exp_pat);
+        result  = substitute_pattern(value ? value : "", exp_pat, repl,
+                                     replace_all, anchor_prefix, anchor_suffix);
+        free(exp_pat);
+        free(repl);
+    } else if (*op_ptr == ':' && (op_ptr[1] != '-' && op_ptr[1] != '=' &&
+                                  op_ptr[1] != '?' && op_ptr[1] != '+')) {
+        // Substring expansion: ${VAR:offset} or ${VAR:offset:length}
+        if (!value && session->options.nounset && !is_nounset_exempt(varname)) {
+#ifdef PROJECT_NAME
+            fprintf(stderr, "%s: %s: unbound variable\n", PROJECT_NAME,
+                    varname);
+#else
+            fprintf(stderr, "tidesh: %s: unbound variable\n", varname);
+#endif
+            free(varname);
+            return NULL;
+        }
+        result = expand_substring(value ? value : "", op_ptr + 1, session);
+    } else {
+        // Default value / assignment / alternative / error modifiers:
+        // :-, -, :=, =, :+, +, :?, ?
+        char *modifier    = NULL;
+        char *default_val = NULL;
+
+        if (strncmp(op_ptr, ":=", 2) == 0) {
+            modifier    = ":=";
+            default_val = strip_pattern_quotes(
+                expand_sub_expression(op_ptr + 2, session));
+        } else if (strncmp(op_ptr, ":-", 2) == 0) {
+            modifier    = ":-";
+            default_val = strip_pattern_quotes(
+                expand_sub_expression(op_ptr + 2, session));
+        } else if (strncmp(op_ptr, ":+", 2) == 0) {
+            modifier    = ":+";
+            default_val = strip_pattern_quotes(
+                expand_sub_expression(op_ptr + 2, session));
+        } else if (strncmp(op_ptr, ":?", 2) == 0) {
+            modifier    = ":?";
+            default_val = strip_pattern_quotes(
+                expand_sub_expression(op_ptr + 2, session));
+        } else if (*op_ptr == '-') {
+            modifier    = "-";
+            default_val = strip_pattern_quotes(
+                expand_sub_expression(op_ptr + 1, session));
+        } else if (*op_ptr == '=') {
+            modifier    = "=";
+            default_val = strip_pattern_quotes(
+                expand_sub_expression(op_ptr + 1, session));
+        } else if (*op_ptr == '+') {
+            modifier    = "+";
+            default_val = strip_pattern_quotes(
+                expand_sub_expression(op_ptr + 1, session));
+        } else if (*op_ptr == '?') {
+            modifier    = "?";
+            default_val = strip_pattern_quotes(
+                expand_sub_expression(op_ptr + 1, session));
+        }
+
+        if (!modifier) {
+            // Unrecognized modifier
+            result = value ? strdup(value) : strdup("");
+        } else if (strcmp(modifier, ":-") == 0) {
+            result = (value && *value) ? strdup(value)
+                                       : strdup(default_val ? default_val : "");
+        } else if (strcmp(modifier, "-") == 0) {
+            result =
+                value ? strdup(value) : strdup(default_val ? default_val : "");
+        } else if (strcmp(modifier, ":=") == 0) {
+            if (!value || !*value) {
+                environ_set(session->environ, varname,
+                            default_val ? default_val : "");
+                result = strdup(default_val ? default_val : "");
+            } else {
+                result = strdup(value);
+            }
+        } else if (strcmp(modifier, "=") == 0) {
+            if (!value) {
+                environ_set(session->environ, varname,
+                            default_val ? default_val : "");
+                result = strdup(default_val ? default_val : "");
+            } else {
+                result = strdup(value);
+            }
+        } else if (strcmp(modifier, ":+") == 0) {
+            result = (value && *value) ? strdup(default_val ? default_val : "")
+                                       : strdup("");
+        } else if (strcmp(modifier, "+") == 0) {
+            result =
+                value ? strdup(default_val ? default_val : "") : strdup("");
+        } else if (strcmp(modifier, ":?") == 0) {
+            if (!value || !*value) {
+#ifdef PROJECT_NAME
+                fprintf(stderr, "%s: %s: %s\n", PROJECT_NAME, varname,
+                        default_val ? default_val
+                                    : "parameter null or not set");
+#else
+                fprintf(stderr, "tidesh: %s: %s\n", varname,
+                        default_val ? default_val
+                                    : "parameter null or not set");
+#endif
+                free(varname);
+                free(default_val);
+                return NULL;
+            }
             result = strdup(value);
+        } else if (strcmp(modifier, "?") == 0) {
+            if (!value) {
+#ifdef PROJECT_NAME
+                fprintf(stderr, "%s: %s: %s\n", PROJECT_NAME, varname,
+                        default_val ? default_val : "parameter not set");
+#else
+                fprintf(stderr, "tidesh: %s: %s\n", varname,
+                        default_val ? default_val : "parameter not set");
+#endif
+                free(varname);
+                free(default_val);
+                return NULL;
+            }
+            result = strdup(value);
+        }
+
+        if (default_val) {
+            free(default_val);
         }
     }
 
     free(varname);
-    free(default_val);
     return result;
 }
 
