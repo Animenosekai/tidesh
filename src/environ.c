@@ -170,6 +170,14 @@ void environ_set_exit_status(Environ *env, int status) {
     environ_set(env, "?", status_str);
 }
 
+int environ_get_exit_status(Environ *env) {
+    if (!env) {
+        return 0;
+    }
+    char *st = environ_get(env, "?");
+    return st ? atoi(st) : 0;
+}
+
 void environ_set_background_pid(Environ *env, pid_t pid) {
     char pid_str[20];
     snprintf(pid_str, sizeof(pid_str), "%d", pid);

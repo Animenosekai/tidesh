@@ -20,6 +20,7 @@ describe(builtin) {
         assert(is_builtin("set"));
         assert(is_builtin("shift"));
         assert(is_builtin(":"));
+        assert(is_builtin("return"));
         assert(is_builtin("echo") == false);
         assert(is_builtin("nonexistent") == false);
     }
@@ -38,6 +39,7 @@ describe(builtin) {
         assert(is_special_builtin("set"));
         assert(is_special_builtin("shift"));
         assert(is_special_builtin(":"));
+        assert(is_special_builtin("return"));
         assert(is_special_builtin("pwd") == false);
         assert(is_special_builtin("help") == false);
     }

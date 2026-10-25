@@ -789,6 +789,12 @@ int execute(ASTNode *node, Session *session) {
     fflush(stdout);
     fflush(stderr);
 
+    if (session->exit_requested)
+        return environ_get_exit_status(session->environ);
+
+    if (session->return_requested)
+        return session->return_status;
+
 #ifndef TIDESH_DISABLE_PIPES
     if (node->type == NODE_PIPE) {
         if (!session->features.pipes) {
@@ -850,7 +856,7 @@ int execute(ASTNode *node, Session *session) {
         }
         int st = execute(node->left, session);
         if (session->loop_break > 0 || session->loop_continue > 0 ||
-            session->exit_requested) {
+            session->exit_requested || session->return_requested) {
             return st;
         }
         if (session->options.errexit && st != 0 &&
@@ -869,7 +875,7 @@ int execute(ASTNode *node, Session *session) {
         int st = execute(node->left, session);
         session->ignore_errexit--;
         if (st == 0 && !session->loop_break && !session->loop_continue &&
-            !session->exit_requested)
+            !session->exit_requested && !session->return_requested)
             return execute(node->right, session);
         environ_set_exit_status(session->environ, st);
         if (session->options.errexit && st != 0 &&
@@ -887,7 +893,7 @@ int execute(ASTNode *node, Session *session) {
         int st = execute(node->left, session);
         session->ignore_errexit--;
         if (st != 0 && !session->loop_break && !session->loop_continue &&
-            !session->exit_requested)
+            !session->exit_requested && !session->return_requested)
             return execute(node->right, session);
         environ_set_exit_status(session->environ, st);
         if (session->options.errexit && st != 0 &&
@@ -954,6 +960,9 @@ int execute(ASTNode *node, Session *session) {
                 session->ignore_errexit++;
                 int condition_status = execute(branch->condition, session);
                 session->ignore_errexit--;
+                if (session->return_requested) {
+                    return session->return_status;
+                }
                 if (condition_status == 0) {
                     // Condition succeeded, execute body
                     if (branch->body) {
@@ -994,7 +1003,7 @@ int execute(ASTNode *node, Session *session) {
 
         CaseItem *item = node->case_items;
         while (item) {
-            if (session->exit_requested) {
+            if (session->exit_requested || session->return_requested) {
                 break;
             }
 
@@ -1022,8 +1031,8 @@ int execute(ASTNode *node, Session *session) {
                     last_exit_status = 0;
                 }
 
-                if (session->exit_requested || session->loop_break > 0 ||
-                    session->loop_continue > 0) {
+                if (session->exit_requested || session->return_requested ||
+                    session->loop_break > 0 || session->loop_continue > 0) {
                     break;
                 }
 
@@ -1147,7 +1156,7 @@ int execute(ASTNode *node, Session *session) {
                 break;
             }
 
-            if (session->exit_requested) {
+            if (session->exit_requested || session->return_requested) {
                 break;
             }
         }
@@ -1173,7 +1182,7 @@ int execute(ASTNode *node, Session *session) {
         int last_exit_status = 0;
 
         while (true) {
-            if (session->exit_requested) {
+            if (session->exit_requested || session->return_requested) {
                 break;
             }
 
@@ -1189,7 +1198,7 @@ int execute(ASTNode *node, Session *session) {
             }
 
             if (session->loop_break > 0 || session->loop_continue > 0 ||
-                session->exit_requested) {
+                session->exit_requested || session->return_requested) {
                 break;
             }
 
@@ -1212,7 +1221,7 @@ int execute(ASTNode *node, Session *session) {
                 break;
             }
 
-            if (session->exit_requested) {
+            if (session->exit_requested || session->return_requested) {
                 break;
             }
         }
@@ -1427,8 +1436,15 @@ int execute(ASTNode *node, Session *session) {
                 free(all_str);
                 free_dynamic(&all_params);
 
+                session->function_depth++;
                 // Execute the function body in the current process
                 int st = execute(func_body, session);
+                session->function_depth--;
+
+                if (session->return_requested) {
+                    session->return_requested = false;
+                    st                        = session->return_status;
+                }
 
                 // 3. Clear function positional parameters and restore original
                 // ones

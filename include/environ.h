@@ -106,6 +106,14 @@ bool environ_remove(Environ *env, char *key);
 void environ_set_exit_status(Environ *env, int status);
 
 /**
+ * Gets the exit status variable $? from the environment
+ *
+ * @param env Pointer to Environ
+ * @return Exit status value
+ */
+int environ_get_exit_status(Environ *env);
+
+/**
  * Sets the background PID variable $! in the environment
  *
  * @param env Pointer to Environ

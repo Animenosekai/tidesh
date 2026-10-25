@@ -54,8 +54,15 @@ int builtin_source(int argc, char **argv, Session *session) {
     session->history->disabled = true;
 #endif
 
+    session->function_depth++;
     // Execute the content
     int status = execute_string(content, session);
+    session->function_depth--;
+
+    if (session->return_requested) {
+        session->return_requested = false;
+        status                    = session->return_status;
+    }
 
     // Restore history setting
 #ifndef TIDESH_DISABLE_HISTORY

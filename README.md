@@ -191,6 +191,7 @@ info
 | `set` | Set or unset options and positional parameters, or show variables |
 | `shift` | Shift positional parameters |
 | `:` | Null command (does nothing and returns 0) |
+| `return` | Return from a function or sourced script |
 | `source` | Execute commands from a file |
 | `type` | Show the type of a command |
 | `test` | Evaluate conditional expressions |

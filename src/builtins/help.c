@@ -40,6 +40,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool b_set    = false;
     bool b_shift  = false;
     bool b_colon  = false;
+    bool b_return = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -112,13 +113,15 @@ int builtin_help(int argc, char **argv, Session *session) {
             b_shift = true;
         else if (strcmp(argv[i], ":") == 0)
             b_colon = true;
+        else if (strcmp(argv[i], "return") == 0)
+            b_return = true;
     }
 
     bool all = !(cd || clear || exit || export || unset || eval || alias ||
                  unalias || help || features || hooks || history || info ||
                  printenv || pwd || pushd || popd || terminal || which ||
                  source || type || test || jobs || fg || bg || lexer || ast ||
-                 b_break || b_cont || b_set || b_shift || b_colon);
+                 b_break || b_cont || b_set || b_shift || b_colon || b_return);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -298,6 +301,11 @@ int builtin_help(int argc, char **argv, Session *session) {
     if (all || b_cont)
         printf("  %s%-9s %s%-14s%s - Resume the next iteration of a loop\n",
                command_clr, "continue", argument_clr, "[n?]", reset);
+
+    if (all || b_return)
+        printf(
+            "  %s%-9s %s%-14s%s - Return from a function or sourced script\n",
+            command_clr, "return", argument_clr, "[n?]", reset);
 
     return 0;
 }
