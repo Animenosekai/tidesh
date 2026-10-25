@@ -1178,7 +1178,7 @@ int execute(ASTNode *node, Session *session) {
         return last_exit_status;
     }
 
-    if (node->type == NODE_WHILE) {
+    if (node->type == NODE_WHILE || node->type == NODE_UNTIL) {
         RedirectionState redir_state = {0};
         if (!apply_in_process_redirections(node, session, &redir_state)) {
             restore_in_process_redirections(&redir_state);
@@ -1201,7 +1201,10 @@ int execute(ASTNode *node, Session *session) {
                 session->ignore_errexit--;
             }
 
-            if (cond_status != 0) {
+            if (node->type == NODE_WHILE && cond_status != 0) {
+                break;
+            }
+            if (node->type == NODE_UNTIL && cond_status == 0) {
                 break;
             }
 

@@ -347,6 +347,8 @@ static TokenType check_loop_keyword(const char *word) {
         return TOKEN_FOR;
     } else if (strcmp(word, "while") == 0) {
         return TOKEN_WHILE;
+    } else if (strcmp(word, "until") == 0) {
+        return TOKEN_UNTIL;
     } else if (strcmp(word, "in") == 0) {
         return TOKEN_IN;
     } else if (strcmp(word, "do") == 0) {
@@ -1022,6 +1024,8 @@ const char *token_type_to_string(TokenType type) {
             return "TOKEN_FOR";
         case TOKEN_WHILE:
             return "TOKEN_WHILE";
+        case TOKEN_UNTIL:
+            return "TOKEN_UNTIL";
 #endif
 #if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS)
         case TOKEN_IN:

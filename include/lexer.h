@@ -122,6 +122,7 @@ typedef enum TokenType {
 #ifndef TIDESH_DISABLE_LOOPS
     TOKEN_FOR,   // for
     TOKEN_WHILE, // while
+    TOKEN_UNTIL, // until
 #endif
 #if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS)
     TOKEN_IN, // in

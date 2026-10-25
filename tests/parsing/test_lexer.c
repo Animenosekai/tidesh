@@ -519,6 +519,50 @@ describe(lexer) {
         free(input);
     }
 
+    it("should tokenize until loop keywords") {
+        LexerInput *input = init_lexer_input(
+            NULL, "until false; do echo loop; done", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_UNTIL);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "false");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_SEMICOLON);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_DO);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "loop");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_SEMICOLON);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_DONE);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
     it("should handle line continuation with trailing backslash") {
         LexerInput *input =
             init_lexer_input(NULL, "echo foo \\\nbar", NULL, NULL);

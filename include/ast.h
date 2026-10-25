@@ -41,7 +41,8 @@ typedef enum NodeType {
 #ifndef TIDESH_DISABLE_LOOPS
     ,
     NODE_FOR,
-    NODE_WHILE
+    NODE_WHILE,
+    NODE_UNTIL
 #endif
 } NodeType;
 

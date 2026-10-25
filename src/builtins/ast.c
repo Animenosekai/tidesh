@@ -256,7 +256,7 @@ static void ast_pretty_print_node(FILE *out, const ASTNode *node,
                               depth + 1, true);
         return;
     }
-    if (node->type == NODE_WHILE) {
+    if (node->type == NODE_WHILE || node->type == NODE_UNTIL) {
         is_last_stack[depth] = false;
         ast_pretty_print_node(out, node->left, "condition", box, is_last_stack,
                               depth + 1, false);
@@ -555,7 +555,7 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
         fputs("\"body\": ", out);
         ast_json_print(out, node->left, indent + 1);
     }
-    if (node->type == NODE_WHILE) {
+    if (node->type == NODE_WHILE || node->type == NODE_UNTIL) {
         fputs(",\n", out);
         print_indent(out, indent + 1);
         fputs("\"condition\": ", out);
@@ -582,6 +582,7 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
         node->type != NODE_FOR && node->type != NODE_WHILE &&
+        node->type != NODE_UNTIL &&
 #endif
         (node->left || node->right)) {
         if (node->left) {
