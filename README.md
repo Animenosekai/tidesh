@@ -762,10 +762,21 @@ then
     echo "/tmp is a directory"
 fi
 
+# Terminal tests (-t)
+if test -t 1
+then
+    echo "stdout is a terminal"
+fi
+
 # Using [ ] syntax (same as test)
 if [ -f "$FILE" ]
 then
     echo "File exists"
+fi
+
+if [ -t 0 ]
+then
+    echo "stdin is a terminal"
 fi
 ```
 

@@ -103,8 +103,12 @@ static int evaluate_test(int argc, char **argv, int start) {
     if (len == 0)
         return 1;
 
-    /* Single argument: -n string (string is non-empty) */
+    /* Single argument: -n string (string is non-empty) or -t (terminal on fd 1)
+     */
     if (len == 1) {
+        if (strcmp(argv[start], "-t") == 0) {
+            return isatty(1) ? 0 : 1;
+        }
         return argv[start][0] != '\0' ? 0 : 1;
     }
 
@@ -119,12 +123,28 @@ static int evaluate_test(int argc, char **argv, int start) {
         } else if (strcmp(op, "-z") == 0) {
             return arg[0] == '\0' ? 0 : 1;
         }
+        /* Terminal test */
+        else if (strcmp(op, "-t") == 0) {
+            if (!is_integer(arg)) {
+                fprintf(stderr, "%s: %s: integer expression expected\n",
+                        argv[0], arg);
+                return 2;
+            }
+            int fd = atoi(arg);
+            if (fd < 0) {
+                return 1;
+            }
+            return isatty(fd) ? 0 : 1;
+        }
         /* File tests */
         else if (op[0] == '-' && op[2] == '\0') {
             return test_file(op, arg) ? 0 : 1;
         }
         /* Negation */
         else if (strcmp(op, "!") == 0) {
+            if (strcmp(arg, "-t") == 0) {
+                return isatty(1) ? 1 : 0;
+            }
             return argv[start + 1][0] == '\0' ? 0 : 1;
         }
     }

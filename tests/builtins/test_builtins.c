@@ -24,6 +24,7 @@ describe(builtin) {
         assert(is_builtin("exec"));
         assert(is_builtin("trap"));
         assert(is_builtin("command"));
+        assert(is_builtin("["));
         assert(is_builtin("echo") == false);
         assert(is_builtin("nonexistent") == false);
     }

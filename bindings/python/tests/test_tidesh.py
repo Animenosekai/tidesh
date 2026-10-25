@@ -602,6 +602,19 @@ def test_command_builtin() -> None:
         session.cd(orig_cwd)
 
 
+def test_terminal_test_builtin() -> None:
+    session = tidesh.Session()
+
+    # unopened file descriptor 99 is not a terminal
+    assert session.execute("test -t 99") == 1
+    assert session.execute("[ -t 99 ]") == 1
+    assert session.execute("[ ! -t 99 ]") == 0
+
+    # invalid integer returns error status 2
+    assert session.execute("test -t abc") == 2
+    assert session.execute("[ -t notanumber ]") == 2
+
+
 if __name__ == "__main__":
     import inspect
     import sys

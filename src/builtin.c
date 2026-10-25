@@ -54,23 +54,23 @@
 #endif
 #include "session.h" /* Session */
 
-const char *builtins[] = {"exit",     "pwd",     "clear",   "help", "printenv",
-                          "which",    "export",  "unset",   "eval", "terminal",
-                          "info",     "source",  "type",    "test", "hooks",
-                          "features", "not",     "lexer",   "ast",  "break",
-                          "continue", "set",     "shift",   ":",    "return",
-                          "exec",     "trap",    "command",
+const char *builtins[] = {"exit",    "pwd",      "clear", "help",    "printenv",
+                          "which",   "export",   "unset", "eval",    "terminal",
+                          "info",    "source",   "type",  "test",    "[",
+                          "hooks",   "features", "not",   "lexer",   "ast",
+                          "break",   "continue", "set",   "shift",   ":",
+                          "return",  "exec",     "trap",  "command",
 #ifndef TIDESH_DISABLE_ALIASES
-                          "alias",    "unalias",
+                          "alias",   "unalias",
 #endif
 #ifndef TIDESH_DISABLE_HISTORY
                           "history",
 #endif
 #ifndef TIDESH_DISABLE_DIRSTACK
-                          "cd",       "pushd",   "popd",
+                          "cd",      "pushd",    "popd",
 #endif
 #ifndef TIDESH_DISABLE_JOB_CONTROL
-                          "jobs",     "fg",      "bg",
+                          "jobs",    "fg",       "bg",
 #endif
                           NULL};
 
