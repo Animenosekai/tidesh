@@ -174,6 +174,7 @@ info
 | `cd` | Change the current directory |
 | `clear` | Clear the terminal screen |
 | `eval` | Execute arguments as a command |
+| `exec` | Replace the shell process image or modify file descriptor redirections |
 | `exit` | Exit the shell |
 | `export` | Set environment variables |
 | `features` | Show or manage feature flags |

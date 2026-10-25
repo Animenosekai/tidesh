@@ -41,6 +41,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool b_shift  = false;
     bool b_colon  = false;
     bool b_return = false;
+    bool b_exec   = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -115,13 +116,16 @@ int builtin_help(int argc, char **argv, Session *session) {
             b_colon = true;
         else if (strcmp(argv[i], "return") == 0)
             b_return = true;
+        else if (strcmp(argv[i], "exec") == 0)
+            b_exec = true;
     }
 
-    bool all = !(cd || clear || exit || export || unset || eval || alias ||
-                 unalias || help || features || hooks || history || info ||
-                 printenv || pwd || pushd || popd || terminal || which ||
-                 source || type || test || jobs || fg || bg || lexer || ast ||
-                 b_break || b_cont || b_set || b_shift || b_colon || b_return);
+    bool all =
+        !(cd || clear || exit || export || unset || eval || alias || unalias ||
+          help || features || hooks || history || info || printenv || pwd ||
+          pushd || popd || terminal || which || source || type || test ||
+          jobs || fg || bg || lexer || ast || b_break || b_cont || b_set ||
+          b_shift || b_colon || b_return || b_exec);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -306,6 +310,12 @@ int builtin_help(int argc, char **argv, Session *session) {
         printf(
             "  %s%-9s %s%-14s%s - Return from a function or sourced script\n",
             command_clr, "return", argument_clr, "[n?]", reset);
+
+    if (all || b_exec)
+        printf("  %s%-9s %s%-14s%s - Replace shell with command or modify "
+               "redirections\n",
+               command_clr, "exec", argument_clr,
+               "[-cl] [-a name] [cmd [arg...]]", reset);
 
     return 0;
 }

@@ -13,6 +13,7 @@
 #include "builtins/cd.h"
 #include "builtins/continue.h"
 #include "builtins/fg.h"
+#include "builtins/exec.h"
 #include "builtins/hooks.h"
 #include "builtins/info.h"
 #include "builtins/jobs.h"

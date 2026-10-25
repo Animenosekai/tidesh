@@ -418,8 +418,7 @@ bool has_shebang(const char *path) {
  * @param interp_argv Pointer to store the interpreter argument array
  * @return true if shebang found and parsed, false otherwise
  */
-static bool parse_shebang(const char *path, int *interp_argc,
-                          char ***interp_argv) {
+bool parse_shebang(const char *path, int *interp_argc, char ***interp_argv) {
     if (!path || !interp_argc || !interp_argv) {
         return false;
     }
@@ -1347,6 +1346,22 @@ int execute(ASTNode *node, Session *session) {
 
         // Special builtins should be executed in the main process
         if (is_special_builtin(cmd_name)) {
+#ifndef TIDESH_DISABLE_ASSIGNMENTS
+            if (node->assignments) {
+                for (size_t i = 0; i < node->assignments->count; i++) {
+                    char *copy = strdup(node->assignments->items[i]);
+                    char *eq   = strchr(copy, '=');
+                    if (eq) {
+                        *eq = 0;
+                        char *expanded_val =
+                            expand_assignment_value(eq + 1, session);
+                        environ_set(session->environ, copy, expanded_val);
+                        free(expanded_val);
+                    }
+                    free(copy);
+                }
+            }
+#endif
             RedirectionState redir_state = {0};
             if (!apply_in_process_redirections(node, session, &redir_state)) {
                 restore_in_process_redirections(&redir_state);
@@ -1366,7 +1381,20 @@ int execute(ASTNode *node, Session *session) {
             if (builtin_func) {
                 st = builtin_func(argc, argv, session);
             }
-            restore_in_process_redirections(&redir_state);
+            if (session->permanent_redirections) {
+                session->permanent_redirections = false;
+                for (size_t i = 0; i < redir_state.count; i++) {
+                    if (redir_state.saved[i].dup_fd >= 0) {
+                        close(redir_state.saved[i].dup_fd);
+                    }
+                }
+                free(redir_state.saved);
+                redir_state.saved    = NULL;
+                redir_state.count    = 0;
+                redir_state.capacity = 0;
+            } else {
+                restore_in_process_redirections(&redir_state);
+            }
 
             for (int i = 0; i < argc; i++)
                 free(argv[i]);

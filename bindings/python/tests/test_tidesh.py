@@ -510,6 +510,36 @@ def test_case() -> None:
     assert out.strip() == "matched"
 
 
+def test_exec_builtin() -> None:
+    session = tidesh.Session()
+    # exec without arguments should succeed and set permanent_redirections
+    assert session.execute("exec") == 0
+
+    # exec redirection inside subshell
+    tmp_path = Path("/tmp/test_py_exec_subshell.txt")
+    if tmp_path.exists():
+        tmp_path.unlink()
+    try:
+        assert (
+            session.execute(
+                f"( exec > {tmp_path}; echo 'py exec subshell test' )"
+            )
+            == 0
+        )
+        assert tmp_path.read_text().strip() == "py exec subshell test"
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+    # exec command failure in subshell
+    assert (
+        session.execute(
+            "( exec /nonexistent/cmd/test/py )",
+        )
+        == 127
+    )
+
+
 if __name__ == "__main__":
     import inspect
     import sys

@@ -52,6 +52,16 @@ CommandInfo get_command_info(const char *cmd, Session *session);
 bool has_shebang(const char *path);
 
 /**
+ * Parse a shebang line from a script file.
+ *
+ * @param path Path to script file
+ * @param interp_argc Pointer to store interpreter argument count
+ * @param interp_argv Pointer to store interpreter argument array
+ * @return true if shebang was found and parsed, false otherwise
+ */
+bool parse_shebang(const char *path, int *interp_argc, char ***interp_argv);
+
+/**
  * Find the full path of a command by searching the PATH environment variable.
  *
  * @param cmd The command name to find

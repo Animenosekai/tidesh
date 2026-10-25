@@ -159,6 +159,7 @@ sources = [
     "builtins/shift.c",
     "builtins/colon.c",
     "builtins/return.c",
+    "builtins/exec.c",
 ]
 
 # Convert to relative paths for setup

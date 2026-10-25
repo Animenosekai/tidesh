@@ -14,6 +14,7 @@
 #include "builtins/clear.h"
 #include "builtins/colon.h"
 #include "builtins/eval.h"
+#include "builtins/exec.h"
 #include "builtins/exit.h"
 #include "builtins/export.h"
 #include "builtins/fg.h"

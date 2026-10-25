@@ -73,12 +73,13 @@ typedef struct Session {
     int      loop_depth;               // Current nesting depth of loops
     int      loop_break;               // Pending break levels to propagate
     int      loop_continue;            // Pending continue levels to propagate
-    int      function_depth;   // Current nesting depth of functions / sourced
-                               // scripts
-    bool     return_requested; // Whether return has been requested
-    int      return_status;    // Return status code
-    ShellOptions options;      // Shell options (set builtin)
-    int ignore_errexit;        // Ignore errexit in conditions and and/or lists
+    int      function_depth;     // Current nesting depth of functions / sourced
+                                 // scripts
+    bool     return_requested;   // Whether return has been requested
+    int      return_status;      // Return status code
+    bool permanent_redirections; // Leave redirections active in current shell
+    ShellOptions options;        // Shell options (set builtin)
+    int ignore_errexit; // Ignore errexit in conditions and and/or lists
 } Session;
 
 /**
