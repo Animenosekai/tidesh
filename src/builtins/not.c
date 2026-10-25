@@ -35,7 +35,9 @@ int builtin_not(int argc, char **argv, Session *session) {
     }
 
     // Execute the command and return the opposite of its result
+    session->ignore_errexit++;
     int result = execute_string(cmd_str, session);
+    session->ignore_errexit--;
     free(cmd_str);
     if (result == 0) {
         return 1; // Command succeeded, so 'not' should return failure

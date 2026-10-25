@@ -1,8 +1,8 @@
+#include "session.h"
+#include "snow/snow.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "session.h"
-#include "snow/snow.h"
 
 describe(session) {
     it("should initialize a session") {
@@ -18,7 +18,7 @@ describe(session) {
 
     it("should initialize session with custom history path") {
         const char *history_path = "/tmp/custom_history";
-        Session *session = init_session(NULL, (char *)history_path);
+        Session    *session      = init_session(NULL, (char *)history_path);
         assertneq_ptr(session, NULL);
         free_session(session);
         free(session);
@@ -61,11 +61,11 @@ describe(session) {
 
     it("should update working directory") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        char *cwd = getcwd(NULL, 0);
-        
+        char    *cwd     = getcwd(NULL, 0);
+
         update_working_dir(session);
         assertneq_ptr(session->current_working_dir, NULL);
-        
+
         free(cwd);
         free_session(session);
         free(session);
@@ -89,11 +89,11 @@ describe(session) {
     it("should handle multiple sessions") {
         Session *session1 = init_session(NULL, "/tmp/test_history1");
         Session *session2 = init_session(NULL, "/tmp/test_history2");
-        
+
         assertneq_ptr(session1, NULL);
         assertneq_ptr(session2, NULL);
         assertneq_ptr(session1, session2);
-        
+
         free_session(session1);
         free(session1);
         free_session(session2);
@@ -103,13 +103,13 @@ describe(session) {
     it("should maintain separate environments for different sessions") {
         Session *session1 = init_session(NULL, "/tmp/test_history1");
         Session *session2 = init_session(NULL, "/tmp/test_history2");
-        
+
         environ_set(session1->environ, "TEST_VAR", "session1");
         environ_set(session2->environ, "TEST_VAR", "session2");
-        
+
         asserteq_str(environ_get(session1->environ, "TEST_VAR"), "session1");
         asserteq_str(environ_get(session2->environ, "TEST_VAR"), "session2");
-        
+
         free_session(session1);
         free(session1);
         free_session(session2);
@@ -118,11 +118,11 @@ describe(session) {
 
     it("should preserve current working directory after operations") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        char *cwd1 = session->current_working_dir;
-        
+        char    *cwd1    = session->current_working_dir;
+
         update_working_dir(session);
         char *cwd2 = session->current_working_dir;
-        
+
         asserteq_str(cwd1, cwd2);
         free_session(session);
         free(session);

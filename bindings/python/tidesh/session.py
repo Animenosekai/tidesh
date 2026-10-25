@@ -264,6 +264,23 @@ class Session:
         c_args, c_argv = _build_argv("cd", *args)
         return int(lib.builtin_cd(len(c_args), c_argv, self._session))
 
+    def set(self, *args: str) -> int:
+        """
+        Set or unset shell options and positional parameters, or show variables.
+
+        Parameters
+        ----------
+        *args : str
+            Arguments for the set command.
+
+        Returns
+        -------
+        int
+            The exit status.
+        """
+        c_args, c_argv = _build_argv("set", *args)
+        return int(lib.builtin_set(len(c_args), c_argv, self._session))
+
     def bg(self, *args: str) -> int:
         """
         Continue a stopped job in the background using the bg builtin.

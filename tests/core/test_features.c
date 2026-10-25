@@ -131,12 +131,12 @@ describe(features) {
 
     it("should skip tilde expansion when disabled") {
         Session *session = init_session(NULL, NULL);
-        char *home = environ_get(session->environ, "HOME");
+        char    *home    = environ_get(session->environ, "HOME");
 
         if (home) {
             // With tilde expansion enabled
             session->features.tilde_expansion = true;
-            Array *result = full_expansion("~", session);
+            Array *result                     = full_expansion("~", session);
             assertneq_ptr(result, NULL);
             asserteq(result->count, 1);
             asserteq_str(result->items[0], home);
@@ -145,7 +145,7 @@ describe(features) {
 
             // With tilde expansion disabled
             session->features.tilde_expansion = false;
-            result = full_expansion("~", session);
+            result                            = full_expansion("~", session);
             assertneq_ptr(result, NULL);
             asserteq(result->count, 1);
             asserteq_str(result->items[0], "~");
@@ -184,7 +184,7 @@ describe(features) {
     }
 
     it("should handle range brace expansion with whitespace") {
-        Session *session = init_session(NULL, NULL);
+        Session *session                  = init_session(NULL, NULL);
         session->features.brace_expansion = true;
 
         Array *result = full_expansion("test{ 1 .. 3 }", session);
@@ -206,14 +206,14 @@ describe(features) {
 
         // With alias expansion enabled
         session->features.alias_expansion = true;
-        CommandInfo info = get_command_info("ll", session);
+        CommandInfo info                  = get_command_info("ll", session);
         asserteq(info.type, COMMAND_ALIAS);
         asserteq_str(info.path, "ls -l");
         free(info.path);
 
         // With alias expansion disabled
         session->features.alias_expansion = false;
-        info = get_command_info("ll", session);
+        info                              = get_command_info("ll", session);
         assertneq(info.type, COMMAND_ALIAS);
 
         free_session(session);
@@ -257,14 +257,14 @@ describe(features) {
 
         // Disable
         session->features.variable_expansion = false;
-        Array *result = full_expansion("$TEST", session);
+        Array *result                        = full_expansion("$TEST", session);
         asserteq_str(result->items[0], "$TEST");
         free_array(result);
         free(result);
 
         // Re-enable
         session->features.variable_expansion = true;
-        result = full_expansion("$TEST", session);
+        result                               = full_expansion("$TEST", session);
         asserteq_str(result->items[0], "works");
         free_array(result);
         free(result);

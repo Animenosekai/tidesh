@@ -1,5 +1,3 @@
-#include <stdlib.h>
-#include <unistd.h>
 #include "builtin.h"
 #include "builtins/cd.h"
 #include "builtins/features.h"
@@ -7,6 +5,8 @@
 #include "data/trie.h"
 #include "session.h"
 #include "snow/snow.h"
+#include <stdlib.h>
+#include <unistd.h>
 
 describe(builtin) {
     it("should find builtin commands") {
@@ -17,6 +17,7 @@ describe(builtin) {
         assert(is_builtin("ast"));
         assert(is_builtin("break"));
         assert(is_builtin("continue"));
+        assert(is_builtin("set"));
         assert(is_builtin("echo") == false);
         assert(is_builtin("nonexistent") == false);
     }
@@ -32,6 +33,7 @@ describe(builtin) {
         assert(is_special_builtin("ast"));
         assert(is_special_builtin("break"));
         assert(is_special_builtin("continue"));
+        assert(is_special_builtin("set"));
         assert(is_special_builtin("pwd") == false);
         assert(is_special_builtin("help") == false);
     }
@@ -39,11 +41,12 @@ describe(builtin) {
     it("should get builtin function pointers") {
         int (*cd_func)(int, char **, Session *) = get_builtin("cd");
         assertneq(cd_func, NULL);
-        
+
         int (*pwd_func)(int, char **, Session *) = get_builtin("pwd");
         assertneq(pwd_func, NULL);
-        
-        int (*nonexistent)(int, char **, Session *) = get_builtin("nonexistent");
+
+        int (*nonexistent)(int, char **, Session *) =
+            get_builtin("nonexistent");
         asserteq(nonexistent, NULL);
     }
 
@@ -53,7 +56,7 @@ describe(builtin) {
         assertneq(trie_get(session->aliases, "test_alias"), NULL);
 
         char *argv[] = {"unalias", "test_alias"};
-        int res = builtin_unalias(2, argv, session);
+        int   res    = builtin_unalias(2, argv, session);
         asserteq(res, 0);
         asserteq(trie_get(session->aliases, "test_alias"), NULL);
 
@@ -66,25 +69,26 @@ describe(builtin) {
     }
 
     it("should allow cd even when directory_stack is disabled") {
-        Session *session = init_session(NULL, NULL);
+        Session *session                  = init_session(NULL, NULL);
         session->features.directory_stack = false;
 
         char original_cwd[1024];
         assertneq(getcwd(original_cwd, sizeof(original_cwd)), NULL);
 
         char *argv[] = {"cd", "/tmp"};
-        int res = builtin_cd(2, argv, session);
+        int   res    = builtin_cd(2, argv, session);
         asserteq(res, 0);
 
         char *restore_argv[] = {"cd", original_cwd};
-        res = builtin_cd(2, restore_argv, session);
+        res                  = builtin_cd(2, restore_argv, session);
         asserteq(res, 0);
 
         free_session(session);
         free(session);
     }
 
-    it("should manage feature definitions and toggles for blocks and functions") {
+    it("should manage feature definitions and toggles for blocks and "
+       "functions") {
         Session *session = init_session(NULL, NULL);
 
         // Initially enabled
@@ -154,4 +158,3 @@ describe(builtin) {
         free(session);
     }
 }
-

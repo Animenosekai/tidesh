@@ -199,6 +199,22 @@ static char *expand_brace_var(char *expr, Session *session, bool *is_split) {
     }
 
     if (!modifier) {
+        if (!value && session->options.nounset && strcmp(varname, "@") != 0 &&
+            strcmp(varname, "*") != 0 && strcmp(varname, "#") != 0 &&
+            strcmp(varname, "?") != 0 && strcmp(varname, "!") != 0 &&
+            strcmp(varname, "$") != 0 && strcmp(varname, "0") != 0 &&
+            strcmp(varname, "_") != 0) {
+#ifdef PROJECT_NAME
+            fprintf(stderr, "%s: %s: unbound variable\n", PROJECT_NAME,
+                    varname);
+#else
+            fprintf(stderr, "tidesh: %s: unbound variable\n", varname);
+#endif
+            free(varname);
+            if (default_val)
+                free(default_val);
+            return NULL;
+        }
         result = value ? strdup(value) : strdup("");
     } else if (strcmp(modifier, ":-") == 0) {
         // ${VAR:-default} - use default if unset or empty
@@ -318,7 +334,22 @@ Array *variable_expansion(char *input, Session *session) {
                 i++; // Skip =
                 char *varname = parse_varname(input, &i);
                 char *value   = environ_get(session->environ, varname);
-                expanded      = value ? strdup(value) : strdup("");
+                if (!value && session->options.nounset &&
+                    strcmp(varname, "@") != 0 && strcmp(varname, "*") != 0 &&
+                    strcmp(varname, "#") != 0 && strcmp(varname, "?") != 0 &&
+                    strcmp(varname, "!") != 0 && strcmp(varname, "$") != 0 &&
+                    strcmp(varname, "0") != 0 && strcmp(varname, "_") != 0) {
+#ifdef PROJECT_NAME
+                    fprintf(stderr, "%s: %s: unbound variable\n", PROJECT_NAME,
+                            varname);
+#else
+                    fprintf(stderr, "tidesh: %s: unbound variable\n", varname);
+#endif
+                    free(varname);
+                    free_dynamic(&buffer);
+                    return NULL;
+                }
+                expanded = value ? strdup(value) : strdup("");
                 free(varname);
                 is_split = true;
             } else {
@@ -327,6 +358,23 @@ Array *variable_expansion(char *input, Session *session) {
                 char *value   = environ_get(session->environ, varname);
                 if (!value && strcmp(varname, "#") == 0) {
                     expanded = strdup("0");
+                } else if (!value && session->options.nounset &&
+                           strcmp(varname, "@") != 0 &&
+                           strcmp(varname, "*") != 0 &&
+                           strcmp(varname, "?") != 0 &&
+                           strcmp(varname, "!") != 0 &&
+                           strcmp(varname, "$") != 0 &&
+                           strcmp(varname, "0") != 0 &&
+                           strcmp(varname, "_") != 0) {
+#ifdef PROJECT_NAME
+                    fprintf(stderr, "%s: %s: unbound variable\n", PROJECT_NAME,
+                            varname);
+#else
+                    fprintf(stderr, "tidesh: %s: unbound variable\n", varname);
+#endif
+                    free(varname);
+                    free_dynamic(&buffer);
+                    return NULL;
                 } else {
                     expanded = value ? strdup(value) : strdup("");
                 }

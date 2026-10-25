@@ -649,9 +649,16 @@ static int handle_redirections(ASTNode *node, Session *session) {
                 redirect->type == TOKEN_REDIRECT_APPEND_ERR)
                 flags |= O_APPEND;
             else if (redirect->type == TOKEN_REDIRECT_OUT ||
-                     redirect->type == TOKEN_REDIRECT_OUT_ERR)
+                     redirect->type == TOKEN_REDIRECT_OUT_ERR) {
+                if (session->options.noclobber &&
+                    access(redirect->target, F_OK) == 0) {
+                    fprintf(stderr,
+                            "tidesh: %s: cannot overwrite existing file\n",
+                            redirect->target);
+                    return -1;
+                }
                 flags |= O_TRUNC;
-            else if (redirect->type == TOKEN_REDIRECT_IN)
+            } else if (redirect->type == TOKEN_REDIRECT_IN)
                 flags = O_RDONLY;
 
             fd_file = open(redirect->target, flags, RW_R__R__);
@@ -811,13 +818,27 @@ int execute(ASTNode *node, Session *session) {
         }
         close(fds[0]);
         close(fds[1]);
-        int st = 0;
-        while (waitpid(left, NULL, 0) == -1 && errno == EINTR)
+        int left_st  = 0;
+        int right_st = 0;
+        while (waitpid(left, &left_st, 0) == -1 && errno == EINTR)
             ;
-        while (waitpid(right, &st, 0) == -1 && errno == EINTR)
+        while (waitpid(right, &right_st, 0) == -1 && errno == EINTR)
             ;
-        int exit_status = WEXITSTATUS(st);
+        int exit_status = WEXITSTATUS(right_st);
+        if (session->options.pipefail) {
+            int right_code = WEXITSTATUS(right_st);
+            int left_code  = WEXITSTATUS(left_st);
+            if (right_code != 0) {
+                exit_status = right_code;
+            } else if (left_code != 0) {
+                exit_status = left_code;
+            }
+        }
         environ_set_exit_status(session->environ, exit_status);
+        if (session->options.errexit && exit_status != 0 &&
+            session->ignore_errexit == 0) {
+            session->exit_requested = true;
+        }
         return exit_status;
     }
 #endif
@@ -832,6 +853,11 @@ int execute(ASTNode *node, Session *session) {
             session->exit_requested) {
             return st;
         }
+        if (session->options.errexit && st != 0 &&
+            session->ignore_errexit == 0) {
+            session->exit_requested = true;
+            return st;
+        }
         return execute(node->right, session);
     }
     if (node->type == NODE_AND) {
@@ -839,11 +865,17 @@ int execute(ASTNode *node, Session *session) {
             fprintf(stderr, "tidesh: sequences are disabled\n");
             return 127;
         }
+        session->ignore_errexit++;
         int st = execute(node->left, session);
+        session->ignore_errexit--;
         if (st == 0 && !session->loop_break && !session->loop_continue &&
             !session->exit_requested)
             return execute(node->right, session);
         environ_set_exit_status(session->environ, st);
+        if (session->options.errexit && st != 0 &&
+            session->ignore_errexit == 0) {
+            session->exit_requested = true;
+        }
         return st;
     }
     if (node->type == NODE_OR) {
@@ -851,11 +883,17 @@ int execute(ASTNode *node, Session *session) {
             fprintf(stderr, "tidesh: sequences are disabled\n");
             return 127;
         }
+        session->ignore_errexit++;
         int st = execute(node->left, session);
+        session->ignore_errexit--;
         if (st != 0 && !session->loop_break && !session->loop_continue &&
             !session->exit_requested)
             return execute(node->right, session);
         environ_set_exit_status(session->environ, st);
+        if (session->options.errexit && st != 0 &&
+            session->ignore_errexit == 0) {
+            session->exit_requested = true;
+        }
         return st;
     }
 #endif
@@ -906,10 +944,16 @@ int execute(ASTNode *node, Session *session) {
                     exit_status = 0;
                 }
                 environ_set_exit_status(session->environ, exit_status);
+                if (session->options.errexit && exit_status != 0 &&
+                    session->ignore_errexit == 0) {
+                    session->exit_requested = true;
+                }
                 return exit_status;
             } else {
                 // This is an 'if' or 'elif' branch
+                session->ignore_errexit++;
                 int condition_status = execute(branch->condition, session);
+                session->ignore_errexit--;
                 if (condition_status == 0) {
                     // Condition succeeded, execute body
                     if (branch->body) {
@@ -918,6 +962,10 @@ int execute(ASTNode *node, Session *session) {
                         exit_status = 0;
                     }
                     environ_set_exit_status(session->environ, exit_status);
+                    if (session->options.errexit && exit_status != 0 &&
+                        session->ignore_errexit == 0) {
+                        session->exit_requested = true;
+                    }
                     return exit_status;
                 }
             }
@@ -1131,7 +1179,9 @@ int execute(ASTNode *node, Session *session) {
 
             int cond_status = 0;
             if (node->left) {
+                session->ignore_errexit++;
                 cond_status = execute(node->left, session);
+                session->ignore_errexit--;
             }
 
             if (cond_status != 0) {
@@ -1190,18 +1240,30 @@ int execute(ASTNode *node, Session *session) {
                 argv[argc]           = NULL;
             } else {
                 Array *expansion = full_expansion(node->argv[i], session);
-                if (expansion) {
-                    for (size_t j = 0; j < expansion->count; j++) {
-                        argc++;
-                        argv       = realloc(argv, (argc + 1) * sizeof(char *));
-                        arg_is_sub = realloc(arg_is_sub, argc * sizeof(int));
-                        argv[argc - 1]       = strdup(expansion->items[j]);
-                        arg_is_sub[argc - 1] = 0;
-                        argv[argc]           = NULL;
+                if (!expansion) {
+                    for (int k = 0; k < argc; k++)
+                        free(argv[k]);
+                    if (argv)
+                        free(argv);
+                    if (arg_is_sub)
+                        free(arg_is_sub);
+                    environ_set_exit_status(session->environ, 1);
+                    if (session->options.errexit &&
+                        session->ignore_errexit == 0) {
+                        session->exit_requested = true;
                     }
-                    free_array(expansion);
-                    free(expansion);
+                    return 1;
                 }
+                for (size_t j = 0; j < expansion->count; j++) {
+                    argc++;
+                    argv           = realloc(argv, (argc + 1) * sizeof(char *));
+                    arg_is_sub     = realloc(arg_is_sub, argc * sizeof(int));
+                    argv[argc - 1] = strdup(expansion->items[j]);
+                    arg_is_sub[argc - 1] = 0;
+                    argv[argc]           = NULL;
+                }
+                free_array(expansion);
+                free(expansion);
             }
         }
 
@@ -1252,6 +1314,28 @@ int execute(ASTNode *node, Session *session) {
             cmd_name_trimmed ? cmd_name_trimmed : cmd_name_raw;
         environ_set_last_arg(session->environ, argv[argc - 1]);
 
+        if (session->options.xtrace) {
+            char *ps4 = environ_get(session->environ, "PS4");
+            fprintf(stderr, "%s", (ps4 && *ps4) ? ps4 : "+ ");
+            for (int i = 0; i < argc; i++) {
+                if (i > 0)
+                    fputc(' ', stderr);
+                fprintf(stderr, "%s", argv[i]);
+            }
+            fputc('\n', stderr);
+        }
+
+        if (session->options.noexec && strcmp(cmd_name, "set") != 0) {
+            for (int i = 0; i < argc; i++)
+                free(argv[i]);
+            free(argv);
+            free(arg_is_sub);
+            if (cmd_name_trimmed)
+                free(cmd_name_trimmed);
+            environ_set_exit_status(session->environ, 0);
+            return 0;
+        }
+
         // Special builtins should be executed in the main process
         if (is_special_builtin(cmd_name)) {
             RedirectionState redir_state = {0};
@@ -1282,6 +1366,10 @@ int execute(ASTNode *node, Session *session) {
             if (cmd_name_trimmed)
                 free(cmd_name_trimmed);
             environ_set_exit_status(session->environ, st);
+            if (session->options.errexit && st != 0 &&
+                session->ignore_errexit == 0) {
+                session->exit_requested = true;
+            }
             return st;
         }
 
@@ -1357,6 +1445,10 @@ int execute(ASTNode *node, Session *session) {
                 if (cmd_name_trimmed)
                     free(cmd_name_trimmed);
                 environ_set_exit_status(session->environ, st);
+                if (session->options.errexit && st != 0 &&
+                    session->ignore_errexit == 0) {
+                    session->exit_requested = true;
+                }
                 return st;
             }
         }
@@ -1675,6 +1767,10 @@ int execute(ASTNode *node, Session *session) {
                 free(cmd_str);
             }
             environ_set_exit_status(session->environ, exit_status);
+            if (session->options.errexit && exit_status != 0 &&
+                session->ignore_errexit == 0) {
+                session->exit_requested = true;
+            }
             if (is_external) {
                 HookEnvVar exec_vars[] = {
                     {"TIDE_EXEC", resolved_path ? resolved_path : ""},
@@ -1705,6 +1801,10 @@ int execute_string(const char *cmd, Session *session) {
         result = execute(tree, session);
         free_ast(tree);
         free(tree);
+        if (session->options.errexit && result != 0 &&
+            session->ignore_errexit == 0) {
+            session->exit_requested = true;
+        }
 #ifndef TIDESH_DISABLE_HISTORY
         if (session->features.history) {
             history_append(session->history, cmd);

@@ -98,6 +98,10 @@ Session *init_session(Session *session, char *history_path) {
     // Initialize feature flags (all enabled by default)
     init_features(&session->features);
 
+    session->options.monitor = session->features.job_control;
+    session->options.noglob  = !session->features.filename_expansion;
+    session->ignore_errexit  = 0;
+
     // Initialize working directories
     update_working_dir(session);
     // update_path(session); // Pretty slow

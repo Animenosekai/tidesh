@@ -53,7 +53,8 @@ describe(arithmetic) {
         assert(evaluate_arithmetic_expression("2 * (3 + 4)", session, &val));
         asserteq(val, 14);
 
-        assert(evaluate_arithmetic_expression("((2 + 3)) * ((4 + 1))", session, &val));
+        assert(evaluate_arithmetic_expression("((2 + 3)) * ((4 + 1))", session,
+                                              &val));
         asserteq(val, 25);
 
         free_session(session);
@@ -250,14 +251,17 @@ describe(arithmetic) {
         asserteq(val, 20);
 
         // Short-circuit: division by zero in unselected branch
-        assert(evaluate_arithmetic_expression("1 ? 42 : (1 / 0)", session, &val));
+        assert(
+            evaluate_arithmetic_expression("1 ? 42 : (1 / 0)", session, &val));
         asserteq(val, 42);
 
-        assert(evaluate_arithmetic_expression("0 ? (1 / 0) : 42", session, &val));
+        assert(
+            evaluate_arithmetic_expression("0 ? (1 / 0) : 42", session, &val));
         asserteq(val, 42);
 
         // Nested ternary
-        assert(evaluate_arithmetic_expression("1 ? 2 ? 3 : 4 : 5", session, &val));
+        assert(
+            evaluate_arithmetic_expression("1 ? 2 ? 3 : 4 : 5", session, &val));
         asserteq(val, 3);
 
         free_session(session);
@@ -336,7 +340,8 @@ describe(arithmetic) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         int64_t val = 0;
-        assert(evaluate_arithmetic_expression("x = 1, y = 2, x + y", session, &val));
+        assert(evaluate_arithmetic_expression("x = 1, y = 2, x + y", session,
+                                              &val));
         asserteq(val, 3);
         asserteq_str(environ_get(session->environ, "x"), "1");
         asserteq_str(environ_get(session->environ, "y"), "2");
@@ -424,7 +429,8 @@ describe(arithmetic) {
         asserteq_str(output, "25");
         free(output);
 
-        output = execute_string_stdout("echo \"The total is $(( 4 * 7 ))!\"", session);
+        output = execute_string_stdout("echo \"The total is $(( 4 * 7 ))!\"",
+                                       session);
         assertneq(output, NULL);
         asserteq_str(output, "The total is 28!");
         free(output);
@@ -437,7 +443,8 @@ describe(arithmetic) {
 
         // Variable expansion inside arithmetic
         environ_set(session->environ, "A", "5");
-        output = execute_string_stdout("echo $(( A + 15 )) $(( $A + 20 ))", session);
+        output =
+            execute_string_stdout("echo $(( A + 15 )) $(( $A + 20 ))", session);
         assertneq(output, NULL);
         asserteq_str(output, "20 25");
         free(output);
@@ -453,7 +460,8 @@ describe(arithmetic) {
     it("should integrate with command substitution inside arithmetic") {
         Session *session = init_session(NULL, "/tmp/test_history");
 
-        char *output = execute_string_stdout("echo $(( 5 + $(echo 10) ))", session);
+        char *output =
+            execute_string_stdout("echo $(( 5 + $(echo 10) ))", session);
         assertneq(output, NULL);
         asserteq_str(output, "15");
         free(output);
@@ -478,9 +486,9 @@ describe(arithmetic) {
         free(output);
 
         // While loop
-        output = execute_string_stdout(
-            "i=0; while [ $(( i < 3 )) -eq 1 ]; do i=$(( i + 1 )); done; echo $i",
-            session);
+        output = execute_string_stdout("i=0; while [ $(( i < 3 )) -eq 1 ]; do "
+                                       "i=$(( i + 1 )); done; echo $i",
+                                       session);
         assertneq(output, NULL);
         asserteq_str(output, "3");
         free(output);
@@ -494,7 +502,8 @@ describe(arithmetic) {
 
         // Case statement
         output = execute_string_stdout(
-            "case $(( 10 % 3 )) in 1) echo one ;; 2) echo two ;; esac", session);
+            "case $(( 10 % 3 )) in 1) echo one ;; 2) echo two ;; esac",
+            session);
         assertneq(output, NULL);
         asserteq_str(output, "one");
         free(output);

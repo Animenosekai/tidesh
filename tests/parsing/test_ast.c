@@ -1,22 +1,22 @@
-#include <stdlib.h>
-#include <string.h>
 #include "ast.h"
 #include "snow/snow.h"
+#include <stdlib.h>
+#include <string.h>
 
 describe(ast) {
     it("should parse simple command") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
+
         LexerInput *lexer = init_lexer_input(NULL, "echo hello", NULL, session);
-        ASTNode *ast = parse(lexer, session);
-        
+        ASTNode    *ast   = parse(lexer, session);
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_COMMAND);
         assert(ast->argc >= 2);
         assertneq(ast->argv, NULL);
         asserteq_str(ast->argv[0], "echo");
         asserteq_str(ast->argv[1], "hello");
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -27,16 +27,17 @@ describe(ast) {
 
     it("should parse command with arguments") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "ls -la /tmp", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "ls -la /tmp", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_COMMAND);
         assert(ast->argc >= 3);
         assertneq(ast->argv, NULL);
         asserteq_str(ast->argv[0], "ls");
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -47,10 +48,11 @@ describe(ast) {
 
     it("should parse pipeline") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "cat file | grep pattern", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "cat file | grep pattern", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_PIPE);
         assert(!ast->background);
@@ -62,7 +64,7 @@ describe(ast) {
         assertneq(ast->right->argv, NULL);
         asserteq_str(ast->left->argv[0], "cat");
         asserteq_str(ast->right->argv[0], "grep");
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -73,10 +75,10 @@ describe(ast) {
 
     it("should parse sequence with semicolon") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
+
         LexerInput *lexer = init_lexer_input(NULL, "pwd; ls", NULL, session);
-        ASTNode *ast = parse(lexer, session);
-        
+        ASTNode    *ast   = parse(lexer, session);
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_SEQUENCE);
         assert(!ast->background);
@@ -86,7 +88,7 @@ describe(ast) {
         asserteq(ast->right->type, NODE_COMMAND);
         asserteq_str(ast->left->argv[0], "pwd");
         asserteq_str(ast->right->argv[0], "ls");
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -122,10 +124,11 @@ describe(ast) {
 
     it("should parse AND operator") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "test -f file && cat file", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "test -f file && cat file", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_AND);
         assert(!ast->background);
@@ -135,7 +138,7 @@ describe(ast) {
         asserteq(ast->right->type, NODE_COMMAND);
         asserteq_str(ast->left->argv[0], "test");
         asserteq_str(ast->right->argv[0], "cat");
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -146,10 +149,11 @@ describe(ast) {
 
     it("should parse OR operator") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "command || fallback", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "command || fallback", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_OR);
         assert(!ast->background);
@@ -159,7 +163,7 @@ describe(ast) {
         asserteq(ast->right->type, NODE_COMMAND);
         asserteq_str(ast->left->argv[0], "command");
         asserteq_str(ast->right->argv[0], "fallback");
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -170,16 +174,16 @@ describe(ast) {
 
     it("should parse background command") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
+
         LexerInput *lexer = init_lexer_input(NULL, "sleep 10 &", NULL, session);
-        ASTNode *ast = parse(lexer, session);
-        
+        ASTNode    *ast   = parse(lexer, session);
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_COMMAND);
         assert(ast->background);
         assertneq(ast->argv, NULL);
         asserteq_str(ast->argv[0], "sleep");
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -190,15 +194,16 @@ describe(ast) {
 
     it("should parse subshell") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "(echo test)", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "(echo test)", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_SUBSHELL);
         assert(!ast->background);
         assertneq(ast->left, NULL);
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -209,16 +214,17 @@ describe(ast) {
 
     it("should parse redirections") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "echo test > file.txt", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "echo test > file.txt", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_COMMAND);
         assertneq(ast->redirects, NULL);
         asserteq(ast->redirects->type, TOKEN_REDIRECT_OUT);
         assertneq(ast->redirects->target, NULL);
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -229,16 +235,17 @@ describe(ast) {
 
     it("should parse input redirection") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "cat < input.txt", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "cat < input.txt", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_COMMAND);
         assertneq(ast->redirects, NULL);
         asserteq(ast->redirects->type, TOKEN_REDIRECT_IN);
         assertneq(ast->redirects->target, NULL);
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -249,16 +256,17 @@ describe(ast) {
 
     it("should parse append redirection") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "echo test >> file.txt", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "echo test >> file.txt", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_COMMAND);
         assertneq(ast->redirects, NULL);
         asserteq(ast->redirects->type, TOKEN_REDIRECT_APPEND);
         assertneq(ast->redirects->target, NULL);
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -269,15 +277,16 @@ describe(ast) {
 
     it("should parse variable assignment") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "VAR=value echo test", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "VAR=value echo test", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_COMMAND);
         assertneq(ast->assignments, NULL);
         assert(ast->assignments->count > 0);
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -288,13 +297,13 @@ describe(ast) {
 
     it("should handle empty input") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
+
         LexerInput *lexer = init_lexer_input(NULL, "", NULL, session);
-        ASTNode *ast = parse(lexer, session);
-        
+        ASTNode    *ast   = parse(lexer, session);
+
         // Empty input may return NULL or an empty command
         // Both are acceptable
-        
+
         if (ast) {
             free_ast(ast);
             free(ast);
@@ -307,17 +316,19 @@ describe(ast) {
 
     it("should parse complex pipeline") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "cat file | grep pattern | wc -l", NULL, session);
+
+        LexerInput *lexer = init_lexer_input(
+            NULL, "cat file | grep pattern | wc -l", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_PIPE);
         assert(!ast->background);
         assertneq(ast->left, NULL);
         assertneq(ast->right, NULL);
-        assert(ast->right->type == NODE_PIPE || ast->right->type == NODE_COMMAND);
-        
+        assert(ast->right->type == NODE_PIPE ||
+               ast->right->type == NODE_COMMAND);
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -328,10 +339,11 @@ describe(ast) {
 
     it("should parse nested structures") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "cmd1 && (cmd2 | cmd3) || cmd4", NULL, session);
+
+        LexerInput *lexer = init_lexer_input(
+            NULL, "cmd1 && (cmd2 | cmd3) || cmd4", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_OR);
         assert(!ast->background);
@@ -339,7 +351,7 @@ describe(ast) {
         assertneq(ast->right, NULL);
         asserteq(ast->left->type, NODE_AND);
         asserteq(ast->right->type, NODE_COMMAND);
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -350,10 +362,11 @@ describe(ast) {
 
     it("should free AST recursively") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "cmd1 | cmd2 && cmd3", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "cmd1 | cmd2 && cmd3", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_AND);
         assertneq(ast->left, NULL);
@@ -361,7 +374,7 @@ describe(ast) {
         asserteq(ast->left->type, NODE_PIPE);
         free_ast(ast);
         free(ast);
-        
+
         free_lexer_input(lexer);
         free(lexer);
         free_session(session);
@@ -370,16 +383,17 @@ describe(ast) {
 
     it("should handle quotes in arguments") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
-        LexerInput *lexer = init_lexer_input(NULL, "echo \"hello world\"", NULL, session);
+
+        LexerInput *lexer =
+            init_lexer_input(NULL, "echo \"hello world\"", NULL, session);
         ASTNode *ast = parse(lexer, session);
-        
+
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_COMMAND);
         assert(ast->argc >= 2);
         asserteq_str(ast->argv[0], "echo");
         asserteq_str(ast->argv[1], "hello world");
-        
+
         free_ast(ast);
         free(ast);
         free_lexer_input(lexer);
@@ -390,7 +404,7 @@ describe(ast) {
 
     it("should parse command with NULL session") {
         LexerInput *lexer = init_lexer_input(NULL, "echo hello", NULL, NULL);
-        ASTNode *ast = parse(lexer, NULL);
+        ASTNode    *ast   = parse(lexer, NULL);
 
         assertneq(ast, NULL);
         asserteq(ast->type, NODE_COMMAND);
@@ -405,8 +419,9 @@ describe(ast) {
     }
 
     it("should parse for loop with in") {
-        Session *session = init_session(NULL, "/tmp/test_history");
-        LexerInput *lexer = init_lexer_input(NULL, "for x in a b c; do echo $x; done", NULL, session);
+        Session    *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer   = init_lexer_input(
+            NULL, "for x in a b c; do echo $x; done", NULL, session);
         ASTNode *ast = parse(lexer, session);
 
         assertneq(ast, NULL);
@@ -428,8 +443,9 @@ describe(ast) {
     }
 
     it("should parse for loop without in") {
-        Session *session = init_session(NULL, "/tmp/test_history");
-        LexerInput *lexer = init_lexer_input(NULL, "for item; do echo $item; done", NULL, session);
+        Session    *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer   = init_lexer_input(
+            NULL, "for item; do echo $item; done", NULL, session);
         ASTNode *ast = parse(lexer, session);
 
         assertneq(ast, NULL);
@@ -451,28 +467,32 @@ describe(ast) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Missing variable name
-        LexerInput *l1 = init_lexer_input(NULL, "for; do echo 1; done", NULL, session);
+        LexerInput *l1 =
+            init_lexer_input(NULL, "for; do echo 1; done", NULL, session);
         ASTNode *ast1 = parse(l1, session);
         asserteq(ast1, NULL);
         free_lexer_input(l1);
         free(l1);
 
         // Invalid variable name
-        LexerInput *l2 = init_lexer_input(NULL, "for 123 in a b; do echo 1; done", NULL, session);
+        LexerInput *l2 = init_lexer_input(
+            NULL, "for 123 in a b; do echo 1; done", NULL, session);
         ASTNode *ast2 = parse(l2, session);
         asserteq(ast2, NULL);
         free_lexer_input(l2);
         free(l2);
 
         // Missing do
-        LexerInput *l3 = init_lexer_input(NULL, "for x in a b; echo 1; done", NULL, session);
+        LexerInput *l3 =
+            init_lexer_input(NULL, "for x in a b; echo 1; done", NULL, session);
         ASTNode *ast3 = parse(l3, session);
         asserteq(ast3, NULL);
         free_lexer_input(l3);
         free(l3);
 
         // Missing done
-        LexerInput *l4 = init_lexer_input(NULL, "for x in a b; do echo 1", NULL, session);
+        LexerInput *l4 =
+            init_lexer_input(NULL, "for x in a b; do echo 1", NULL, session);
         ASTNode *ast4 = parse(l4, session);
         if (ast4) {
             free_ast(ast4);
@@ -486,8 +506,9 @@ describe(ast) {
     }
 
     it("should parse while loop with condition and body") {
-        Session *session = init_session(NULL, "/tmp/test_history");
-        LexerInput *lexer = init_lexer_input(NULL, "while test $x -lt 5; do echo $x; done", NULL, session);
+        Session    *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer   = init_lexer_input(
+            NULL, "while test $x -lt 5; do echo $x; done", NULL, session);
         ASTNode *ast = parse(lexer, session);
 
         assertneq(ast, NULL);
@@ -507,21 +528,24 @@ describe(ast) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Missing condition
-        LexerInput *l1 = init_lexer_input(NULL, "while; do echo 1; done", NULL, session);
+        LexerInput *l1 =
+            init_lexer_input(NULL, "while; do echo 1; done", NULL, session);
         ASTNode *ast1 = parse(l1, session);
         asserteq(ast1, NULL);
         free_lexer_input(l1);
         free(l1);
 
         // Missing do
-        LexerInput *l2 = init_lexer_input(NULL, "while true; echo 1; done", NULL, session);
+        LexerInput *l2 =
+            init_lexer_input(NULL, "while true; echo 1; done", NULL, session);
         ASTNode *ast2 = parse(l2, session);
         asserteq(ast2, NULL);
         free_lexer_input(l2);
         free(l2);
 
         // Missing done
-        LexerInput *l3 = init_lexer_input(NULL, "while true; do echo 1", NULL, session);
+        LexerInput *l3 =
+            init_lexer_input(NULL, "while true; do echo 1", NULL, session);
         ASTNode *ast3 = parse(l3, session);
         if (ast3) {
             free_ast(ast3);
@@ -535,8 +559,10 @@ describe(ast) {
     }
 
     it("should parse case statement with patterns and clauses") {
-        Session *session = init_session(NULL, "/tmp/test_history");
-        LexerInput *lexer = init_lexer_input(NULL, "case $x in a) echo 1 ;; b|c) echo 2 ;; *) echo def ;; esac", NULL, session);
+        Session    *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer   = init_lexer_input(
+            NULL, "case $x in a) echo 1 ;; b|c) echo 2 ;; *) echo def ;; esac",
+            NULL, session);
         ASTNode *ast = parse(lexer, session);
 
         assertneq(ast, NULL);
@@ -575,9 +601,12 @@ describe(ast) {
         free(session);
     }
 
-    it("should parse case statement with optional leading paren and different terminators") {
-        Session *session = init_session(NULL, "/tmp/test_history");
-        LexerInput *lexer = init_lexer_input(NULL, "case foo in (a) echo 1 ;& (b) echo 2 ;;& (c) echo 3 ;; esac", NULL, session);
+    it("should parse case statement with optional leading paren and different "
+       "terminators") {
+        Session    *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer   = init_lexer_input(
+            NULL, "case foo in (a) echo 1 ;& (b) echo 2 ;;& (c) echo 3 ;; esac",
+            NULL, session);
         ASTNode *ast = parse(lexer, session);
 
         assertneq(ast, NULL);
@@ -610,14 +639,16 @@ describe(ast) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Missing in
-        LexerInput *l1 = init_lexer_input(NULL, "case $x a) echo 1 ;; esac", NULL, session);
+        LexerInput *l1 =
+            init_lexer_input(NULL, "case $x a) echo 1 ;; esac", NULL, session);
         ASTNode *ast1 = parse(l1, session);
         asserteq(ast1, NULL);
         free_lexer_input(l1);
         free(l1);
 
         // Missing esac
-        LexerInput *l2 = init_lexer_input(NULL, "case $x in a) echo 1 ;;", NULL, session);
+        LexerInput *l2 =
+            init_lexer_input(NULL, "case $x in a) echo 1 ;;", NULL, session);
         ASTNode *ast2 = parse(l2, session);
         if (ast2) {
             free_ast(ast2);
@@ -627,8 +658,9 @@ describe(ast) {
         free(l2);
 
         // Missing closing paren after pattern
-        LexerInput *l3 = init_lexer_input(NULL, "case $x in a echo 1 ;; esac", NULL, session);
-        ASTNode *ast3 = parse(l3, session);
+        LexerInput *l3   = init_lexer_input(NULL, "case $x in a echo 1 ;; esac",
+                                            NULL, session);
+        ASTNode    *ast3 = parse(l3, session);
         asserteq(ast3, NULL);
         free_lexer_input(l3);
         free(l3);

@@ -37,6 +37,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool ast      = false;
     bool b_break  = false;
     bool b_cont   = false;
+    bool b_set    = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -103,13 +104,15 @@ int builtin_help(int argc, char **argv, Session *session) {
             b_break = true;
         else if (strcmp(argv[i], "continue") == 0)
             b_cont = true;
+        else if (strcmp(argv[i], "set") == 0)
+            b_set = true;
     }
 
     bool all =
         !(cd || clear || exit || export || unset || eval || alias || unalias ||
           help || features || hooks || history || info || printenv || pwd ||
           pushd || popd || terminal || which || source || type || test ||
-          jobs || fg || bg || lexer || ast || b_break || b_cont);
+          jobs || fg || bg || lexer || ast || b_break || b_cont || b_set);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -143,6 +146,11 @@ int builtin_help(int argc, char **argv, Session *session) {
     if (all || unset)
         printf("  %s%-9s %s%-14s%s - Unset variables or functions\n",
                command_clr, "unset", argument_clr, "[-v|-f] name", reset);
+
+    if (all || b_set)
+        printf("  %s%-9s %s%-14s%s - Set or unset options and positional "
+               "parameters\n",
+               command_clr, "set", argument_clr, "[-e|-x|--] [args]", reset);
 
     if (all || eval)
         printf("  %s%-9s %s%-14s%s - Execute arguments as a command\n",

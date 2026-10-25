@@ -1,7 +1,7 @@
-#include <stdlib.h>
-#include <string.h>
 #include "data/utf8.h"
 #include "snow/snow.h"
+#include <stdlib.h>
+#include <string.h>
 
 describe(utf8) {
     it("should get correct charlen for ASCII") {
@@ -14,11 +14,11 @@ describe(utf8) {
         // Two-byte character (110xxxxx: 0xC2 to 0xDF)
         asserteq_int(utf8_charlen((char)0xC2), 2);
         asserteq_int(utf8_charlen((char)0xDF), 2);
-        
+
         // Three-byte character (1110xxxx: 0xE0 to 0xEF)
         asserteq_int(utf8_charlen((char)0xE0), 3);
         asserteq_int(utf8_charlen((char)0xEF), 3);
-        
+
         // Four-byte character (11110xxx: 0xF0 to 0xF4)
         asserteq_int(utf8_charlen((char)0xF0), 4);
         asserteq_int(utf8_charlen((char)0xF4), 4);
@@ -76,20 +76,20 @@ describe(utf8) {
     }
 
     it("should navigate to next character in ASCII") {
-        char str[] = "hello";
-        char *p = str;
-        
+        char  str[] = "hello";
+        char *p     = str;
+
         p = utf8_next_char(p);
         asserteq_int(*p, 'e');
-        
+
         p = utf8_next_char(p);
         asserteq_int(*p, 'l');
     }
 
     it("should navigate to next character with multi-byte") {
-        char str[] = "hé";
-        char *p = str;
-        
+        char  str[] = "hé";
+        char *p     = str;
+
         // Move from 'h' to 'é'
         p = utf8_next_char(p);
         // p should now be pointing to first byte of 'é'
@@ -102,21 +102,21 @@ describe(utf8) {
     }
 
     it("should navigate to previous character in ASCII") {
-        char str[] = "hello";
-        char *p = str + 5;
+        char  str[] = "hello";
+        char *p     = str + 5;
         char *start = str;
-        
+
         p = utf8_prev_char(p, start);
         asserteq_int(*p, 'o');
-        
+
         p = utf8_prev_char(p, start);
         asserteq_int(*p, 'l');
     }
 
     it("should navigate to previous character with multi-byte and emoji") {
-        char str[] = "café";
+        char  str[] = "café";
         char *start = str;
-        char *p = str + strlen(str); // at '\0'
+        char *p     = str + strlen(str); // at '\0'
 
         p = utf8_prev_char(p, start);
         asserteq_ptr(p, str + 3); // start of 'é'
@@ -125,9 +125,9 @@ describe(utf8) {
         asserteq_int(*p, 'f');
 
         // Emoji test (4-byte)
-        char emoji_str[] = "a🎉b";
-        char *ep = emoji_str + strlen(emoji_str); // at '\0'
-        ep = utf8_prev_char(ep, emoji_str);
+        char  emoji_str[] = "a🎉b";
+        char *ep          = emoji_str + strlen(emoji_str); // at '\0'
+        ep                = utf8_prev_char(ep, emoji_str);
         asserteq_int(*ep, 'b');
 
         ep = utf8_prev_char(ep, emoji_str);
@@ -138,29 +138,25 @@ describe(utf8) {
     }
 
     it("should handle orphaned continuation bytes gracefully in prev_char") {
-        char malformed[] = {'A', (char)0x80, 'B', '\0'};
-        char *p = malformed + 2; // at 'B'
-        char *prev = utf8_prev_char(p, malformed);
+        char  malformed[] = {'A', (char)0x80, 'B', '\0'};
+        char *p           = malformed + 2; // at 'B'
+        char *prev        = utf8_prev_char(p, malformed);
         // Should land on the invalid 0x80 byte, NOT skip 'A'
         asserteq_ptr(prev, malformed + 1);
     }
 
     it("should return NULL at start of string for prev_char") {
-        char str[] = "hello";
-        char *p = str;
+        char  str[] = "hello";
+        char *p     = str;
         char *start = str;
-        
+
         char *result = utf8_prev_char(p, start);
         asserteq(result, NULL);
     }
 
-    it("should handle empty string") {
-        asserteq(utf8_strlen(""), 0);
-    }
+    it("should handle empty string") { asserteq(utf8_strlen(""), 0); }
 
-    it("should handle single character") {
-        asserteq(utf8_strlen("a"), 1);
-    }
+    it("should handle single character") { asserteq(utf8_strlen("a"), 1); }
 
     it("should handle UTF-8 emoji") {
         // Test with actual 4-byte UTF-8 character
@@ -170,16 +166,16 @@ describe(utf8) {
     }
 
     it("should navigate correctly through UTF-8 string") {
-        char str[] = "café";
-        char *p = str;
-        
+        char  str[] = "café";
+        char *p     = str;
+
         // Count characters by navigating
         int count = 0;
         while (*p != '\0') {
             count++;
             p = utf8_next_char(p);
         }
-        
+
         asserteq(count, 4);
     }
 

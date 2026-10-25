@@ -1,8 +1,8 @@
+#include "lexer.h"
+#include "snow/snow.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include "lexer.h"
-#include "snow/snow.h"
 
 static void consume_all_tokens(LexerInput *input) {
     size_t guard = 0;
@@ -82,8 +82,8 @@ describe(lexer) {
     }
 
     it("should handle simple word token") {
-        Session *session = init_session(NULL, "/tmp/test_history");
-        LexerInput *input = init_lexer_input(NULL, "echo", NULL, session);
+        Session    *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *input   = init_lexer_input(NULL, "echo", NULL, session);
         assertneq(input, NULL);
         LexerToken token = lexer_next_token(input);
         asserteq(token.type, TOKEN_WORD);
@@ -97,8 +97,9 @@ describe(lexer) {
     }
 
     it("should handle multiple words") {
-        Session *session = init_session(NULL, "/tmp/test_history");
-        LexerInput *input = init_lexer_input(NULL, "echo hello world", NULL, session);
+        Session    *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *input =
+            init_lexer_input(NULL, "echo hello world", NULL, session);
         assertneq(input, NULL);
         LexerToken token = lexer_next_token(input);
         asserteq(token.type, TOKEN_WORD);
@@ -112,7 +113,8 @@ describe(lexer) {
     }
 
     it("should handle pipe operator") {
-        LexerInput *input = init_lexer_input(NULL, "cat file | grep pattern", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "cat file | grep pattern", NULL, NULL);
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_PIPE));
         free_lexer_input(input);
@@ -120,7 +122,8 @@ describe(lexer) {
     }
 
     it("should handle redirection operators") {
-        LexerInput *input = init_lexer_input(NULL, "cat > output.txt < input.txt", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "cat > output.txt < input.txt", NULL, NULL);
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_REDIRECT_OUT));
         assert(contains_token_type(input, TOKEN_REDIRECT_IN));
@@ -178,7 +181,8 @@ describe(lexer) {
     }
 
     it("should handle quoted strings") {
-        LexerInput *input = init_lexer_input(NULL, "echo \"hello world\"", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "echo \"hello world\"", NULL, NULL);
         assertneq(input, NULL);
         LexerToken token = lexer_next_token(input);
         asserteq(token.type, TOKEN_WORD);
@@ -198,7 +202,8 @@ describe(lexer) {
     }
 
     it("should handle single quoted strings") {
-        LexerInput *input = init_lexer_input(NULL, "echo 'hello world'", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "echo 'hello world'", NULL, NULL);
         assertneq(input, NULL);
         LexerToken token = lexer_next_token(input);
         asserteq(token.type, TOKEN_WORD);
@@ -218,7 +223,8 @@ describe(lexer) {
     }
 
     it("should handle comments") {
-        LexerInput *input = init_lexer_input(NULL, "echo test # this is a comment", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "echo test # this is a comment", NULL, NULL);
         assertneq(input, NULL);
         LexerToken token = lexer_next_token(input);
         asserteq(token.type, TOKEN_WORD);
@@ -245,7 +251,8 @@ describe(lexer) {
     }
 
     it("should handle process substitution input") {
-        LexerInput *input = init_lexer_input(NULL, "cat <(echo test)", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "cat <(echo test)", NULL, NULL);
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_PROCESS_SUBSTITUTION_IN));
         free_lexer_input(input);
@@ -253,7 +260,8 @@ describe(lexer) {
     }
 
     it("should handle process substitution output") {
-        LexerInput *input = init_lexer_input(NULL, "cat >(tee file)", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "cat >(tee file)", NULL, NULL);
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_PROCESS_SUBSTITUTION_OUT));
         free_lexer_input(input);
@@ -269,7 +277,8 @@ describe(lexer) {
     }
 
     it("should handle herestring") {
-        LexerInput *input = init_lexer_input(NULL, "cat <<< \"test\"", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "cat <<< \"test\"", NULL, NULL);
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_HERESTRING));
         free_lexer_input(input);
@@ -277,7 +286,8 @@ describe(lexer) {
     }
 
     it("should handle append redirection") {
-        LexerInput *input = init_lexer_input(NULL, "echo >> file.txt", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "echo >> file.txt", NULL, NULL);
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_REDIRECT_APPEND));
         free_lexer_input(input);
@@ -285,7 +295,9 @@ describe(lexer) {
     }
 
     it("should handle complex command") {
-        LexerInput *input = init_lexer_input(NULL, "VAR=value cmd1 arg1 arg2 | cmd2 > out.txt 2>&1 & echo done", NULL, NULL);
+        LexerInput *input = init_lexer_input(
+            NULL, "VAR=value cmd1 arg1 arg2 | cmd2 > out.txt 2>&1 & echo done",
+            NULL, NULL);
         assertneq(input, NULL);
         assert(contains_token_type(input, TOKEN_ASSIGNMENT));
         assert(contains_token_type(input, TOKEN_PIPE));
@@ -298,7 +310,7 @@ describe(lexer) {
 
     it("should initialize with callback functions") {
         Session *session = init_session(NULL, "/tmp/test_history");
-        
+
         // Use NULL for execute function in test
         LexerInput *input = init_lexer_input(NULL, "echo test", NULL, session);
         assertneq(input, NULL);
@@ -322,7 +334,8 @@ describe(lexer) {
     }
 
     it("should handle command substitution when execute callback is NULL") {
-        LexerInput *input = init_lexer_input(NULL, "echo $(whoami) \"$(date)\"", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "echo $(whoami) \"$(date)\"", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -349,7 +362,8 @@ describe(lexer) {
     }
 
     it("should handle whitespace") {
-        LexerInput *input = init_lexer_input(NULL, "   echo   test   ", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "   echo   test   ", NULL, NULL);
         assertneq(input, NULL);
         LexerToken token = lexer_next_token(input);
         asserteq(token.type, TOKEN_WORD);
@@ -369,13 +383,15 @@ describe(lexer) {
     }
 
     it("should handle &> and &>> redirection operators") {
-        LexerInput *input1 = init_lexer_input(NULL, "echo hello &> out.txt", NULL, NULL);
+        LexerInput *input1 =
+            init_lexer_input(NULL, "echo hello &> out.txt", NULL, NULL);
         assertneq(input1, NULL);
         assert(contains_token_type(input1, TOKEN_REDIRECT_ALL));
         free_lexer_input(input1);
         free(input1);
 
-        LexerInput *input2 = init_lexer_input(NULL, "echo hello &>> out.txt", NULL, NULL);
+        LexerInput *input2 =
+            init_lexer_input(NULL, "echo hello &>> out.txt", NULL, NULL);
         assertneq(input2, NULL);
         assert(contains_token_type(input2, TOKEN_REDIRECT_APPEND_ERR));
         free_lexer_input(input2);
@@ -383,13 +399,15 @@ describe(lexer) {
     }
 
     it("should handle >>& and >| redirection operators") {
-        LexerInput *input1 = init_lexer_input(NULL, "echo hello >>& out.txt", NULL, NULL);
+        LexerInput *input1 =
+            init_lexer_input(NULL, "echo hello >>& out.txt", NULL, NULL);
         assertneq(input1, NULL);
         assert(contains_token_type(input1, TOKEN_REDIRECT_APPEND_ERR));
         free_lexer_input(input1);
         free(input1);
 
-        LexerInput *input2 = init_lexer_input(NULL, "echo hello >| out.txt", NULL, NULL);
+        LexerInput *input2 =
+            init_lexer_input(NULL, "echo hello >| out.txt", NULL, NULL);
         assertneq(input2, NULL);
         assert(contains_token_type(input2, TOKEN_REDIRECT_OUT));
         free_lexer_input(input2);
@@ -397,7 +415,8 @@ describe(lexer) {
     }
 
     it("should tokenize for loop keywords") {
-        LexerInput *input = init_lexer_input(NULL, "for x in a b; do echo $x; done", NULL, NULL);
+        LexerInput *input = init_lexer_input(
+            NULL, "for x in a b; do echo $x; done", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -457,7 +476,8 @@ describe(lexer) {
     }
 
     it("should tokenize while loop keywords") {
-        LexerInput *input = init_lexer_input(NULL, "while true; do echo loop; done", NULL, NULL);
+        LexerInput *input = init_lexer_input(
+            NULL, "while true; do echo loop; done", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -500,7 +520,8 @@ describe(lexer) {
     }
 
     it("should handle line continuation with trailing backslash") {
-        LexerInput *input = init_lexer_input(NULL, "echo foo \\\nbar", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "echo foo \\\nbar", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -527,7 +548,8 @@ describe(lexer) {
     }
 
     it("should handle line continuation with indentation") {
-        LexerInput *input = init_lexer_input(NULL, "echo \\\n    first \\\n    second", NULL, NULL);
+        LexerInput *input = init_lexer_input(
+            NULL, "echo \\\n    first \\\n    second", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -554,7 +576,8 @@ describe(lexer) {
     }
 
     it("should handle line continuation inside a word") {
-        LexerInput *input = init_lexer_input(NULL, "echo foo\\\nbar", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "echo foo\\\nbar", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -576,7 +599,8 @@ describe(lexer) {
     }
 
     it("should handle line continuation with operators") {
-        LexerInput *input = init_lexer_input(NULL, "cmd1 && \\\ncmd2", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "cmd1 && \\\ncmd2", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -602,7 +626,8 @@ describe(lexer) {
     }
 
     it("should handle line continuation inside double quotes") {
-        LexerInput *input = init_lexer_input(NULL, "echo \"hello \\\nworld\"", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "echo \"hello \\\nworld\"", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -624,7 +649,8 @@ describe(lexer) {
     }
 
     it("should preserve literal backslash and newline in single quotes") {
-        LexerInput *input = init_lexer_input(NULL, "echo 'hello \\\nworld'", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "echo 'hello \\\nworld'", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -646,7 +672,8 @@ describe(lexer) {
     }
 
     it("should handle CRLF line continuation") {
-        LexerInput *input = init_lexer_input(NULL, "echo foo \\\r\nbar", NULL, NULL);
+        LexerInput *input =
+            init_lexer_input(NULL, "echo foo \\\r\nbar", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -673,7 +700,8 @@ describe(lexer) {
     }
 
     it("should handle line continuation in comments") {
-        LexerInput *input = init_lexer_input(NULL, "# comment \\\ncontinuation\necho test", NULL, NULL);
+        LexerInput *input = init_lexer_input(
+            NULL, "# comment \\\ncontinuation\necho test", NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
@@ -725,7 +753,9 @@ describe(lexer) {
     }
 
     it("should tokenize case statement keywords and terminators") {
-        LexerInput *input = init_lexer_input(NULL, "case $x in a) echo 1 ;; b) echo 2 ;& c) echo 3 ;;& esac", NULL, NULL);
+        LexerInput *input = init_lexer_input(
+            NULL, "case $x in a) echo 1 ;; b) echo 2 ;& c) echo 3 ;;& esac",
+            NULL, NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);

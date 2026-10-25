@@ -212,4 +212,3 @@ describe(jobs_control) {
         free(jobs);
     }
 }
-

@@ -25,6 +25,7 @@
 #include "builtins/printenv.h"
 #include "builtins/pushd.h"
 #include "builtins/pwd.h"
+#include "builtins/set.h"
 #include "builtins/source.h"
 #include "builtins/terminal.h"
 #include "builtins/test.h"

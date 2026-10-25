@@ -28,6 +28,22 @@
 #include "jobs.h" /* Jobs */
 #endif
 
+typedef struct ShellOptions {
+    bool allexport; // -a: Automatically export modified/created variables
+    bool errexit;   // -e: Exit immediately if a command exits with non-zero
+    bool noglob;    // -f: Disable pathname expansion (globbing)
+    bool nounset;   // -u: Treat unset variables as an error
+    bool verbose;   // -v: Print shell input lines as they are read
+    bool xtrace;    // -x: Print commands and arguments before executing
+    bool noexec;    // -n: Read commands but do not execute them
+    bool noclobber; // -C: Prevent output redirection from overwriting files
+    bool monitor;   // -m: Job control
+    bool pipefail;  // Return value of pipeline is status of last failed command
+    bool notify;    // -b: Report status of background jobs immediately
+    bool hashall;   // -h: Remember locations of commands
+    bool ignoreeof; // Do not exit on EOF
+} ShellOptions;
+
 typedef struct Session {
     char    *current_working_dir;  // Current working directory
     char    *previous_working_dir; // Previous working directory
@@ -57,6 +73,8 @@ typedef struct Session {
     int      loop_depth;               // Current nesting depth of loops
     int      loop_break;               // Pending break levels to propagate
     int      loop_continue;            // Pending continue levels to propagate
+    ShellOptions options;              // Shell options (set builtin)
+    int ignore_errexit; // Ignore errexit in conditions and and/or lists
 } Session;
 
 /**
