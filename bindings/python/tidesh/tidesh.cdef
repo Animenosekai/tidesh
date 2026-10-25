@@ -3,6 +3,7 @@ typedef _Bool bool;
 
 typedef struct Session Session;
 typedef struct History History;
+typedef struct HistoryEntry HistoryEntry;
 typedef struct Trie Trie;
 typedef struct DirStack DirStack;
 typedef struct Terminal Terminal;
@@ -35,6 +36,26 @@ struct Array {
     size_t count;
     size_t capacity;
     size_t (*growing_strategy)(size_t, size_t);
+    ...;
+};
+
+struct HistoryEntry {
+    char                *command;
+    long                 timestamp;
+    struct HistoryEntry *next;
+    struct HistoryEntry *prev;
+    ...;
+};
+
+struct History {
+    HistoryEntry *head;
+    HistoryEntry *tail;
+    size_t        size;
+    ...;
+};
+
+struct DirStack {
+    Array *stack;
     ...;
 };
 
@@ -324,17 +345,7 @@ void jobs_notify(Jobs *jobs);
 void free_jobs(Jobs *jobs);
 
 // Builtins
-int builtin_info(int argc, char **argv, Session *session);
 int builtin_cd(int argc, char **argv, Session *session);
-int builtin_which(int argc, char **argv, Session *session);
-int builtin_jobs(int argc, char **argv, Session *session);
-int builtin_fg(int argc, char **argv, Session *session);
-int builtin_bg(int argc, char **argv, Session *session);
-int builtin_hooks(int argc, char **argv, Session *session);
-int builtin_lexer(int argc, char **argv, Session *session);
-int builtin_ast(int argc, char **argv, Session *session);
-int builtin_break(int argc, char **argv, Session *session);
-int builtin_continue(int argc, char **argv, Session *session);
 int builtin_set(int argc, char **argv, Session *session);
 
 extern const char *tidesh_compiler;

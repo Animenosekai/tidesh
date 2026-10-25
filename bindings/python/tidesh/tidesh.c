@@ -18,6 +18,7 @@
 #include "builtins/jobs.h"
 #include "builtins/lexer.h"
 #include "builtins/not.h"
+#include "builtins/set.h"
 #include "builtins/unset.h"
 #include "builtins/which.h"
 #include "data/array.h"

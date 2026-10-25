@@ -155,6 +155,9 @@ sources = [
     "builtins/continue.c",
     "builtins/lexer.c",
     "builtins/ast.c",
+    "builtins/set.c",
+    "builtins/shift.c",
+    "builtins/colon.c",
 ]
 
 # Convert to relative paths for setup

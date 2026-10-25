@@ -3,6 +3,7 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportPrivateUsage=false
 from __future__ import annotations
 
+import os
 import typing
 from collections.abc import Iterator, Mapping, MutableMapping, Sequence
 
@@ -406,12 +407,12 @@ class Options:
         return f"Options({', '.join(enabled)})"
 
 
-class History:
+class History(Sequence[str]):
     """
     Manages command history for a shell session.
 
-    This class provides access to command history, allowing you to append
-    commands, navigate through history, and persist history to disk.
+    This class implements the Sequence protocol, allowing you to iterate,
+    index, slice, and check length of history commands.
     """
 
     def __init__(self, h_ptr: typing.Any) -> None:
@@ -426,6 +427,62 @@ class History:
         super().__init__()
         self._h = h_ptr
         """(internal) The underlying C history structure."""
+
+    @typing_extensions.override
+    def __len__(self) -> int:
+        """Get the number of history entries."""
+        if self._h == ffi.NULL:
+            return 0
+        return int(self._h.size)
+
+    @typing_extensions.override
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over commands in history from oldest to newest."""
+        if self._h == ffi.NULL:
+            return
+        curr = self._h.head
+        while curr != ffi.NULL:
+            if curr.command != ffi.NULL:
+                yield ffi.string(curr.command).decode()
+            curr = curr.next
+
+    @typing.overload
+    def __getitem__(self, index: int) -> str: ...
+
+    @typing.overload
+    def __getitem__(self, index: slice) -> list[str]: ...
+
+    @typing_extensions.override
+    def __getitem__(self, index: int | slice) -> str | list[str]:
+        """Get a command from history by index or slice (0-based)."""
+        if isinstance(index, slice):
+            start, stop, step = index.indices(len(self))
+            return [self[i] for i in range(start, stop, step)]
+
+        length = len(self)
+        if index < 0:
+            index = length + index
+        if index < 0 or index >= length:
+            raise IndexError(index)
+
+        res = lib.history_nth_command(self._h, index + 1)
+        if res == ffi.NULL:
+            raise IndexError(index)
+        return ffi.string(res).decode()
+
+    @typing_extensions.override
+    def __contains__(self, value: object) -> bool:
+        """Check if a command is in history."""
+        if not isinstance(value, str):
+            return False
+        for cmd in self:
+            if cmd == value:
+                return True
+        return False
+
+    def __repr__(self) -> str:
+        """Return a string representation of history."""
+        return f"History({list(self)!r})"
 
     def append(self, command: str) -> None:
         """
@@ -488,7 +545,7 @@ class History:
 
     def nth(self, n: int) -> str | None:
         """
-        Get the nth command from history.
+        Get the nth command from history (0-based).
 
         Parameters
         ----------
@@ -500,8 +557,10 @@ class History:
         str | None
             The nth command, or None if the index is out of bounds.
         """
-        res = lib.history_nth_command(self._h, n)
-        return ffi.string(res).decode() if res != ffi.NULL else None
+        try:
+            return self[n]
+        except IndexError:
+            return None
 
 
 class Environ(MutableMapping[str, str]):
@@ -882,6 +941,38 @@ class DirectoryStack(Sequence[str]):
             A list of all directories in the stack.
         """
         return list(self)
+
+    def push(self, path: str | os.PathLike[str]) -> bool:
+        """
+        Push the current directory onto the stack and change to the given path.
+
+        Parameters
+        ----------
+        path : str | os.PathLike[str]
+            The directory path to change to.
+
+        Returns
+        -------
+        bool
+            True if successful, False otherwise.
+        """
+        return bool(lib.dirstack_pushd(self._ds, os.fspath(path).encode()))
+
+    def pop(self) -> str | None:
+        """
+        Pop the top directory from the stack and change to it.
+
+        Returns
+        -------
+        str | None
+            The directory popped from the stack, or None if the stack is empty.
+        """
+        if len(self) == 0:
+            return None
+        top_dir = self[0]
+        if bool(lib.dirstack_popd(self._ds)):
+            return top_dir
+        return None
 
 
 class Terminal:

@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import tidesh
 
@@ -8,6 +9,9 @@ def test_session_init() -> None:
     session = tidesh.Session()
     assert session.execute("true") == 0
     assert session.execute("false") != 0
+    # Callable session
+    assert session("true") == 0
+    assert session("false") != 0
 
 
 def test_environ() -> None:
@@ -34,12 +38,68 @@ def test_builtin_cd() -> None:
     session.cwd = initial_cwd
     assert session.cwd == initial_cwd
 
+    # PathLike support
+    assert session.cd(Path("/tmp")) == 0
+    assert session.cwd in ("/tmp", "/private/tmp")
+    session.cwd = Path(initial_cwd)
+    assert session.cwd == initial_cwd
+
 
 def test_builtin_methods() -> None:
     session = tidesh.Session()
-    assert session.list_jobs() == 0
-    assert session.hooks("status") == 0
+    assert len(session.jobs) == 0
+    assert session.hooks_enabled is True
+    session.disable_hooks()
+    assert session.hooks_enabled is False
+    session.enable_hooks()
+    assert session.hooks_enabled is True
     session.run_hook("test", {"FOO": "BAR"})
+
+
+def test_history_sequence() -> None:
+    session = tidesh.Session()
+    session.history.clear()
+    assert len(session.history) == 0
+    session.history.append("echo first")
+    session.history.append("echo second")
+    session.history.append("echo third")
+    assert len(session.history) == 3
+    assert session.history[0] == "echo first"
+    assert session.history[1] == "echo second"
+    assert session.history[2] == "echo third"
+    assert session.history[-1] == "echo third"
+    assert session.history[-2] == "echo second"
+    assert session.history[0:2] == ["echo first", "echo second"]
+    assert list(session.history) == ["echo first", "echo second", "echo third"]
+    assert "echo second" in session.history
+    assert "echo nonexistent" not in session.history
+
+
+def test_dirstack_push_pop() -> None:
+    session = tidesh.Session()
+    initial_cwd = session.cwd
+    initial_len = len(session.dirstack)
+    assert session.dirstack.push("/tmp") is True
+    assert session.cwd in ("/tmp", "/private/tmp")
+    assert len(session.dirstack) == initial_len + 1
+    assert session.dirstack.pop() is not None
+    assert session.cwd == initial_cwd
+    assert len(session.dirstack) == initial_len
+
+
+def test_options_and_set() -> None:
+    session = tidesh.Session()
+    assert session.options.errexit is False
+    assert session.set(errexit=True, xtrace=True) == 0
+    assert session.options.errexit is True
+    assert session.options.xtrace is True
+    assert session.set(errexit=False, xtrace=False) == 0
+    assert session.options.errexit is False
+    assert session.options.xtrace is False
+
+    # Positional parameters
+    session.set(positional=["hello", "world"])
+    assert session.capture("echo $1 $2").strip() == "hello world"
 
 
 def test_capture() -> None:

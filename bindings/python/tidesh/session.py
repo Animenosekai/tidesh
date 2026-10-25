@@ -3,9 +3,10 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportPrivateUsage=false
 from __future__ import annotations
 
-from collections.abc import Sequence
 import dataclasses
+import os
 import typing
+from collections.abc import Sequence
 
 import typing_extensions
 
@@ -250,22 +251,30 @@ class Session:
         return int(lib.execute_string(command.encode(), self._session))
 
     run = execute  # Alias for execute method
+    __call__ = execute  # Make session callable: session("command")
 
-    def cd(self, *args: str) -> int:
+    def cd(self, path: str | os.PathLike[str] | None = None, *args: str) -> int:
         """
         Change the current working directory using the cd builtin.
 
         Parameters
         ----------
+        path : str | os.PathLike[str] | None, optional
+            The directory path to change to. If None, changes to HOME (~).
         *args : str
-            Arguments for the cd command (usually just the path).
+            Additional arguments or flags for the cd command.
 
         Returns
         -------
         int
             The exit status.
         """
-        c_args, c_argv = _build_argv("cd", *args)
+        cmd_args: list[str] = []
+        if path is not None:
+            cmd_args.append(os.fspath(path))
+        if args:
+            cmd_args.extend(args)
+        c_args, c_argv = _build_argv("cd", *cmd_args)
         return int(lib.builtin_cd(len(c_args), c_argv, self._session))
 
     def set(
@@ -351,64 +360,6 @@ class Session:
         c_args, c_argv = _build_argv("set", *cmd_args)
         return int(lib.builtin_set(len(c_args), c_argv, self._session))
 
-    def bg(self, *args: str) -> int:
-        """
-        Continue a stopped job in the background using the bg builtin.
-
-        Parameters
-        ----------
-        *args : str
-            Arguments for the bg command (job ID or job spec like %1, %%, %+, %-).
-
-        Returns
-        -------
-        int
-            The exit status.
-        """
-        c_args, c_argv = _build_argv("bg", *args)
-        return int(lib.builtin_bg(len(c_args), c_argv, self._session))
-
-    def fg(self, *args: str) -> int:
-        """
-        Bring a background job to the foreground using the fg builtin.
-
-        Parameters
-        ----------
-        *args : str
-            Arguments for the fg command (job ID or job spec like %1, %%, %+, %-).
-
-        Returns
-        -------
-        int
-            The exit status.
-        """
-        c_args, c_argv = _build_argv("fg", *args)
-        return int(lib.builtin_fg(len(c_args), c_argv, self._session))
-
-    def hooks(self, *args: str) -> int:
-        """
-        Manage hooks using the hooks builtin.
-
-        Parameters
-        ----------
-        *args : str
-            Arguments for the hooks command:
-            - No args or 'list': List available hook files
-            - 'enable': Enable hook execution
-            - 'disable': Disable hook execution
-            - 'status': Show hook execution status
-            - 'run <hook_name>': Manually run a specific hook
-            - 'path': Show hooks directory path
-            - 'types': List all hook types
-
-        Returns
-        -------
-        int
-            The exit status.
-        """
-        c_args, c_argv = _build_argv("hooks", *args)
-        return int(lib.builtin_hooks(len(c_args), c_argv, self._session))
-
     def run_hook(self, hook_name: str, env_vars: dict[str, str] | None = None) -> None:
         """
         Run a hook script from the current working directory's .tidesh-hooks folder.
@@ -463,23 +414,6 @@ class Session:
     def hooks_enabled(self, enabled: bool) -> None:
         """Set whether hook execution is enabled for this session."""
         self._session.hooks_disabled = not enabled
-
-    def list_jobs(self, *args: str) -> int:
-        """
-        List background jobs using the jobs builtin.
-
-        Parameters
-        ----------
-        *args : str
-            Arguments for the jobs command (optional).
-
-        Returns
-        -------
-        int
-            The exit status.
-        """
-        c_args, c_argv = _build_argv("jobs", *args)
-        return int(lib.builtin_jobs(len(c_args), c_argv, self._session))
 
     def which(self, *args: str) -> list[CommandInfo]:
         """
@@ -594,13 +528,13 @@ class Session:
         finally:
             lib.free(res)
 
-    def pushd(self, path: str) -> bool:
+    def pushd(self, path: str | os.PathLike[str]) -> bool:
         """
         Push a directory onto the directory stack and change to it.
 
         Parameters
         ----------
-        path : str
+        path : str | os.PathLike[str]
             The directory path to push.
 
         Returns
@@ -608,18 +542,18 @@ class Session:
         bool
             True if successful, False otherwise.
         """
-        return bool(lib.dirstack_pushd(self._session.dirstack, path.encode()))
+        return self.dirstack.push(path)
 
-    def popd(self) -> bool:
+    def popd(self) -> str | None:
         """
         Pop the top directory from the directory stack and change to it.
 
         Returns
         -------
-        bool
-            True if successful, False otherwise.
+        str | None
+            The directory popped from the stack, or None if the stack is empty.
         """
-        return bool(lib.dirstack_popd(self._session.dirstack))
+        return self.dirstack.pop()
 
     def update_working_dir(self) -> None:
         """
@@ -645,7 +579,7 @@ class Session:
         return ffi.string(self._session.current_working_dir).decode()
 
     @cwd.setter
-    def cwd(self, path: str) -> None:
+    def cwd(self, path: str | os.PathLike[str]) -> None:
         """Set the current working directory."""
         self.cd(path)
 
@@ -669,9 +603,6 @@ class Session:
         if hasattr(self, "_session") and self._session != ffi.NULL:
             lib.free_session(self._session)
             self._session = ffi.NULL
-
-    cleanup = close  # Alias for close method
-    free = close  # Alias for close method
 
     def __enter__(self) -> typing_extensions.Self:
         """Enter the context manager."""
