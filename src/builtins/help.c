@@ -44,6 +44,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool b_exec    = false;
     bool b_trap    = false;
     bool b_command = false;
+    bool b_read    = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -124,14 +125,16 @@ int builtin_help(int argc, char **argv, Session *session) {
             b_trap = true;
         else if (strcmp(argv[i], "command") == 0)
             b_command = true;
+        else if (strcmp(argv[i], "read") == 0)
+            b_read = true;
     }
 
-    bool all =
-        !(cd || clear || exit || export || unset || eval || alias || unalias ||
-          help || features || hooks || history || info || printenv || pwd ||
-          pushd || popd || terminal || which || source || type || test ||
-          jobs || fg || bg || lexer || ast || b_break || b_cont || b_set ||
-          b_shift || b_colon || b_return || b_exec || b_trap || b_command);
+    bool all = !(cd || clear || exit || export || unset || eval || alias ||
+                 unalias || help || features || hooks || history || info ||
+                 printenv || pwd || pushd || popd || terminal || which ||
+                 source || type || test || jobs || fg || bg || lexer || ast ||
+                 b_break || b_cont || b_set || b_shift || b_colon || b_return ||
+                 b_exec || b_trap || b_command || b_read);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -333,6 +336,11 @@ int builtin_help(int argc, char **argv, Session *session) {
                "display command info\n",
                command_clr, "command", argument_clr,
                "[-p] cmd [arg...] or -v|-V [-p] cmd...", reset);
+
+    if (all || b_read)
+        printf("  %s%-9s %s%-14s%s - Read a line from standard input\n",
+               command_clr, "read", argument_clr,
+               "[-ers] [-u fd] [-t t] [-p p] [-n n] [-d d] [name...]", reset);
 
     return 0;
 }

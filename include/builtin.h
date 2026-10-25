@@ -28,6 +28,7 @@
 #include "builtins/printenv.h"
 #include "builtins/pushd.h"
 #include "builtins/pwd.h"
+#include "builtins/read.h"
 #include "builtins/return.h"
 #include "builtins/set.h"
 #include "builtins/shift.h"

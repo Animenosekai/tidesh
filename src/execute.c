@@ -1359,6 +1359,35 @@ int execute(ASTNode *node, Session *session) {
         // Special builtins should be executed in the main process
         if (is_special_builtin(cmd_name)) {
 #ifndef TIDESH_DISABLE_ASSIGNMENTS
+            typedef struct ReadVarBackup {
+                char *key;
+                char *val;
+                bool  existed;
+            } ReadVarBackup;
+            ReadVarBackup *read_backups      = NULL;
+            size_t         read_backup_count = 0;
+
+            bool is_read_cmd = (strcmp(cmd_name, "read") == 0);
+            if (is_read_cmd && node->assignments &&
+                node->assignments->count > 0) {
+                read_backups =
+                    calloc(node->assignments->count, sizeof(ReadVarBackup));
+                for (size_t i = 0; i < node->assignments->count; i++) {
+                    char *copy = strdup(node->assignments->items[i]);
+                    char *eq   = strchr(copy, '=');
+                    if (eq) {
+                        *eq       = '\0';
+                        char *cur = environ_get(session->environ, copy);
+                        read_backups[read_backup_count].key     = strdup(copy);
+                        read_backups[read_backup_count].existed = (cur != NULL);
+                        read_backups[read_backup_count].val =
+                            cur ? strdup(cur) : NULL;
+                        read_backup_count++;
+                    }
+                    free(copy);
+                }
+            }
+
             if (node->assignments) {
                 for (size_t i = 0; i < node->assignments->count; i++) {
                     char *copy = strdup(node->assignments->items[i]);
@@ -1407,6 +1436,22 @@ int execute(ASTNode *node, Session *session) {
             } else {
                 restore_in_process_redirections(&redir_state);
             }
+
+#ifndef TIDESH_DISABLE_ASSIGNMENTS
+            if (read_backups) {
+                for (size_t i = 0; i < read_backup_count; i++) {
+                    if (read_backups[i].existed) {
+                        environ_set(session->environ, read_backups[i].key,
+                                    read_backups[i].val);
+                        free(read_backups[i].val);
+                    } else {
+                        environ_remove(session->environ, read_backups[i].key);
+                    }
+                    free(read_backups[i].key);
+                }
+                free(read_backups);
+            }
+#endif
 
             for (int i = 0; i < argc; i++)
                 free(argv[i]);
