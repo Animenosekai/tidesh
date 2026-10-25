@@ -139,7 +139,8 @@ void free_lexer_token(LexerToken *token) {
     }
 }
 
-#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
+#if !defined(TIDESH_DISABLE_COMMAND_SUBSTITUTION) ||                           \
+    !defined(TIDESH_DISABLE_EXPANSIONS)
 /* Handle command substitution $(...) or <(...) or >(...) */
 static char *command_substitution(LexerInput *input) {
     char    c       = advance(input); // Consume `(`
@@ -183,7 +184,8 @@ static char *command_substitution(LexerInput *input) {
     free_dynamic(&command);
     return result_command;
 }
-#endif /* TIDESH_DISABLE_COMMAND_SUBSTITUTION */
+#endif /* !TIDESH_DISABLE_COMMAND_SUBSTITUTION || !TIDESH_DISABLE_EXPANSIONS   \
+        */
 
 /* Read a single unquoted word from the input */
 static Dynamic read_single_word(LexerInput *input) {
@@ -214,7 +216,8 @@ static Dynamic read_single_word(LexerInput *input) {
             continue;
         }
         if (!escaped && c == '$' && peek_next(input) == '(') {
-#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
+#if !defined(TIDESH_DISABLE_COMMAND_SUBSTITUTION) ||                           \
+    !defined(TIDESH_DISABLE_EXPANSIONS)
             advance(input); // consume '$'
             char *command = command_substitution(input);
             dynamic_extend(&word_value, "$(");
@@ -268,7 +271,8 @@ static Dynamic read_quoted_word(LexerInput *input) {
             continue;
         }
         if (!escaped && c == '$' && peek_next(input) == '(') {
-#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
+#if !defined(TIDESH_DISABLE_COMMAND_SUBSTITUTION) ||                           \
+    !defined(TIDESH_DISABLE_EXPANSIONS)
             advance(input); // consume '$'
             char *command = command_substitution(input);
             dynamic_extend(&word_value, "$(");
@@ -852,7 +856,8 @@ LexerToken lexer_next_token(LexerInput *input) {
 #endif
 
                 if (!escaped && c == '$' && peek_next(input) == '(') {
-#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
+#if !defined(TIDESH_DISABLE_COMMAND_SUBSTITUTION) ||                           \
+    !defined(TIDESH_DISABLE_EXPANSIONS)
                     advance(input); // consume '$'
                     char *command = command_substitution(input);
                     dynamic_extend(&word_value, "$(");

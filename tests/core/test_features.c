@@ -23,6 +23,7 @@ describe(features) {
         assert(features.brace_expansion);
         assert(features.filename_expansion);
         assert(features.alias_expansion);
+        assert(features.arithmetic_expansion);
         assert(features.job_control);
         assert(features.history);
         assert(features.directory_stack);
@@ -47,6 +48,7 @@ describe(features) {
         assert(!features.brace_expansion);
         assert(!features.filename_expansion);
         assert(!features.alias_expansion);
+        assert(!features.arithmetic_expansion);
         assert(!features.job_control);
         assert(!features.history);
         assert(!features.directory_stack);
@@ -72,6 +74,7 @@ describe(features) {
         assert(features.tilde_expansion);
         assert(features.brace_expansion);
         assert(features.filename_expansion);
+        assert(features.arithmetic_expansion);
     }
 
     it("should disable all expansions") {
@@ -84,6 +87,7 @@ describe(features) {
         assert(!features.tilde_expansion);
         assert(!features.brace_expansion);
         assert(!features.filename_expansion);
+        assert(!features.arithmetic_expansion);
     }
 
     it("should integrate with session") {

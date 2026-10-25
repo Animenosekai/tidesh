@@ -20,6 +20,7 @@
  *  - TIDESH_DISABLE_ALIASES: Disable alias/unalias
  *  - TIDESH_DISABLE_DIRSTACK: Disable pushd, popd, dirs
  *  - TIDESH_DISABLE_EXPANSIONS: Disable all expansions
+ *  - TIDESH_DISABLE_ARITHMETIC_EXPANSION: Disable $((...))
  *
  * Control Flow & Redirection compile-time flags:
  *  - TIDESH_DISABLE_PIPES: Disable pipe operator |
@@ -42,11 +43,12 @@
  */
 typedef struct Features {
     // Expansion features
-    bool variable_expansion; // $VAR, ${VAR}, etc.
-    bool tilde_expansion;    // ~, ~/path, ~user/path
-    bool brace_expansion;    // {a,b,c}, {1..10}
-    bool filename_expansion; // *, ?, [...] globbing
-    bool alias_expansion;    // Alias substitution
+    bool variable_expansion;   // $VAR, ${VAR}, etc.
+    bool tilde_expansion;      // ~, ~/path, ~user/path
+    bool brace_expansion;      // {a,b,c}, {1..10}
+    bool filename_expansion;   // *, ?, [...] globbing
+    bool alias_expansion;      // Alias substitution
+    bool arithmetic_expansion; // $(( expression ))
 
     // Shell features
     bool job_control;     // Background jobs, fg, bg, jobs

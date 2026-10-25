@@ -24,6 +24,15 @@
 char *expand_command_substitution(const char *input, Session *session);
 
 /**
+ * Perform arithmetic expansion $((...)) on input string
+ *
+ * @param input Input string
+ * @param session Pointer to current Session
+ * @return Expanded string, or NULL on failure
+ */
+char *expand_arithmetic(const char *input, Session *session);
+
+/**
  * Perform all expansions in order except aliases
  *
  * @param input Input string to expand

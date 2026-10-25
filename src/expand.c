@@ -9,11 +9,12 @@
 #ifndef TIDESH_DISABLE_ALIASES
 #include "expansions/aliases.h" /* alias_expansion */
 #endif
-#include "expansions/braces.h"    /* brace_expansion */
-#include "expansions/filenames.h" /* filename_expansion */
-#include "expansions/tildes.h"    /* tilde_expansion */
-#include "expansions/variables.h" /* variable_expansion */
-#include "session.h"              /* Session */
+#include "expansions/arithmetic.h" /* expand_arithmetic */
+#include "expansions/braces.h"     /* brace_expansion */
+#include "expansions/filenames.h"  /* filename_expansion */
+#include "expansions/tildes.h"     /* tilde_expansion */
+#include "expansions/variables.h"  /* variable_expansion */
+#include "session.h"               /* Session */
 
 /* Helper to apply an expansion function to all items in an Array */
 static Array *apply(Array *inputs, Array *(*expansion_func)(char *, Session *),
@@ -61,6 +62,40 @@ char *expand_command_substitution(const char *input, Session *session) {
         }
 
         if (input[i] == '$' && input[i + 1] == '(') {
+            if (i + 2 < len && input[i + 2] == '(') {
+                // Arithmetic expansion $(( expression )), copy verbatim
+                dynamic_append(&result, '$');
+                dynamic_append(&result, '(');
+                dynamic_append(&result, '(');
+                i += 3;
+                size_t pdepth = 0;
+                while (i < len) {
+                    if (input[i] == '\\' && i + 1 < len) {
+                        dynamic_append(&result, input[i++]);
+                        dynamic_append(&result, input[i++]);
+                        continue;
+                    }
+                    if (input[i] == '(') {
+                        pdepth++;
+                        dynamic_append(&result, input[i++]);
+                    } else if (input[i] == ')') {
+                        if (pdepth > 0) {
+                            pdepth--;
+                            dynamic_append(&result, input[i++]);
+                        } else if (i + 1 < len && input[i + 1] == ')') {
+                            dynamic_append(&result, input[i++]);
+                            dynamic_append(&result, input[i++]);
+                            break;
+                        } else {
+                            dynamic_append(&result, input[i++]);
+                        }
+                    } else {
+                        dynamic_append(&result, input[i++]);
+                    }
+                }
+                continue;
+            }
+
             i += 2; // skip "$("
             size_t  depth   = 1;
             Dynamic cmd_dyn = {0};
@@ -143,15 +178,27 @@ Array *full_expansion(char *input, Session *session) {
         return results;
     }
 
+    // Arithmetic expansion $((...))
+    char *after_arith = NULL;
+    if (session->features.arithmetic_expansion) {
+        after_arith = expand_arithmetic(input, session);
+        if (after_arith == NULL) {
+            return NULL;
+        }
+    } else {
+        after_arith = strdup(input);
+    }
+
     // Command substitution $(...)
     char *after_cmd_sub = NULL;
     if (session->features.command_substitution) {
-        after_cmd_sub = expand_command_substitution(input, session);
+        after_cmd_sub = expand_command_substitution(after_arith, session);
+        free(after_arith);
         if (after_cmd_sub == NULL) {
             return NULL;
         }
     } else {
-        after_cmd_sub = strdup(input);
+        after_cmd_sub = after_arith;
     }
 
     // Variable expansion

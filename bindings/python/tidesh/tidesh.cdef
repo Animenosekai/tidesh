@@ -44,6 +44,7 @@ struct Features {
     bool brace_expansion;
     bool filename_expansion;
     bool alias_expansion;
+    bool arithmetic_expansion;
     bool job_control;
     bool history;
     bool directory_stack;

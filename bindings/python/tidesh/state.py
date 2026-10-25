@@ -94,6 +94,15 @@ class Features:
         self._features.alias_expansion = value
 
     @property
+    def arithmetic_expansion(self) -> bool:
+        """Enable/disable integer arithmetic expansion ($(( expression ))."""
+        return bool(self._features.arithmetic_expansion)
+
+    @arithmetic_expansion.setter
+    def arithmetic_expansion(self, value: bool) -> None:
+        self._features.arithmetic_expansion = value
+
+    @property
     def job_control(self) -> bool:
         """Enable/disable job control (bg, fg, jobs commands)."""
         return bool(self._features.job_control)
@@ -231,6 +240,8 @@ class Features:
             enabled.append("filename_expansion")
         if self.alias_expansion:
             enabled.append("alias_expansion")
+        if self.arithmetic_expansion:
+            enabled.append("arithmetic_expansion")
         if self.job_control:
             enabled.append("job_control")
         if self.history:

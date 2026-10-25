@@ -114,6 +114,7 @@ sources = [
     "data/utf8.c",
     "data/files.c",
     "expansions/aliases.c",
+    "expansions/arithmetic.c",
     "expansions/braces.c",
     "expansions/filenames.c",
     "expansions/tildes.c",

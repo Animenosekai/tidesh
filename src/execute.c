@@ -21,6 +21,7 @@
 #include "environ.h" /* environ_get, environ_set, environ_set_exit_status, environ_set_last_arg, environ_set_background_pid, environ_to_array */
 #include "execute.h" /* execute, execute_string, execute_string_stdout, find_in_path, get_command_info, CommandInfo, COMMAND_* */
 #include "expand.h"  /* full_expansion */
+#include "expansions/arithmetic.h" /* expand_arithmetic */
 #include "expansions/tildes.h"
 #include "expansions/variables.h"
 #include "hooks.h"   /* HOOK_* */
@@ -35,7 +36,16 @@ static char *expand_word_no_split(const char *raw_value, Session *session) {
     }
     char *current = strdup(raw_value);
 
-    // 0. Command substitution $(...)
+    // 0. Arithmetic expansion $((...))
+    if (session && session->features.arithmetic_expansion) {
+        char *after_arith = expand_arithmetic(current, session);
+        if (after_arith) {
+            free(current);
+            current = after_arith;
+        }
+    }
+
+    // 1. Command substitution $(...)
 #ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
     if (session && session->features.command_substitution) {
         char *after_cmd = expand_command_substitution(current, session);

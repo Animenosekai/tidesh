@@ -17,6 +17,13 @@
 #define FEATURE_DISABLED_EXPANSIONS false
 #endif
 
+#if defined(TIDESH_DISABLE_EXPANSIONS) ||                                      \
+    defined(TIDESH_DISABLE_ARITHMETIC_EXPANSION)
+#define FEATURE_DISABLED_ARITHMETIC_EXPANSION true
+#else
+#define FEATURE_DISABLED_ARITHMETIC_EXPANSION false
+#endif
+
 #ifdef TIDESH_DISABLE_ALIASES
 #define FEATURE_DISABLED_ALIASES true
 #else
@@ -107,6 +114,9 @@ static const FeatureDef feature_defs[] = {
      offsetof(Features, filename_expansion), FEATURE_DISABLED_EXPANSIONS},
     {"alias_expansion", "alias substitution",
      offsetof(Features, alias_expansion), FEATURE_DISABLED_ALIASES},
+    {"arithmetic_expansion", "$(( expression ))",
+     offsetof(Features, arithmetic_expansion),
+     FEATURE_DISABLED_ARITHMETIC_EXPANSION},
     {"job_control", "bg/fg/jobs", offsetof(Features, job_control),
      FEATURE_DISABLED_JOB_CONTROL},
     {"history", "command history", offsetof(Features, history),
