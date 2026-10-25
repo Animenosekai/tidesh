@@ -8,41 +8,42 @@
 #include "session.h"       /* Session */
 
 int builtin_help(int argc, char **argv, Session *session) {
-    bool cd       = false;
-    bool clear    = false;
-    bool exit     = false;
-    bool export   = false;
-    bool unset    = false;
-    bool eval     = false;
-    bool alias    = false;
-    bool unalias  = false;
-    bool help     = false;
-    bool features = false;
-    bool hooks    = false;
-    bool history  = false;
-    bool info     = false;
-    bool printenv = false;
-    bool pwd      = false;
-    bool pushd    = false;
-    bool popd     = false;
-    bool terminal = false;
-    bool which    = false;
-    bool source   = false;
-    bool type     = false;
-    bool test     = false;
-    bool jobs     = false;
-    bool fg       = false;
-    bool bg       = false;
-    bool lexer    = false;
-    bool ast      = false;
-    bool b_break  = false;
-    bool b_cont   = false;
-    bool b_set    = false;
-    bool b_shift  = false;
-    bool b_colon  = false;
-    bool b_return = false;
-    bool b_exec   = false;
-    bool b_trap   = false;
+    bool cd        = false;
+    bool clear     = false;
+    bool exit      = false;
+    bool export    = false;
+    bool unset     = false;
+    bool eval      = false;
+    bool alias     = false;
+    bool unalias   = false;
+    bool help      = false;
+    bool features  = false;
+    bool hooks     = false;
+    bool history   = false;
+    bool info      = false;
+    bool printenv  = false;
+    bool pwd       = false;
+    bool pushd     = false;
+    bool popd      = false;
+    bool terminal  = false;
+    bool which     = false;
+    bool source    = false;
+    bool type      = false;
+    bool test      = false;
+    bool jobs      = false;
+    bool fg        = false;
+    bool bg        = false;
+    bool lexer     = false;
+    bool ast       = false;
+    bool b_break   = false;
+    bool b_cont    = false;
+    bool b_set     = false;
+    bool b_shift   = false;
+    bool b_colon   = false;
+    bool b_return  = false;
+    bool b_exec    = false;
+    bool b_trap    = false;
+    bool b_command = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -121,6 +122,8 @@ int builtin_help(int argc, char **argv, Session *session) {
             b_exec = true;
         else if (strcmp(argv[i], "trap") == 0)
             b_trap = true;
+        else if (strcmp(argv[i], "command") == 0)
+            b_command = true;
     }
 
     bool all =
@@ -128,7 +131,7 @@ int builtin_help(int argc, char **argv, Session *session) {
           help || features || hooks || history || info || printenv || pwd ||
           pushd || popd || terminal || which || source || type || test ||
           jobs || fg || bg || lexer || ast || b_break || b_cont || b_set ||
-          b_shift || b_colon || b_return || b_exec || b_trap);
+          b_shift || b_colon || b_return || b_exec || b_trap || b_command);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -324,6 +327,12 @@ int builtin_help(int argc, char **argv, Session *session) {
         printf("  %s%-9s %s%-14s%s - Trap signals and other conditions\n",
                command_clr, "trap", argument_clr,
                "[-lp] [[action] condition ...]", reset);
+
+    if (all || b_command)
+        printf("  %s%-9s %s%-14s%s - Execute command bypassing functions or "
+               "display command info\n",
+               command_clr, "command", argument_clr,
+               "[-p] cmd [arg...] or -v|-V [-p] cmd...", reset);
 
     return 0;
 }

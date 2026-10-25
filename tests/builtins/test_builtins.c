@@ -23,6 +23,7 @@ describe(builtin) {
         assert(is_builtin("return"));
         assert(is_builtin("exec"));
         assert(is_builtin("trap"));
+        assert(is_builtin("command"));
         assert(is_builtin("echo") == false);
         assert(is_builtin("nonexistent") == false);
     }
@@ -44,6 +45,7 @@ describe(builtin) {
         assert(is_special_builtin("return"));
         assert(is_special_builtin("exec"));
         assert(is_special_builtin("trap"));
+        assert(is_special_builtin("command"));
         assert(is_special_builtin("pwd") == false);
         assert(is_special_builtin("help") == false);
     }

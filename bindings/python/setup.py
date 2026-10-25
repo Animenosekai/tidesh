@@ -161,6 +161,7 @@ sources = [
     "builtins/return.c",
     "builtins/exec.c",
     "builtins/trap.c",
+    "builtins/command.c",
 ]
 
 # Convert to relative paths for setup

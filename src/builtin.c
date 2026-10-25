@@ -12,6 +12,7 @@
 #include "builtins/break.h"    /* builtin_break */
 #include "builtins/clear.h"    /* builtin_clear */
 #include "builtins/colon.h"    /* builtin_colon */
+#include "builtins/command.h"  /* builtin_command */
 #include "builtins/continue.h" /* builtin_continue */
 #include "builtins/eval.h"     /* builtin_eval */
 #include "builtins/exec.h"     /* builtin_exec */
@@ -53,12 +54,12 @@
 #endif
 #include "session.h" /* Session */
 
-const char *builtins[] = {"exit",     "pwd",     "clear", "help", "printenv",
-                          "which",    "export",  "unset", "eval", "terminal",
-                          "info",     "source",  "type",  "test", "hooks",
-                          "features", "not",     "lexer", "ast",  "break",
-                          "continue", "set",     "shift", ":",    "return",
-                          "exec",     "trap",
+const char *builtins[] = {"exit",     "pwd",     "clear",   "help", "printenv",
+                          "which",    "export",  "unset",   "eval", "terminal",
+                          "info",     "source",  "type",    "test", "hooks",
+                          "features", "not",     "lexer",   "ast",  "break",
+                          "continue", "set",     "shift",   ":",    "return",
+                          "exec",     "trap",    "command",
 #ifndef TIDESH_DISABLE_ALIASES
                           "alias",    "unalias",
 #endif
@@ -154,6 +155,8 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_exec;
     if (strcmp(name, "trap") == 0)
         return builtin_trap;
+    if (strcmp(name, "command") == 0)
+        return builtin_command;
 #ifndef TIDESH_DISABLE_JOB_CONTROL
     if (strcmp(name, "jobs") == 0)
         return builtin_jobs;
@@ -179,7 +182,7 @@ bool is_special_builtin(const char *name) {
         strcmp(name, "continue") == 0 || strcmp(name, "set") == 0 ||
         strcmp(name, "shift") == 0 || strcmp(name, ":") == 0 ||
         strcmp(name, "return") == 0 || strcmp(name, "exec") == 0 ||
-        strcmp(name, "trap") == 0) {
+        strcmp(name, "trap") == 0 || strcmp(name, "command") == 0) {
         return true;
     }
 #ifndef TIDESH_DISABLE_ALIASES

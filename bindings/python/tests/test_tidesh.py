@@ -573,6 +573,35 @@ def test_trap_builtin() -> None:
             tmp_path.unlink()
 
 
+def test_command_builtin() -> None:
+    session = tidesh.Session()
+
+    # command with no arguments
+    assert session.execute("command") == 0
+    assert session.execute("command -p") == 0
+
+    # command -v
+    out = session.capture("command -v cd")
+    assert out is not None and out.strip() == "cd"
+
+    out_ls = session.capture("command -v ls")
+    assert out_ls is not None and "ls" in out_ls
+
+    # command -V
+    out_v = session.capture("command -V cd")
+    assert out_v is not None and "built-in" in out_v
+
+    # command bypassing function
+    session.execute("cd() { TIDE_PY_CD=1; }")
+    orig_cwd = session.cwd
+    try:
+        assert session.execute("command cd /tmp") == 0
+        assert session.environ.get("TIDE_PY_CD") is None
+        assert session.cwd in ("/tmp", "/private/tmp")
+    finally:
+        session.cd(orig_cwd)
+
+
 if __name__ == "__main__":
     import inspect
     import sys

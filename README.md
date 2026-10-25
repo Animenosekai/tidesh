@@ -173,6 +173,7 @@ info
 | `alias` | List or set command aliases |
 | `cd` | Change the current directory |
 | `clear` | Clear the terminal screen |
+| `command` | Execute a simple command bypassing functions or display command info |
 | `eval` | Execute arguments as a command |
 | `exec` | Replace the shell process image or modify file descriptor redirections |
 | `exit` | Exit the shell |

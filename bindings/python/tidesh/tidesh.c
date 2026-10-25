@@ -11,6 +11,7 @@
 #include "builtins/bg.h"
 #include "builtins/break.h"
 #include "builtins/cd.h"
+#include "builtins/command.h"
 #include "builtins/continue.h"
 #include "builtins/fg.h"
 #include "builtins/exec.h"
