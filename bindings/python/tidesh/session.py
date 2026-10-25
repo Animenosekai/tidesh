@@ -3,6 +3,7 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportPrivateUsage=false
 from __future__ import annotations
 
+from collections.abc import Sequence
 import dataclasses
 import typing
 
@@ -20,6 +21,7 @@ from .state import (
     Functions,
     History,
     Jobs,
+    Options,
     Terminal,
 )
 
@@ -151,6 +153,8 @@ class Session:
         """The background job control manager for this session."""
         self.features = Features(self._session.features)
         """The runtime feature flags for this session."""
+        self.options = Options(self._session.options)
+        """The runtime shell options (errexit, xtrace, etc.) for this session."""
 
     def tokenize(self, command: str) -> typing.Iterable[Token]:
         """
@@ -264,39 +268,88 @@ class Session:
         c_args, c_argv = _build_argv("cd", *args)
         return int(lib.builtin_cd(len(c_args), c_argv, self._session))
 
-    def set(self, *args: str) -> int:
+    def set(
+        self,
+        *args: str,
+        errexit: bool | None = None,
+        xtrace: bool | None = None,
+        nounset: bool | None = None,
+        noglob: bool | None = None,
+        verbose: bool | None = None,
+        noexec: bool | None = None,
+        allexport: bool | None = None,
+        noclobber: bool | None = None,
+        monitor: bool | None = None,
+        pipefail: bool | None = None,
+        positional: Sequence[str] | None = None,
+        **options: bool,
+    ) -> int:
         """
         Set or unset shell options and positional parameters, or show variables.
 
         Parameters
         ----------
         *args : str
-            Arguments for the set command.
+            Raw arguments or option flags (e.g. '-e', '-x', '+f').
+        errexit : bool | None, optional
+            Exit immediately if a command exits with a non-zero status (-e / -o errexit).
+        xtrace : bool | None, optional
+            Print commands and their arguments as they are executed (-x / -o xtrace).
+        nounset : bool | None, optional
+            Treat unset variables as an error when substituting (-u / -o nounset).
+        noglob : bool | None, optional
+            Disable pathname expansion (-f / -o noglob).
+        verbose : bool | None, optional
+            Print shell input lines as they are read (-v / -o verbose).
+        noexec : bool | None, optional
+            Read commands but do not execute them (-n / -o noexec).
+        allexport : bool | None, optional
+            Automatically mark variables which are modified or created for export (-a / -o allexport).
+        noclobber : bool | None, optional
+            Prevent output redirection from overwriting existing files (-C / -o noclobber).
+        monitor : bool | None, optional
+            Enable job control (-m / -o monitor).
+        pipefail : bool | None, optional
+            Pipeline return status is the last non-zero exit code (-o pipefail).
+        positional : Sequence[str] | None, optional
+            Replace the positional parameters ($1, $2, ...) with the provided sequence.
+        **options : bool
+            Additional named options passed via -o / +o (e.g. `history=False`).
 
         Returns
         -------
         int
             The exit status.
         """
-        c_args, c_argv = _build_argv("set", *args)
+        cmd_args: list[str] = list(args)
+
+        known_opts: dict[str, bool | None] = {
+            "errexit": errexit,
+            "xtrace": xtrace,
+            "nounset": nounset,
+            "noglob": noglob,
+            "verbose": verbose,
+            "noexec": noexec,
+            "allexport": allexport,
+            "noclobber": noclobber,
+            "monitor": monitor,
+            "pipefail": pipefail,
+        }
+        for name, val in known_opts.items():
+            if val is not None:
+                cmd_args.append("-o" if val else "+o")
+                cmd_args.append(name)
+
+        for name, val in options.items():
+            cmd_args.append("-o" if val else "+o")
+            cmd_args.append(name)
+
+        if positional is not None:
+            cmd_args.append("--")
+            cmd_args.extend(positional)
+
+        c_args, c_argv = _build_argv("set", *cmd_args)
         return int(lib.builtin_set(len(c_args), c_argv, self._session))
-
-    def shift(self, *args: str) -> int:
-        """
-        Shift positional parameters using the shift builtin.
-
-        Parameters
-        ----------
-        *args : str
-            Optional shift count argument.
-
-        Returns
-        -------
-        int
-            The exit status.
-        """
-        c_args, c_argv = _build_argv("shift", *args)
-        return int(lib.builtin_shift(len(c_args), c_argv, self._session))
 
     def bg(self, *args: str) -> int:
         """

@@ -39,6 +39,7 @@ int builtin_help(int argc, char **argv, Session *session) {
     bool b_cont   = false;
     bool b_set    = false;
     bool b_shift  = false;
+    bool b_colon  = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "cd") == 0)
@@ -109,13 +110,15 @@ int builtin_help(int argc, char **argv, Session *session) {
             b_set = true;
         else if (strcmp(argv[i], "shift") == 0)
             b_shift = true;
+        else if (strcmp(argv[i], ":") == 0)
+            b_colon = true;
     }
 
     bool all = !(cd || clear || exit || export || unset || eval || alias ||
                  unalias || help || features || hooks || history || info ||
                  printenv || pwd || pushd || popd || terminal || which ||
                  source || type || test || jobs || fg || bg || lexer || ast ||
-                 b_break || b_cont || b_set || b_shift);
+                 b_break || b_cont || b_set || b_shift || b_colon);
 
     bool use_colors = (session && session->terminal)
                           ? session->terminal->supports_colors
@@ -158,6 +161,10 @@ int builtin_help(int argc, char **argv, Session *session) {
     if (all || b_shift)
         printf("  %s%-9s %s%-14s%s - Shift positional parameters\n",
                command_clr, "shift", argument_clr, "[n?]", reset);
+
+    if (all || b_colon)
+        printf("  %s%-9s %s%-14s%s - Null command (returns 0)\n", command_clr,
+               ":", argument_clr, "[args...]", reset);
 
     if (all || eval)
         printf("  %s%-9s %s%-14s%s - Execute arguments as a command\n",

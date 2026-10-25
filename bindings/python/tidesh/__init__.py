@@ -120,6 +120,7 @@ from .state import (
     History,
     Jobs,
     JobState,
+    Options,
     Terminal,
 )
 from .tokens import (

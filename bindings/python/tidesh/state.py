@@ -271,6 +271,141 @@ class Features:
         return f"Features({', '.join(enabled)})"
 
 
+class Options:
+    """
+    Runtime shell options for a session (errexit, xtrace, nounset, noglob, etc.).
+
+    Control shell execution behavior like error handling, tracing, and pathname expansion.
+    """
+
+    def __init__(self, options_ptr: typing.Any) -> None:
+        """
+        Initialize the options wrapper.
+
+        Parameters
+        ----------
+        options_ptr : typing.Any
+            Pointer to the C ShellOptions structure.
+        """
+        super().__init__()
+        self._options = options_ptr
+
+    @property
+    def errexit(self) -> bool:
+        """Exit immediately if a command exits with a non-zero status (-e / +e)."""
+        return bool(self._options.errexit)
+
+    @errexit.setter
+    def errexit(self, value: bool) -> None:
+        self._options.errexit = value
+
+    @property
+    def xtrace(self) -> bool:
+        """Print commands and their arguments as they are executed (-x / +x)."""
+        return bool(self._options.xtrace)
+
+    @xtrace.setter
+    def xtrace(self, value: bool) -> None:
+        self._options.xtrace = value
+
+    @property
+    def nounset(self) -> bool:
+        """Treat unset variables as an error when expanding (-u / +u)."""
+        return bool(self._options.nounset)
+
+    @nounset.setter
+    def nounset(self, value: bool) -> None:
+        self._options.nounset = value
+
+    @property
+    def noglob(self) -> bool:
+        """Disable pathname expansion (globbing) (-f / +f)."""
+        return bool(self._options.noglob)
+
+    @noglob.setter
+    def noglob(self, value: bool) -> None:
+        self._options.noglob = value
+
+    @property
+    def verbose(self) -> bool:
+        """Print shell input lines as they are read (-v / +v)."""
+        return bool(self._options.verbose)
+
+    @verbose.setter
+    def verbose(self, value: bool) -> None:
+        self._options.verbose = value
+
+    @property
+    def noexec(self) -> bool:
+        """Read commands but do not execute them (-n / +n)."""
+        return bool(self._options.noexec)
+
+    @noexec.setter
+    def noexec(self, value: bool) -> None:
+        self._options.noexec = value
+
+    @property
+    def allexport(self) -> bool:
+        """Automatically mark variables for export (-a / +a)."""
+        return bool(self._options.allexport)
+
+    @allexport.setter
+    def allexport(self, value: bool) -> None:
+        self._options.allexport = value
+
+    @property
+    def noclobber(self) -> bool:
+        """Prevent redirection from overwriting existing files (-C / +C)."""
+        return bool(self._options.noclobber)
+
+    @noclobber.setter
+    def noclobber(self, value: bool) -> None:
+        self._options.noclobber = value
+
+    @property
+    def monitor(self) -> bool:
+        """Enable job control (-m / +m)."""
+        return bool(self._options.monitor)
+
+    @monitor.setter
+    def monitor(self, value: bool) -> None:
+        self._options.monitor = value
+
+    @property
+    def pipefail(self) -> bool:
+        """Pipeline returns status of last failed command."""
+        return bool(self._options.pipefail)
+
+    @pipefail.setter
+    def pipefail(self, value: bool) -> None:
+        self._options.pipefail = value
+
+    def __repr__(self) -> str:
+        """Return a string representation of the options."""
+        enabled = []
+        if self.errexit:
+            enabled.append("errexit")
+        if self.xtrace:
+            enabled.append("xtrace")
+        if self.nounset:
+            enabled.append("nounset")
+        if self.noglob:
+            enabled.append("noglob")
+        if self.verbose:
+            enabled.append("verbose")
+        if self.noexec:
+            enabled.append("noexec")
+        if self.allexport:
+            enabled.append("allexport")
+        if self.noclobber:
+            enabled.append("noclobber")
+        if self.monitor:
+            enabled.append("monitor")
+        if self.pipefail:
+            enabled.append("pipefail")
+        return f"Options({', '.join(enabled)})"
+
+
 class History:
     """
     Manages command history for a shell session.

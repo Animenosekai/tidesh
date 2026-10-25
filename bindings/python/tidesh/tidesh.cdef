@@ -61,6 +61,21 @@ struct Features {
     ...;
 };
 
+typedef struct ShellOptions ShellOptions;
+struct ShellOptions {
+    bool allexport;
+    bool errexit;
+    bool noglob;
+    bool nounset;
+    bool verbose;
+    bool xtrace;
+    bool noexec;
+    bool noclobber;
+    bool monitor;
+    bool pipefail;
+    ...;
+};
+
 struct Session {
     char     *current_working_dir;
     char     *previous_working_dir;
@@ -72,9 +87,10 @@ struct Session {
     DirStack *dirstack;
     Terminal *terminal;
     Jobs     *jobs;
-    Features  features;
-    bool      exit_requested;
-    bool      hooks_disabled;
+    Features     features;
+    ShellOptions options;
+    bool         exit_requested;
+    bool         hooks_disabled;
     ...;
 };
 
@@ -320,7 +336,6 @@ int builtin_ast(int argc, char **argv, Session *session);
 int builtin_break(int argc, char **argv, Session *session);
 int builtin_continue(int argc, char **argv, Session *session);
 int builtin_set(int argc, char **argv, Session *session);
-int builtin_shift(int argc, char **argv, Session *session);
 
 extern const char *tidesh_compiler;
 

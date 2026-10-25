@@ -12,6 +12,7 @@
 #include "builtins/break.h"
 #include "builtins/cd.h"
 #include "builtins/clear.h"
+#include "builtins/colon.h"
 #include "builtins/eval.h"
 #include "builtins/exit.h"
 #include "builtins/export.h"
