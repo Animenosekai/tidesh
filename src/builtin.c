@@ -24,6 +24,7 @@
 #include "builtins/printenv.h" /* builtin_printenv */
 #include "builtins/pwd.h"      /* builtin_pwd */
 #include "builtins/set.h"      /* builtin_set */
+#include "builtins/shift.h"    /* builtin_shift */
 #include "builtins/source.h"   /* builtin_source */
 #include "builtins/terminal.h" /* builtin_terminal */
 #include "builtins/test.h"     /* builtin_test */
@@ -52,7 +53,7 @@ const char *builtins[] = {"exit",     "pwd",     "clear", "help", "printenv",
                           "which",    "export",  "unset", "eval", "terminal",
                           "info",     "source",  "type",  "test", "hooks",
                           "features", "not",     "lexer", "ast",  "break",
-                          "continue", "set",
+                          "continue", "set",     "shift",
 #ifndef TIDESH_DISABLE_ALIASES
                           "alias",    "unalias",
 #endif
@@ -136,6 +137,8 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_continue;
     if (strcmp(name, "set") == 0)
         return builtin_set;
+    if (strcmp(name, "shift") == 0)
+        return builtin_shift;
 #ifndef TIDESH_DISABLE_JOB_CONTROL
     if (strcmp(name, "jobs") == 0)
         return builtin_jobs;
@@ -158,7 +161,8 @@ bool is_special_builtin(const char *name) {
         strcmp(name, "!") == 0 || strcmp(name, "hooks") == 0 ||
         strcmp(name, "features") == 0 || strcmp(name, "lexer") == 0 ||
         strcmp(name, "ast") == 0 || strcmp(name, "break") == 0 ||
-        strcmp(name, "continue") == 0 || strcmp(name, "set") == 0) {
+        strcmp(name, "continue") == 0 || strcmp(name, "set") == 0 ||
+        strcmp(name, "shift") == 0) {
         return true;
     }
 #ifndef TIDESH_DISABLE_ALIASES

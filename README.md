@@ -189,6 +189,7 @@ info
 | `pushd` | Push directory onto stack or swap stack entries |
 | `pwd` | Print the current working directory |
 | `set` | Set or unset options and positional parameters, or show variables |
+| `shift` | Shift positional parameters |
 | `source` | Execute commands from a file |
 | `type` | Show the type of a command |
 | `test` | Evaluate conditional expressions |

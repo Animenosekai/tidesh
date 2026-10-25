@@ -320,6 +320,7 @@ int builtin_ast(int argc, char **argv, Session *session);
 int builtin_break(int argc, char **argv, Session *session);
 int builtin_continue(int argc, char **argv, Session *session);
 int builtin_set(int argc, char **argv, Session *session);
+int builtin_shift(int argc, char **argv, Session *session);
 
 extern const char *tidesh_compiler;
 

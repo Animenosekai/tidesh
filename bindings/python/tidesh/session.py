@@ -281,6 +281,23 @@ class Session:
         c_args, c_argv = _build_argv("set", *args)
         return int(lib.builtin_set(len(c_args), c_argv, self._session))
 
+    def shift(self, *args: str) -> int:
+        """
+        Shift positional parameters using the shift builtin.
+
+        Parameters
+        ----------
+        *args : str
+            Optional shift count argument.
+
+        Returns
+        -------
+        int
+            The exit status.
+        """
+        c_args, c_argv = _build_argv("shift", *args)
+        return int(lib.builtin_shift(len(c_args), c_argv, self._session))
+
     def bg(self, *args: str) -> int:
         """
         Continue a stopped job in the background using the bg builtin.
