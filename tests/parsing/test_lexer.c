@@ -723,4 +723,98 @@ describe(lexer) {
         free_lexer_input(input);
         free(input);
     }
+
+    it("should tokenize case statement keywords and terminators") {
+        LexerInput *input = init_lexer_input(NULL, "case $x in a) echo 1 ;; b) echo 2 ;& c) echo 3 ;;& esac", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_CASE);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "$x");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_IN);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "a");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_RPAREN);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "1");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_DOUBLE_SEMICOLON);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "b");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_RPAREN);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "2");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_CASE_FALLTHROUGH);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "c");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_RPAREN);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "echo");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "3");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_CASE_CONTINUE);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_ESAC);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
 }

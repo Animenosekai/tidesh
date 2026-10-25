@@ -69,6 +69,12 @@
       - [Loop Control: `break` and `continue`](#loop-control-break-and-continue-1)
       - [Redirections and Pipelines](#redirections-and-pipelines-1)
       - [Notes](#notes-2)
+    - [Case Statements](#case-statements)
+      - [Basic Syntax](#basic-syntax-3)
+      - [Pattern Matching](#pattern-matching)
+      - [Clause Terminators (`;;`, `;&`, `;;&`)](#clause-terminators---)
+      - [Redirections and Pipelines](#redirections-and-pipelines-2)
+      - [Notes](#notes-3)
 - [Python Bindings](#python-bindings)
   - [Installation](#installation-1)
   - [Usage](#usage)
@@ -611,7 +617,7 @@ Available compile-time flags:
 | `TIDESH_DISABLE_SUBSHELLS` | Disable subshells `( ... )` |
 | `TIDESH_DISABLE_COMMAND_SUBSTITUTION` | Disable `$(...)` |
 | `TIDESH_DISABLE_ASSIGNMENTS` | Disable `VAR=value` assignments |
-| `TIDESH_DISABLE_CONDITIONALS` | Disable `if/then/elif/else/fi` statements |
+| `TIDESH_DISABLE_CONDITIONALS` | Disable `if/then/elif/else/fi` and `case/in/esac` statements |
 | `TIDESH_DISABLE_LOOPS` | Disable `for` and `while` loops |
 
 Build with compile-time flags:
@@ -976,6 +982,99 @@ done | grep "5"
 - `while` loops can be disabled at compile-time with `TIDESH_DISABLE_LOOPS`.
 - The condition list is evaluated at the start of each iteration. If the condition fails on the initial check, the body is never executed and the loop exits with status 0.
 - Loop redirections execute in-process so environment modifications persist across iterations.
+
+#### Case Statements
+
+`tidesh` supports POSIX-compatible `case ... in ... esac` statements for pattern-based conditional branching, including wildcard patterns, alternatives, standard and advanced clause terminators (`;;`, `;&`, `;;&`), and I/O redirections.
+
+##### Basic Syntax
+
+```sh
+case "$var" in
+    pattern1)
+        command1
+        ;;
+    pattern2)
+        command2
+        ;;
+    *)
+        default_command
+        ;;
+esac
+```
+
+Optional leading parenthesis `(` is also supported:
+
+```sh
+case "$var" in
+    (pattern1) command1 ;;
+    (pattern2) command2 ;;
+    (*) default_command ;;
+esac
+```
+
+##### Pattern Matching
+
+Patterns are matched against the expanded word in order. Supported pattern constructs include:
+
+- **Exact strings**: `apple) echo "matched apple" ;;`
+- **Multiple alternatives (`|`)**: `apple|banana|cherry) echo "matched fruit" ;;`
+- **Wildcards (`*`, `?`)**: `*.txt) echo "text file" ;;` or `?) echo "single char" ;;`
+- **Character classes (`[...]`)**: `[0-9]) echo "digit" ;; [a-zA-Z]) echo "letter" ;;`
+- **Catch-all default (`*`)**: `*) echo "fallback" ;;`
+
+##### Clause Terminators (`;;`, `;&`, `;;&`)
+
+- `;;`: Execute the clause body and exit the case statement (standard POSIX behavior).
+- `;&`: Execute the clause body and fall through to the next clause without testing its pattern.
+- `;;&`: Execute the clause body and continue testing subsequent pattern clauses.
+- The trailing terminator before `esac` is optional.
+
+```sh
+# Fallthrough with ;&
+case "$choice" in
+    start)
+        echo "Starting..."
+        ;&
+    run)
+        echo "Running..."
+        ;;
+esac
+
+# Continue matching with ;;&
+case "$filename" in
+    *.tar.*)
+        echo "Is tar archive"
+        ;;&
+    *.gz)
+        echo "Is gzip compressed"
+        ;;
+esac
+```
+
+##### Redirections and Pipelines
+
+Case statements support redirections and can participate in pipelines:
+
+```sh
+# Redirection on case statement
+case "$action" in
+    dump) generate_data ;;
+    *) echo "no data" ;;
+esac > output.log
+
+# Case statement in a pipeline
+case "$type" in
+    all) cat items.txt ;;
+    *) grep "$type" items.txt ;;
+esac | sort | uniq
+```
+
+##### Notes
+
+- `case` statements can be disabled at compile-time with `TIDESH_DISABLE_CONDITIONALS`.
+- If no patterns match, the case statement exits with status 0. If a pattern matches, the exit status is that of the last command executed in the clause body.
+- Case statement redirections execute in-process so variable assignments and state changes persist.
 
 ## Python Bindings
 

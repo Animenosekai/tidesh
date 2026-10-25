@@ -917,6 +917,109 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should execute case statement with pattern matching") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Exact match
+        int st = execute_string("X=\"apple\"; RESULT=\"\"; case \"$X\" in apple) RESULT=\"fruit\" ;; *) RESULT=\"other\" ;; esac", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "RESULT");
+        assertneq(val, NULL);
+        asserteq_str(val, "fruit");
+
+        // Multiple patterns with |
+        st = execute_string("X=\"cherry\"; RESULT=\"\"; case \"$X\" in apple|banana|cherry) RESULT=\"matched_list\" ;; *) RESULT=\"other\" ;; esac", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RESULT");
+        assertneq(val, NULL);
+        asserteq_str(val, "matched_list");
+
+        // Wildcard match *
+        st = execute_string("X=\"archive.tar.gz\"; RESULT=\"\"; case \"$X\" in *.tar.gz) RESULT=\"archive\" ;; *) RESULT=\"other\" ;; esac", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RESULT");
+        assertneq(val, NULL);
+        asserteq_str(val, "archive");
+
+        // Wildcard match ?
+        st = execute_string("X=\"b\"; RESULT=\"\"; case \"$X\" in ?) RESULT=\"single_char\" ;; *) RESULT=\"multi\" ;; esac", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RESULT");
+        assertneq(val, NULL);
+        asserteq_str(val, "single_char");
+
+        // Character class [...]
+        st = execute_string("X=\"5\"; RESULT=\"\"; case \"$X\" in [0-9]) RESULT=\"digit\" ;; *) RESULT=\"non_digit\" ;; esac", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RESULT");
+        assertneq(val, NULL);
+        asserteq_str(val, "digit");
+
+        // Default match *)
+        st = execute_string("X=\"zebra\"; RESULT=\"\"; case \"$X\" in apple) RESULT=\"fruit\" ;; *) RESULT=\"default_hit\" ;; esac", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RESULT");
+        assertneq(val, NULL);
+        asserteq_str(val, "default_hit");
+
+        // No match returns 0
+        st = execute_string("X=\"nomatch\"; RESULT=\"unchanged\"; case \"$X\" in apple) RESULT=\"fruit\" ;; esac", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RESULT");
+        assertneq(val, NULL);
+        asserteq_str(val, "unchanged");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support fallthrough and continue matching in case") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Fallthrough with ;&
+        int st = execute_string("ACC=\"\"; case \"first\" in first) ACC=\"${ACC}1,\";& second) ACC=\"${ACC}2,\";; esac", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "1,2,");
+
+        // Continue matching with ;;&
+        st = execute_string("ACC=\"\"; case \"alpha_beta\" in a*) ACC=\"${ACC}starts_a,\";;& *_beta) ACC=\"${ACC}ends_beta,\";;& *gamma) ACC=\"${ACC}gamma,\";; esac", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "starts_a,ends_beta,");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support redirections and pipelines with case statements") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        const char *outfile = "/tmp/test_case_redir.txt";
+        unlink(outfile);
+
+        int st = execute_string("case \"hello\" in hello) echo \"case_output\" ;; esac > /tmp/test_case_redir.txt", session);
+        asserteq(st, 0);
+
+        FILE *f = fopen(outfile, "r");
+        assertneq(f, NULL);
+        char buf[256] = {0};
+        size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+        buf[n] = '\0';
+        assert(strstr(buf, "case_output") != NULL);
+        fclose(f);
+        unlink(outfile);
+
+        char *out = execute_string_stdout("case \"my_value\" in my_*) echo \"matched_my_val\" ;; esac | grep val", session);
+        assertneq(out, NULL);
+        assert(strstr(out, "matched_my_val") != NULL);
+        free(out);
+
+        free_session(session);
+        free(session);
+    }
 }
 
 

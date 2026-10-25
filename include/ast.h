@@ -31,7 +31,8 @@ typedef enum NodeType {
 #endif
 #ifndef TIDESH_DISABLE_CONDITIONALS
     ,
-    NODE_CONDITIONAL
+    NODE_CONDITIONAL,
+    NODE_CASE
 #endif
 #ifndef TIDESH_DISABLE_FUNCTIONS
     ,
@@ -63,6 +64,27 @@ typedef struct ConditionalBranch {
     /* Next branch (for elif/else) */
     struct ConditionalBranch *next;
 } ConditionalBranch;
+
+/* The terminator for a case clause */
+typedef enum CaseTerminator {
+    CASE_TERM_BREAK,       /* ;; */
+    CASE_TERM_FALLTHROUGH, /* ;& */
+    CASE_TERM_CONTINUE     /* ;;& */
+} CaseTerminator;
+
+/* Describes a clause (item) in a case statement */
+typedef struct CaseItem {
+    /* Array of pattern strings (e.g., from pattern1 | pattern2) */
+    char **patterns;
+    /* Number of patterns in this clause */
+    int pattern_count;
+    /* Commands to execute if pattern matches */
+    struct ASTNode *body;
+    /* How to proceed after this clause (;; / ;& / ;;&) */
+    CaseTerminator terminator;
+    /* Next case clause */
+    struct CaseItem *next;
+} CaseItem;
 #endif
 
 /* Descibes an AST node */
@@ -89,6 +111,8 @@ typedef struct ASTNode {
 #ifndef TIDESH_DISABLE_CONDITIONALS
     /* For conditional nodes */
     ConditionalBranch *branches;
+    /* For case nodes */
+    CaseItem *case_items;
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
     /* For for loop nodes */

@@ -374,6 +374,82 @@ def test_while_loop() -> None:
     assert session.environ.get("ACC") == "a,aaa,"
 
 
+def test_case() -> None:
+    session = tidesh.Session()
+
+    # Lexer
+    lex_res = tidesh.lex("case $x in a|b) echo 1 ;; esac")
+    assert any(t.type == tidesh.TokenType.CASE for t in lex_res)
+    assert any(t.type == tidesh.TokenType.IN for t in lex_res)
+    assert any(t.type == tidesh.TokenType.ESAC for t in lex_res)
+    assert any(t.type == tidesh.TokenType.DOUBLE_SEMICOLON for t in lex_res)
+
+    # AST
+    ast_res = tidesh.ast("case $x in a|b) echo 1 ;; *) echo 2 ;; esac")
+    assert isinstance(ast_res, tidesh.ASTResult)
+    assert ast_res.root is not None
+    assert isinstance(ast_res.root, tidesh.CaseNode)
+    assert isinstance(ast_res.root, tidesh.ASTNode)
+    assert ast_res.type == tidesh.NodeType.CASE
+    assert ast_res.root.word == "$x"
+    assert len(ast_res.root.items) == 2
+
+    item0 = ast_res.root.items[0]
+    assert isinstance(item0, tidesh.CaseItem)
+    assert item0.patterns == ["a", "b"]
+    assert item0.terminator == ";;"
+    assert item0.body is not None
+    assert isinstance(item0.body, tidesh.CommandNode)
+
+    item1 = ast_res.root.items[1]
+    assert item1.patterns == ["*"]
+    assert item1.terminator == ";;"
+
+    # AST JSON
+    data = json.loads(ast_res.json)
+    assert data["type"] == "CASE"
+    assert data["word"] == "$x"
+    assert len(data["items"]) == 2
+    assert data["items"][0]["patterns"] == ["a", "b"]
+    assert data["items"][0]["terminator"] == ";;"
+    assert 'word: "$x"' in ast_res.pretty
+    assert 'patterns=["a", "b"]' in ast_res.pretty
+
+    # Execution: match pattern
+    session.execute(
+        'X="banana"; RES=""; case "$X" in apple|banana) RES="fruit" ;; *) RES="other" ;; esac',
+    )
+    assert session.environ.get("RES") == "fruit"
+
+    # Execution: default match
+    session.execute(
+        'X="car"; RES=""; case "$X" in apple|banana) RES="fruit" ;; *) RES="default" ;; esac',
+    )
+    assert session.environ.get("RES") == "default"
+
+    # Execution: wildcard
+    session.execute(
+        'X="script.sh"; RES=""; case "$X" in *.sh) RES="shell" ;; *) RES="unknown" ;; esac',
+    )
+    assert session.environ.get("RES") == "shell"
+
+    # Execution: fallthrough ;&
+    session.execute(
+        'ACC=""; case "1" in 1) ACC="${ACC}one,";& 2) ACC="${ACC}two,";; esac',
+    )
+    assert session.environ.get("ACC") == "one,two,"
+
+    # Execution: continue matching ;;&
+    session.execute(
+        'ACC=""; case "test_case" in t*) ACC="${ACC}starts_t,";;& *_case) ACC="${ACC}ends_case,";;& *other) ACC="${ACC}other,";; esac',
+    )
+    assert session.environ.get("ACC") == "starts_t,ends_case,"
+
+    # Execution: capture
+    out = session.capture('case "hello" in hello) echo "matched" ;; esac')
+    assert out.strip() == "matched"
+
+
 if __name__ == "__main__":
     import inspect
     import sys

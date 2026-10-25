@@ -268,6 +268,47 @@ static void ast_pretty_print_node(FILE *out, const ASTNode *node,
 #endif
 
 #ifndef TIDESH_DISABLE_CONDITIONALS
+    if (node->type == NODE_CASE) {
+        for (int i = 0; i < depth; i++) {
+            fputs(is_last_stack[i] ? box->space : box->vertical, out);
+        }
+        fputs(box->branch, out);
+        fprintf(out, "word: \"%s\"\n",
+                (node->argc > 0 && node->argv && node->argv[0]) ? node->argv[0]
+                                                                : "");
+        int item_count = 0;
+        for (CaseItem *item = node->case_items; item; item = item->next)
+            item_count++;
+        int idx = 0;
+        for (CaseItem *item = node->case_items; item;
+             item           = item->next, idx++) {
+            bool is_last_item = (idx == item_count - 1);
+            for (int i = 0; i < depth; i++) {
+                fputs(is_last_stack[i] ? box->space : box->vertical, out);
+            }
+            fputs(is_last_item ? box->last_branch : box->branch, out);
+            fputs("clause: patterns=[", out);
+            for (int p = 0; p < item->pattern_count; p++) {
+                if (p > 0)
+                    fputs(", ", out);
+                fprintf(out, "\"%s\"",
+                        item->patterns[p] ? item->patterns[p] : "");
+            }
+            const char *term_str = ";;";
+            if (item->terminator == CASE_TERM_FALLTHROUGH)
+                term_str = ";&";
+            else if (item->terminator == CASE_TERM_CONTINUE)
+                term_str = ";;&";
+            fprintf(out, "] terminator=\"%s\"\n", term_str);
+
+            is_last_stack[depth] = is_last_item;
+            if (item->body) {
+                ast_pretty_print_node(out, item->body, "body", box,
+                                      is_last_stack, depth + 1, true);
+            }
+        }
+        return;
+    }
     if (node->type == NODE_CONDITIONAL) {
         int b_count = 0;
         for (ConditionalBranch *b = node->branches; b; b = b->next)
@@ -422,6 +463,48 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
 #endif
 
 #ifndef TIDESH_DISABLE_CONDITIONALS
+    if (node->type == NODE_CASE) {
+        fputs(",\n", out);
+        print_indent(out, indent + 1);
+        fputs("\"word\": ", out);
+        print_json_escaped(out, (node->argc > 0 && node->argv && node->argv[0])
+                                    ? node->argv[0]
+                                    : "");
+        fputs(",\n", out);
+        print_indent(out, indent + 1);
+        fputs("\"items\": [\n", out);
+        for (CaseItem *item = node->case_items; item; item = item->next) {
+            print_indent(out, indent + 2);
+            fputs("{\n", out);
+            print_indent(out, indent + 3);
+            fputs("\"patterns\": [", out);
+            for (int p = 0; p < item->pattern_count; p++) {
+                if (p > 0)
+                    fputs(", ", out);
+                print_json_escaped(out,
+                                   item->patterns[p] ? item->patterns[p] : "");
+            }
+            fputs("],\n", out);
+            print_indent(out, indent + 3);
+            const char *term_str = ";;";
+            if (item->terminator == CASE_TERM_FALLTHROUGH)
+                term_str = ";&";
+            else if (item->terminator == CASE_TERM_CONTINUE)
+                term_str = ";;&";
+            fprintf(out, "\"terminator\": \"%s\",\n", term_str);
+            print_indent(out, indent + 3);
+            fputs("\"body\": ", out);
+            ast_json_print(out, item->body, indent + 3);
+            fputc('\n', out);
+            print_indent(out, indent + 2);
+            fputs("}", out);
+            if (item->next)
+                fputs(",", out);
+            fputc('\n', out);
+        }
+        print_indent(out, indent + 1);
+        fputs("]", out);
+    }
     if (node->type == NODE_CONDITIONAL) {
         fputs(",\n", out);
         print_indent(out, indent + 1);
@@ -495,7 +578,7 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
         node->type != NODE_SUBSHELL &&
 #endif
 #ifndef TIDESH_DISABLE_CONDITIONALS
-        node->type != NODE_CONDITIONAL &&
+        node->type != NODE_CONDITIONAL && node->type != NODE_CASE &&
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
         node->type != NODE_FOR && node->type != NODE_WHILE &&

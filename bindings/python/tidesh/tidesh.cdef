@@ -175,6 +175,11 @@ typedef enum TokenType {
     TOKEN_ELSE,
     TOKEN_ELIF,
     TOKEN_FI,
+    TOKEN_CASE,
+    TOKEN_ESAC,
+    TOKEN_DOUBLE_SEMICOLON,
+    TOKEN_CASE_FALLTHROUGH,
+    TOKEN_CASE_CONTINUE,
     TOKEN_FOR,
     TOKEN_WHILE,
     TOKEN_IN,
@@ -207,6 +212,7 @@ typedef enum NodeType {
     NODE_SUBSHELL,
     NODE_BLOCK,
     NODE_CONDITIONAL,
+    NODE_CASE,
     NODE_FUNCTION_DEF,
     NODE_FOR,
     NODE_WHILE
@@ -218,6 +224,21 @@ struct ConditionalBranch {
     struct ConditionalBranch *next;
     ...;
 };
+
+typedef enum CaseTerminator {
+    CASE_TERM_BREAK,
+    CASE_TERM_FALLTHROUGH,
+    CASE_TERM_CONTINUE
+} CaseTerminator;
+
+typedef struct CaseItem {
+    char **patterns;
+    int pattern_count;
+    struct ASTNode *body;
+    CaseTerminator terminator;
+    struct CaseItem *next;
+    ...;
+} CaseItem;
 
 struct Redirection {
     int                 fd;
@@ -239,6 +260,7 @@ struct ASTNode {
     struct ASTNode *right;
     bool background;
     ConditionalBranch *branches;
+    CaseItem *case_items;
     bool for_has_in;
     ...;
 };

@@ -30,7 +30,8 @@
  *  - TIDESH_DISABLE_COMMAND_SUBSTITUTION: Disable $(...)
  *  - TIDESH_DISABLE_ASSIGNMENTS: Disable VAR=value assignments
  *  - TIDESH_DISABLE_FUNCTIONS: Disable shell functions name() { ... }
- *  - TIDESH_DISABLE_CONDITIONALS: Disable if/then/elif/else/fi statements
+ *  - TIDESH_DISABLE_CONDITIONALS: Disable if/then/elif/else/fi and case/in/esac
+ * statements
  *  - TIDESH_DISABLE_LOOPS: Disable for and while loops (for ...; do ... done,
  * while ...; do ... done)
  */

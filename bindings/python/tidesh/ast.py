@@ -22,6 +22,7 @@ class NodeType(IntEnum):
     SUBSHELL = lib.NODE_SUBSHELL
     BLOCK = lib.NODE_BLOCK
     CONDITIONAL = lib.NODE_CONDITIONAL
+    CASE = lib.NODE_CASE
     FUNCTION_DEF = lib.NODE_FUNCTION_DEF
     FOR = lib.NODE_FOR
     WHILE = lib.NODE_WHILE
@@ -114,6 +115,63 @@ class ConditionalBranch:
     def __repr__(self) -> str:
         """String representation of branch."""
         return f"<ConditionalBranch has_condition={self.condition is not None}>"
+
+
+class CaseItem:
+    """
+    Represents a single clause in a case statement.
+
+    Attributes
+    ----------
+    patterns : list[str]
+        List of pattern strings to match against.
+    terminator : str
+        How the clause is terminated (;;, ;&, or ;;&).
+    body : ASTNode | None
+        The commands executed when a pattern matches.
+    """
+
+    def __init__(self, c_item: typing.Any) -> None:
+        """Initialize case item from C CaseItem struct."""
+        self._item = c_item
+
+    @property
+    def patterns(self) -> list[str]:
+        """Get patterns to match against."""
+        if self._item.patterns == ffi.NULL:
+            return []
+        res: list[str] = []
+        for i in range(self._item.pattern_count):
+            if self._item.patterns[i] != ffi.NULL:
+                res.append(ffi.string(self._item.patterns[i]).decode())
+        return res
+
+    @property
+    def terminator(self) -> str:
+        """Get the terminator string (;;, ;&, or ;;&)."""
+        t = self._item.terminator
+        if t == lib.CASE_TERM_FALLTHROUGH:
+            return ";&"
+        if t == lib.CASE_TERM_CONTINUE:
+            return ";;&"
+        return ";;"
+
+    @property
+    def body(self) -> ASTNode | None:
+        """Get the clause body AST node."""
+        return create_ast_node(self._item.body) if self._item.body != ffi.NULL else None
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Convert case item to dictionary."""
+        return {
+            "patterns": self.patterns,
+            "terminator": self.terminator,
+            "body": self.body.to_dict() if self.body else None,
+        }
+
+    def __repr__(self) -> str:
+        """String representation of case item."""
+        return f"<CaseItem patterns={self.patterns!r} term={self.terminator!r}>"
 
 
 class ASTNode:
@@ -274,6 +332,25 @@ class ASTNode:
                 _format(node.condition, "condition", new_stack, depth + 1, False)
                 new_stack = cur_stack + [True]
                 _format(node.body, "body", new_stack, depth + 1, True)
+                return
+
+            if isinstance(node, CaseNode):
+                prefix = "".join(
+                    space if cur_stack[i] else vertical for i in range(depth)
+                )
+                lines.append(f'{prefix}{branch}word: "{node.word}"')
+                items = node.items
+                i_total = len(items)
+                for i_idx, item in enumerate(items):
+                    i_last = i_idx == i_total - 1
+                    conn = last_branch if i_last else branch
+                    p_str = ", ".join(f'"{p}"' for p in item.patterns)
+                    lines.append(
+                        f'{prefix}{conn}clause: patterns=[{p_str}] terminator="{item.terminator}"',
+                    )
+                    if item.body:
+                        new_stack = cur_stack + [i_last]
+                        _format(item.body, "body", new_stack, depth + 1, True)
                 return
 
             if isinstance(node, ConditionalNode):
@@ -588,6 +665,42 @@ class WhileNode(HasRedirectsMixin, ASTNode):
         return f"<WhileNode condition={self.condition!r} body={self.body!r}>"
 
 
+class CaseNode(HasRedirectsMixin, ASTNode):
+    """A case statement AST node (NODE_CASE)."""
+
+    @property
+    def word(self) -> str:
+        """Get the word being tested."""
+        if (
+            self._node.argc > 0
+            and self._node.argv != ffi.NULL
+            and self._node.argv[0] != ffi.NULL
+        ):
+            return ffi.string(self._node.argv[0]).decode()
+        return ""
+
+    @property
+    def items(self) -> list[CaseItem]:
+        """Get case items/clauses."""
+        res: list[CaseItem] = []
+        curr = self._node.case_items
+        while curr != ffi.NULL:
+            res.append(CaseItem(curr))
+            curr = curr.next
+        return res
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        """Serialize case statement node to dictionary."""
+        data = super().to_dict()
+        data["word"] = self.word
+        data["items"] = [item.to_dict() for item in self.items]
+        return data
+
+    def __repr__(self) -> str:
+        """String representation of case node."""
+        return f"<CaseNode word={self.word!r} items={len(self.items)}>"
+
+
 _NODE_CLASS_MAP: dict[NodeType, type[ASTNode]] = {
     NodeType.COMMAND: CommandNode,
     NodeType.PIPE: PipeNode,
@@ -597,6 +710,7 @@ _NODE_CLASS_MAP: dict[NodeType, type[ASTNode]] = {
     NodeType.SUBSHELL: SubshellNode,
     NodeType.BLOCK: BlockNode,
     NodeType.CONDITIONAL: ConditionalNode,
+    NodeType.CASE: CaseNode,
     NodeType.FUNCTION_DEF: FunctionDefNode,
     NodeType.FOR: ForNode,
     NodeType.WHILE: WhileNode,

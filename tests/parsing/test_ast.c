@@ -533,4 +533,107 @@ describe(ast) {
         free_session(session);
         free(session);
     }
+
+    it("should parse case statement with patterns and clauses") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer = init_lexer_input(NULL, "case $x in a) echo 1 ;; b|c) echo 2 ;; *) echo def ;; esac", NULL, session);
+        ASTNode *ast = parse(lexer, session);
+
+        assertneq(ast, NULL);
+        asserteq(ast->type, NODE_CASE);
+        asserteq(ast->argc, 1);
+        asserteq_str(ast->argv[0], "$x");
+
+        CaseItem *i1 = ast->case_items;
+        assertneq(i1, NULL);
+        asserteq(i1->pattern_count, 1);
+        asserteq_str(i1->patterns[0], "a");
+        asserteq(i1->terminator, CASE_TERM_BREAK);
+        assertneq(i1->body, NULL);
+
+        CaseItem *i2 = i1->next;
+        assertneq(i2, NULL);
+        asserteq(i2->pattern_count, 2);
+        asserteq_str(i2->patterns[0], "b");
+        asserteq_str(i2->patterns[1], "c");
+        asserteq(i2->terminator, CASE_TERM_BREAK);
+        assertneq(i2->body, NULL);
+
+        CaseItem *i3 = i2->next;
+        assertneq(i3, NULL);
+        asserteq(i3->pattern_count, 1);
+        asserteq_str(i3->patterns[0], "*");
+        asserteq(i3->terminator, CASE_TERM_BREAK);
+        assertneq(i3->body, NULL);
+        asserteq(i3->next, NULL);
+
+        free_ast(ast);
+        free(ast);
+        free_lexer_input(lexer);
+        free(lexer);
+        free_session(session);
+        free(session);
+    }
+
+    it("should parse case statement with optional leading paren and different terminators") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer = init_lexer_input(NULL, "case foo in (a) echo 1 ;& (b) echo 2 ;;& (c) echo 3 ;; esac", NULL, session);
+        ASTNode *ast = parse(lexer, session);
+
+        assertneq(ast, NULL);
+        asserteq(ast->type, NODE_CASE);
+
+        CaseItem *i1 = ast->case_items;
+        assertneq(i1, NULL);
+        asserteq_str(i1->patterns[0], "a");
+        asserteq(i1->terminator, CASE_TERM_FALLTHROUGH);
+
+        CaseItem *i2 = i1->next;
+        assertneq(i2, NULL);
+        asserteq_str(i2->patterns[0], "b");
+        asserteq(i2->terminator, CASE_TERM_CONTINUE);
+
+        CaseItem *i3 = i2->next;
+        assertneq(i3, NULL);
+        asserteq_str(i3->patterns[0], "c");
+        asserteq(i3->terminator, CASE_TERM_BREAK);
+
+        free_ast(ast);
+        free(ast);
+        free_lexer_input(lexer);
+        free(lexer);
+        free_session(session);
+        free(session);
+    }
+
+    it("should return NULL on syntax errors in case statement") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Missing in
+        LexerInput *l1 = init_lexer_input(NULL, "case $x a) echo 1 ;; esac", NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        asserteq(ast1, NULL);
+        free_lexer_input(l1);
+        free(l1);
+
+        // Missing esac
+        LexerInput *l2 = init_lexer_input(NULL, "case $x in a) echo 1 ;;", NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+        if (ast2) {
+            free_ast(ast2);
+            free(ast2);
+        }
+        free_lexer_input(l2);
+        free(l2);
+
+        // Missing closing paren after pattern
+        LexerInput *l3 = init_lexer_input(NULL, "case $x in a echo 1 ;; esac", NULL, session);
+        ASTNode *ast3 = parse(l3, session);
+        asserteq(ast3, NULL);
+        free_lexer_input(l3);
+        free(l3);
+
+        free_session(session);
+        free(session);
+    }
 }

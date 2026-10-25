@@ -325,6 +325,12 @@ static TokenType check_conditional_keyword(const char *word) {
         return TOKEN_ELIF;
     } else if (strcmp(word, "fi") == 0) {
         return TOKEN_FI;
+    } else if (strcmp(word, "case") == 0) {
+        return TOKEN_CASE;
+    } else if (strcmp(word, "esac") == 0) {
+        return TOKEN_ESAC;
+    } else if (strcmp(word, "in") == 0) {
+        return TOKEN_IN;
     }
     return TOKEN_WORD;
 }
@@ -489,6 +495,24 @@ LexerToken lexer_next_token(LexerInput *input) {
             }
             break;
         case ';':
+#ifndef TIDESH_DISABLE_CONDITIONALS
+            if (peek_next(input) == ';') {
+                advance(input); // consume first ';'
+                advance(input); // consume second ';'
+                if (peek(input) == '&') {
+                    advance(input); // consume '&'
+                    token.type = TOKEN_CASE_CONTINUE;
+                } else {
+                    token.type = TOKEN_DOUBLE_SEMICOLON;
+                }
+                break;
+            } else if (peek_next(input) == '&') {
+                advance(input); // consume ';'
+                advance(input); // consume '&'
+                token.type = TOKEN_CASE_FALLTHROUGH;
+                break;
+            }
+#endif
 #ifndef TIDESH_DISABLE_SEQUENCES
             // Check if sequences feature is enabled
             if (!input->session || input->session->features.sequences) {
@@ -977,14 +1001,28 @@ const char *token_type_to_string(TokenType type) {
             return "TOKEN_ELIF";
         case TOKEN_FI:
             return "TOKEN_FI";
+        case TOKEN_CASE:
+            return "TOKEN_CASE";
+        case TOKEN_ESAC:
+            return "TOKEN_ESAC";
+        case TOKEN_DOUBLE_SEMICOLON:
+            return "TOKEN_DOUBLE_SEMICOLON";
+        case TOKEN_CASE_FALLTHROUGH:
+            return "TOKEN_CASE_FALLTHROUGH";
+        case TOKEN_CASE_CONTINUE:
+            return "TOKEN_CASE_CONTINUE";
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
         case TOKEN_FOR:
             return "TOKEN_FOR";
         case TOKEN_WHILE:
             return "TOKEN_WHILE";
+#endif
+#if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS)
         case TOKEN_IN:
             return "TOKEN_IN";
+#endif
+#ifndef TIDESH_DISABLE_LOOPS
         case TOKEN_DO:
             return "TOKEN_DO";
         case TOKEN_DONE:

@@ -82,6 +82,29 @@ static void free_conditional_branches(ConditionalBranch *branch) {
 
     free(branch);
 }
+
+/* Free case items */
+static void free_case_items(CaseItem *item) {
+    while (item) {
+        CaseItem *next = item->next;
+        if (item->patterns) {
+            for (int i = 0; i < item->pattern_count; i++) {
+                if (item->patterns[i]) {
+                    free(item->patterns[i]);
+                }
+            }
+            free(item->patterns);
+            item->patterns = NULL;
+        }
+        if (item->body) {
+            free_ast(item->body);
+            free(item->body);
+            item->body = NULL;
+        }
+        free(item);
+        item = next;
+    }
+}
 #endif
 
 void free_ast(ASTNode *node) {
@@ -132,6 +155,10 @@ void free_ast(ASTNode *node) {
         free_conditional_branches(node->branches);
         node->branches = NULL;
     }
+    if (node->case_items) {
+        free_case_items(node->case_items);
+        node->case_items = NULL;
+    }
 #endif
 }
 
@@ -172,16 +199,20 @@ static void parser_skip(Parser *parser) {
 }
 
 /* Forward declarations of parsing functions */
+static void     add_argument(ASTNode *node, char *arg, int sub_type);
 static ASTNode *parse_sequence(Parser *parser, Session *session);
 static ASTNode *parse_and_or(Parser *parser, Session *session);
 static ASTNode *parse_pipeline(Parser *parser, Session *session);
 static ASTNode *parse_command(Parser *parser, Session *session);
 #ifndef TIDESH_DISABLE_CONDITIONALS
 static ASTNode *parse_conditional(Parser *parser, Session *session);
+static ASTNode *parse_case(Parser *parser, Session *session);
+#endif
+#if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS)
+static void parse_loop_redirects(Parser *parser, ASTNode *node,
+                                 Session *session);
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
-static void     parse_loop_redirects(Parser *parser, ASTNode *node,
-                                     Session *session);
 static ASTNode *parse_for(Parser *parser, Session *session);
 static ASTNode *parse_while(Parser *parser, Session *session);
 #endif
@@ -211,6 +242,12 @@ static ASTNode *parse_sequence(Parser *parser, Session *session) {
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
         parser_peek(parser)->type == TOKEN_DONE ||
+#endif
+#ifndef TIDESH_DISABLE_CONDITIONALS
+        parser_peek(parser)->type == TOKEN_ESAC ||
+        parser_peek(parser)->type == TOKEN_DOUBLE_SEMICOLON ||
+        parser_peek(parser)->type == TOKEN_CASE_FALLTHROUGH ||
+        parser_peek(parser)->type == TOKEN_CASE_CONTINUE ||
 #endif
         parser_peek(parser)->type == TOKEN_EOF) {
         return NULL;
@@ -296,11 +333,15 @@ static ASTNode *parse_sequence(Parser *parser, Session *session) {
 }
 
 #ifndef TIDESH_DISABLE_CONDITIONALS
-/* Parse conditional statements (if/then/else/elif/fi) */
+/* Parse conditional statements (if/then/else/elif/fi and case/in/esac) */
 static ASTNode *parse_conditional(Parser *parser, Session *session) {
     LexerToken *token = parser_peek(parser);
 
-    // Not a conditional, delegate to and_or
+    if (token->type == TOKEN_CASE) {
+        return parse_case(parser, session);
+    }
+
+    // Not an if statement, delegate to and_or
     if (token->type != TOKEN_IF) {
         return parse_and_or(parser, session);
     }
@@ -515,6 +556,292 @@ static ASTNode *parse_conditional(Parser *parser, Session *session) {
     conditional->branches = first_branch;
     return conditional;
 }
+
+/* Parse a case statement (case WORD in ... esac) */
+static ASTNode *parse_case(Parser *parser, Session *session) {
+    LexerToken *token = parser_peek(parser);
+    if (token->type != TOKEN_CASE) {
+        return NULL;
+    }
+
+    // Consume 'case'
+    parser_skip(parser);
+
+    // Skip newlines or comments before the case word
+    token = parser_peek(parser);
+    while (token->type == TOKEN_EOL || token->type == TOKEN_COMMENT) {
+        parser_skip(parser);
+        token = parser_peek(parser);
+    }
+
+    // We expect the word to match
+    if (token->type == TOKEN_EOF || token->type == TOKEN_SEMICOLON) {
+        fprintf(stderr, "Syntax error: expected word after 'case'\n");
+        parser->error = true;
+        return NULL;
+    }
+
+    LexerToken word_tok = parser_next(parser);
+    if (!word_tok.value || word_tok.type == TOKEN_EOF ||
+        word_tok.type == TOKEN_EOL || word_tok.type == TOKEN_SEMICOLON) {
+        fprintf(stderr, "Syntax error: expected word after 'case'\n");
+        parser->error = true;
+        free_lexer_token(&word_tok);
+        return NULL;
+    }
+
+    ASTNode *case_node = init_ast(NULL, NODE_CASE);
+    int      sub_type  = 0;
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
+    if (word_tok.type == TOKEN_PROCESS_SUBSTITUTION_IN) {
+        sub_type = 1;
+    } else if (word_tok.type == TOKEN_PROCESS_SUBSTITUTION_OUT) {
+        sub_type = 2;
+    }
+#endif
+    add_argument(case_node, word_tok.value, sub_type);
+    free_lexer_token(&word_tok);
+
+    // Skip newlines or comments before 'in'
+    token = parser_peek(parser);
+    while (token->type == TOKEN_EOL || token->type == TOKEN_COMMENT) {
+        parser_skip(parser);
+        token = parser_peek(parser);
+    }
+
+    // Expect 'in'
+    if (token->type != TOKEN_IN &&
+        !(token->type == TOKEN_WORD && token->value &&
+          strcmp(token->value, "in") == 0)) {
+        fprintf(stderr, "Syntax error: expected 'in' in case statement\n");
+        parser->error = true;
+        free_ast(case_node);
+        free(case_node);
+        return NULL;
+    }
+    parser_skip(parser); // consume 'in'
+
+    // Skip newlines, semicolons, comments after 'in'
+    token = parser_peek(parser);
+    while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+           token->type == TOKEN_COMMENT) {
+        parser_skip(parser);
+        token = parser_peek(parser);
+    }
+
+    CaseItem *first_item   = NULL;
+    CaseItem *current_item = NULL;
+
+    // Parse case clauses until 'esac'
+    while (true) {
+        token = parser_peek(parser);
+
+        // Check if finished with 'esac'
+        if (token->type == TOKEN_ESAC) {
+            parser_skip(parser); // consume 'esac'
+            break;
+        }
+
+        if (token->type == TOKEN_EOF) {
+            fprintf(stderr, "Syntax error: unexpected EOF in case statement\n");
+            parser->error = true;
+            break;
+        }
+
+        // Optional leading '('
+        if (token->type == TOKEN_LPAREN) {
+            parser_skip(parser); // consume '('
+            token = parser_peek(parser);
+            while (token->type == TOKEN_EOL || token->type == TOKEN_COMMENT) {
+                parser_skip(parser);
+                token = parser_peek(parser);
+            }
+        }
+
+        // Parse patterns separated by '|' until ')'
+        Array *patterns          = init_array(NULL);
+        bool   expecting_pattern = true;
+
+        while (true) {
+            token = parser_peek(parser);
+            while (token->type == TOKEN_EOL || token->type == TOKEN_COMMENT) {
+                parser_skip(parser);
+                token = parser_peek(parser);
+            }
+
+            if (expecting_pattern) {
+                if (token->type == TOKEN_EOF || token->type == TOKEN_RPAREN ||
+                    token->type == TOKEN_PIPE) {
+                    fprintf(stderr,
+                            "Syntax error: expected pattern in case clause\n");
+                    parser->error = true;
+                    break;
+                }
+
+                LexerToken pat_tok = parser_next(parser);
+                array_add(patterns, pat_tok.value ? pat_tok.value : "");
+                free_lexer_token(&pat_tok);
+                expecting_pattern = false;
+            } else {
+                if (token->type == TOKEN_PIPE) {
+                    parser_skip(parser); // consume '|'
+                    expecting_pattern = true;
+                } else if (token->type == TOKEN_RPAREN) {
+                    parser_skip(parser); // consume ')'
+                    break;
+                } else {
+                    fprintf(
+                        stderr,
+                        "Syntax error: expected '|' or ')' after pattern\n");
+                    parser->error = true;
+                    break;
+                }
+            }
+        }
+
+        if (parser->error) {
+            free_array(patterns);
+            free(patterns);
+            free_ast(case_node);
+            free(case_node);
+            return NULL;
+        }
+
+        // Skip newlines or comments after ')'
+        token = parser_peek(parser);
+        while (token->type == TOKEN_EOL || token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+            token = parser_peek(parser);
+        }
+
+        // Parse body commands until ';;', ';&', ';;&', 'esac', or EOF
+        ASTNode *body = NULL;
+        while (true) {
+            token = parser_peek(parser);
+            if (token->type == TOKEN_DOUBLE_SEMICOLON ||
+                token->type == TOKEN_CASE_FALLTHROUGH ||
+                token->type == TOKEN_CASE_CONTINUE ||
+                token->type == TOKEN_ESAC) {
+                break;
+            }
+            if (token->type == TOKEN_EOF) {
+                fprintf(stderr, "Syntax error: unexpected EOF in case body\n");
+                parser->error = true;
+                break;
+            }
+
+            ASTNode *cmd = parse_conditional(parser, session);
+            if (!cmd) {
+                token = parser_peek(parser);
+                if (token->type == TOKEN_EOL ||
+                    token->type == TOKEN_SEMICOLON ||
+                    token->type == TOKEN_COMMENT) {
+                    parser_skip(parser);
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            if (!body) {
+                body = cmd;
+            } else {
+                ASTNode *seq = init_ast(NULL, NODE_SEQUENCE);
+                seq->left    = body;
+                seq->right   = cmd;
+                body         = seq;
+            }
+
+            token = parser_peek(parser);
+            if (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+                token->type == TOKEN_COMMENT) {
+                parser_skip(parser);
+            }
+        }
+
+        if (parser->error) {
+            if (body) {
+                free_ast(body);
+                free(body);
+            }
+            free_array(patterns);
+            free(patterns);
+            free_ast(case_node);
+            free(case_node);
+            return NULL;
+        }
+
+        // Determine clause terminator
+        CaseTerminator term = CASE_TERM_BREAK;
+        token               = parser_peek(parser);
+        if (token->type == TOKEN_DOUBLE_SEMICOLON) {
+            term = CASE_TERM_BREAK;
+            parser_skip(parser); // consume ';;'
+        } else if (token->type == TOKEN_CASE_FALLTHROUGH) {
+            term = CASE_TERM_FALLTHROUGH;
+            parser_skip(parser); // consume ';&'
+        } else if (token->type == TOKEN_CASE_CONTINUE) {
+            term = CASE_TERM_CONTINUE;
+            parser_skip(parser); // consume ';;&'
+        } else if (token->type == TOKEN_ESAC) {
+            term = CASE_TERM_BREAK;
+        } else {
+            fprintf(stderr, "Syntax error: expected ';;' or 'esac'\n");
+            parser->error = true;
+            if (body) {
+                free_ast(body);
+                free(body);
+            }
+            free_array(patterns);
+            free(patterns);
+            free_ast(case_node);
+            free(case_node);
+            return NULL;
+        }
+
+        // Create the CaseItem
+        CaseItem *item      = calloc(1, sizeof(CaseItem));
+        item->pattern_count = patterns->count;
+        item->patterns      = malloc(patterns->count * sizeof(char *));
+        for (size_t i = 0; i < patterns->count; i++) {
+            item->patterns[i] = strdup(patterns->items[i]);
+        }
+        free_array(patterns);
+        free(patterns);
+        item->body       = body;
+        item->terminator = term;
+        item->next       = NULL;
+
+        if (!first_item) {
+            first_item   = item;
+            current_item = item;
+        } else {
+            current_item->next = item;
+            current_item       = item;
+        }
+
+        // Skip newlines, semicolons, comments after clause terminator
+        token = parser_peek(parser);
+        while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+               token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+            token = parser_peek(parser);
+        }
+    }
+
+    if (parser->error) {
+        free_ast(case_node);
+        free(case_node);
+        return NULL;
+    }
+
+    case_node->case_items = first_item;
+
+    // Parse any redirections after 'esac'
+    parse_loop_redirects(parser, case_node, session);
+
+    return case_node;
+}
 #else
 /* Stub for parsing conditional when disabled */
 static ASTNode *parse_conditional(Parser *parser, Session *session) {
@@ -584,6 +911,100 @@ static void add_argument(ASTNode *node, char *arg, int sub_type) {
     node->arg_is_sub[node->argc - 1] = sub_type;
     node->argv[node->argc]           = NULL;
 }
+
+#if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS)
+static void parse_loop_redirects(Parser *parser, ASTNode *node,
+                                 Session *session) {
+    while (true) {
+        LexerToken *token = parser_peek(parser);
+        int         fd    = -1;
+#ifndef TIDESH_DISABLE_REDIRECTIONS
+        if (token->type == TOKEN_IO_NUMBER) {
+            LexerToken io_token = parser_next(parser);
+            fd                  = atoi(io_token.value);
+            free_lexer_token(&io_token);
+            token = parser_peek(parser);
+        }
+
+        if ((token->type >= TOKEN_REDIRECT_IN &&
+             token->type <= TOKEN_HERESTRING &&
+             token->type != TOKEN_PROCESS_SUBSTITUTION_IN) ||
+            (token->type >= TOKEN_REDIRECT_OUT &&
+             token->type <= TOKEN_REDIRECT_APPEND_ERR)) {
+            Redirection *redirect = calloc(1, sizeof(Redirection));
+            redirect->type        = token->type;
+
+            if (fd != -1) {
+                redirect->fd = fd;
+            } else if (token->type == TOKEN_REDIRECT_IN ||
+                       token->type == TOKEN_FD_DUPLICATION ||
+                       token->type == TOKEN_PROCESS_SUBSTITUTION_IN ||
+                       token->type == TOKEN_HEREDOC ||
+                       token->type == TOKEN_HERESTRING) {
+                redirect->fd = 0;
+            } else {
+                redirect->fd = 1;
+            }
+
+            if (token->type == TOKEN_HEREDOC ||
+                token->type == TOKEN_HERESTRING ||
+                token->type == TOKEN_PROCESS_SUBSTITUTION_IN ||
+                token->type == TOKEN_PROCESS_SUBSTITUTION_OUT) {
+                redirect->target = strdup(token->value);
+                if (token->type == TOKEN_PROCESS_SUBSTITUTION_IN ||
+                    token->type == TOKEN_PROCESS_SUBSTITUTION_OUT) {
+                    redirect->is_process_substitution = true;
+                }
+                parser_skip(parser);
+            } else {
+                parser_skip(parser);
+                LexerToken target = parser_next(parser);
+                if (target.type == TOKEN_WORD) {
+                    Array *expansion = full_expansion(target.value, session);
+                    if (expansion && expansion->count > 0) {
+                        redirect->target = strdup(expansion->items[0]);
+                        free_array(expansion);
+                        free(expansion);
+                    } else {
+                        redirect->target = strdup(target.value);
+                    }
+                } else if (target.type == TOKEN_PROCESS_SUBSTITUTION_IN ||
+                           target.type == TOKEN_PROCESS_SUBSTITUTION_OUT) {
+                    redirect->target                  = strdup(target.value);
+                    redirect->is_process_substitution = true;
+                } else {
+                    fprintf(stderr, "Syntax error: expected filename\n");
+                    parser->error = true;
+                }
+                free_lexer_token(&target);
+
+                if (redirect->type == TOKEN_REDIRECT_OUT_ERR) {
+                    if (redirect->target &&
+                        (is_all_digits(redirect->target) ||
+                         strcmp(redirect->target, "-") == 0)) {
+                        redirect->type = TOKEN_FD_DUPLICATION;
+                    }
+                } else if (redirect->type == TOKEN_REDIRECT_ALL) {
+                    redirect->type = TOKEN_REDIRECT_OUT_ERR;
+                }
+            }
+
+            if (!node->redirects) {
+                node->redirects = redirect;
+            } else {
+                Redirection *curr = node->redirects;
+                while (curr->next) {
+                    curr = curr->next;
+                }
+                curr->next = redirect;
+            }
+            continue;
+        }
+#endif
+        break;
+    }
+}
+#endif
 
 #ifndef TIDESH_DISABLE_LOOPS
 static bool is_valid_var_name(const char *name) {
@@ -758,98 +1179,6 @@ static ASTNode *parse_for(Parser *parser, Session *session) {
     parse_loop_redirects(parser, for_node, session);
 
     return for_node;
-}
-
-static void parse_loop_redirects(Parser *parser, ASTNode *node,
-                                 Session *session) {
-    while (true) {
-        LexerToken *token = parser_peek(parser);
-        int         fd    = -1;
-#ifndef TIDESH_DISABLE_REDIRECTIONS
-        if (token->type == TOKEN_IO_NUMBER) {
-            LexerToken io_token = parser_next(parser);
-            fd                  = atoi(io_token.value);
-            free_lexer_token(&io_token);
-            token = parser_peek(parser);
-        }
-
-        if ((token->type >= TOKEN_REDIRECT_IN &&
-             token->type <= TOKEN_HERESTRING &&
-             token->type != TOKEN_PROCESS_SUBSTITUTION_IN) ||
-            (token->type >= TOKEN_REDIRECT_OUT &&
-             token->type <= TOKEN_REDIRECT_APPEND_ERR)) {
-            Redirection *redirect = calloc(1, sizeof(Redirection));
-            redirect->type        = token->type;
-
-            if (fd != -1) {
-                redirect->fd = fd;
-            } else if (token->type == TOKEN_REDIRECT_IN ||
-                       token->type == TOKEN_FD_DUPLICATION ||
-                       token->type == TOKEN_PROCESS_SUBSTITUTION_IN ||
-                       token->type == TOKEN_HEREDOC ||
-                       token->type == TOKEN_HERESTRING) {
-                redirect->fd = 0;
-            } else {
-                redirect->fd = 1;
-            }
-
-            if (token->type == TOKEN_HEREDOC ||
-                token->type == TOKEN_HERESTRING ||
-                token->type == TOKEN_PROCESS_SUBSTITUTION_IN ||
-                token->type == TOKEN_PROCESS_SUBSTITUTION_OUT) {
-                redirect->target = strdup(token->value);
-                if (token->type == TOKEN_PROCESS_SUBSTITUTION_IN ||
-                    token->type == TOKEN_PROCESS_SUBSTITUTION_OUT) {
-                    redirect->is_process_substitution = true;
-                }
-                parser_skip(parser);
-            } else {
-                parser_skip(parser);
-                LexerToken target = parser_next(parser);
-                if (target.type == TOKEN_WORD) {
-                    Array *expansion = full_expansion(target.value, session);
-                    if (expansion && expansion->count > 0) {
-                        redirect->target = strdup(expansion->items[0]);
-                        free_array(expansion);
-                        free(expansion);
-                    } else {
-                        redirect->target = strdup(target.value);
-                    }
-                } else if (target.type == TOKEN_PROCESS_SUBSTITUTION_IN ||
-                           target.type == TOKEN_PROCESS_SUBSTITUTION_OUT) {
-                    redirect->target                  = strdup(target.value);
-                    redirect->is_process_substitution = true;
-                } else {
-                    fprintf(stderr, "Syntax error: expected filename\n");
-                    parser->error = true;
-                }
-                free_lexer_token(&target);
-
-                if (redirect->type == TOKEN_REDIRECT_OUT_ERR) {
-                    if (redirect->target &&
-                        (is_all_digits(redirect->target) ||
-                         strcmp(redirect->target, "-") == 0)) {
-                        redirect->type = TOKEN_FD_DUPLICATION;
-                    }
-                } else if (redirect->type == TOKEN_REDIRECT_ALL) {
-                    redirect->type = TOKEN_REDIRECT_OUT_ERR;
-                }
-            }
-
-            if (!node->redirects) {
-                node->redirects = redirect;
-            } else {
-                Redirection *curr = node->redirects;
-                while (curr->next) {
-                    curr = curr->next;
-                }
-                curr->next = redirect;
-            }
-            continue;
-        }
-#endif
-        break;
-    }
 }
 
 /* Parse a while loop */
@@ -1041,6 +1370,12 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
     }
 #endif
 
+#ifndef TIDESH_DISABLE_CONDITIONALS
+    if (peek->type == TOKEN_CASE) {
+        return parse_case(parser, session);
+    }
+#endif
+
 #ifndef TIDESH_DISABLE_LOOPS
     if (peek->type == TOKEN_FOR) {
         return parse_for(parser, session);
@@ -1056,12 +1391,21 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
     while (true) {
         LexerToken *token = parser_peek(parser);
 
-#ifndef TIDESH_DISABLE_LOOPS
+#if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS)
         if (token->type == TOKEN_IN) {
             token->type = TOKEN_WORD;
-        } else if (!first_word &&
-                   (token->type == TOKEN_FOR || token->type == TOKEN_WHILE ||
-                    token->type == TOKEN_DO || token->type == TOKEN_DONE)) {
+        }
+#endif
+#ifndef TIDESH_DISABLE_LOOPS
+        if (!first_word &&
+            (token->type == TOKEN_FOR || token->type == TOKEN_WHILE ||
+             token->type == TOKEN_DO || token->type == TOKEN_DONE)) {
+            token->type = TOKEN_WORD;
+        }
+#endif
+#ifndef TIDESH_DISABLE_CONDITIONALS
+        if (!first_word &&
+            (token->type == TOKEN_CASE || token->type == TOKEN_ESAC)) {
             token->type = TOKEN_WORD;
         }
 #endif
@@ -1292,6 +1636,8 @@ const char *node_type_to_string(NodeType type) {
 #ifndef TIDESH_DISABLE_CONDITIONALS
         case NODE_CONDITIONAL:
             return "NODE_CONDITIONAL";
+        case NODE_CASE:
+            return "NODE_CASE";
 #endif
 #ifndef TIDESH_DISABLE_FUNCTIONS
         case NODE_FUNCTION_DEF:

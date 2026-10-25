@@ -107,19 +107,28 @@ typedef enum TokenType {
 #endif
 
 #ifndef TIDESH_DISABLE_CONDITIONALS
-    TOKEN_IF,   // if
-    TOKEN_THEN, // then
-    TOKEN_ELSE, // else
-    TOKEN_ELIF, // elif
-    TOKEN_FI,   // fi
+    TOKEN_IF,               // if
+    TOKEN_THEN,             // then
+    TOKEN_ELSE,             // else
+    TOKEN_ELIF,             // elif
+    TOKEN_FI,               // fi
+    TOKEN_CASE,             // case
+    TOKEN_ESAC,             // esac
+    TOKEN_DOUBLE_SEMICOLON, // ;;
+    TOKEN_CASE_FALLTHROUGH, // ;&
+    TOKEN_CASE_CONTINUE,    // ;;&
 #endif
 
 #ifndef TIDESH_DISABLE_LOOPS
     TOKEN_FOR,   // for
     TOKEN_WHILE, // while
-    TOKEN_IN,    // in
-    TOKEN_DO,    // do
-    TOKEN_DONE,  // done
+#endif
+#if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS)
+    TOKEN_IN, // in
+#endif
+#ifndef TIDESH_DISABLE_LOOPS
+    TOKEN_DO,   // do
+    TOKEN_DONE, // done
 #endif
 
     TOKEN_EOL, // end of command (real newline)

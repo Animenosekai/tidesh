@@ -44,6 +44,11 @@ class TokenType(IntEnum):
     ELSE = lib.TOKEN_ELSE
     ELIF = lib.TOKEN_ELIF
     FI = lib.TOKEN_FI
+    CASE = lib.TOKEN_CASE
+    ESAC = lib.TOKEN_ESAC
+    DOUBLE_SEMICOLON = lib.TOKEN_DOUBLE_SEMICOLON
+    CASE_FALLTHROUGH = lib.TOKEN_CASE_FALLTHROUGH
+    CASE_CONTINUE = lib.TOKEN_CASE_CONTINUE
     FOR = lib.TOKEN_FOR
     WHILE = lib.TOKEN_WHILE
     IN = lib.TOKEN_IN
@@ -312,6 +317,26 @@ class FiToken(Token):
     """A fi token (FI)."""
 
 
+class CaseToken(Token):
+    """A case token (CASE)."""
+
+
+class EsacToken(Token):
+    """An esac token (ESAC)."""
+
+
+class DoubleSemicolonToken(Token):
+    """A double semicolon token (;;)."""
+
+
+class CaseFallthroughToken(Token):
+    """A case fallthrough token (;&)."""
+
+
+class CaseContinueToken(Token):
+    """A case continue token (;;&)."""
+
+
 class ForToken(Token):
     """A for token (FOR)."""
 
@@ -369,6 +394,11 @@ _TOKEN_CLASS_MAP = {
     TokenType.ELSE: ElseToken,
     TokenType.ELIF: ElifToken,
     TokenType.FI: FiToken,
+    TokenType.CASE: CaseToken,
+    TokenType.ESAC: EsacToken,
+    TokenType.DOUBLE_SEMICOLON: DoubleSemicolonToken,
+    TokenType.CASE_FALLTHROUGH: CaseFallthroughToken,
+    TokenType.CASE_CONTINUE: CaseContinueToken,
     TokenType.FOR: ForToken,
     TokenType.WHILE: WhileToken,
     TokenType.IN: InToken,

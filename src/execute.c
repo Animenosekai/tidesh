@@ -1,6 +1,7 @@
 #include <ctype.h>    /* isspace */
 #include <errno.h>    /* errno */
 #include <fcntl.h>    /* open, O_WRONLY, O_CREAT, O_APPEND, O_TRUNC, O_RDONLY */
+#include <fnmatch.h>  /* fnmatch */
 #include <limits.h>   /* PATH_MAX */
 #include <signal.h>   /* signal, SIGINT, SIGQUIT, SIG_DFL */
 #include <stdbool.h>  /* bool, true, false */
@@ -28,14 +29,14 @@
 
 #define RW_R__R__ 0644
 
-#ifndef TIDESH_DISABLE_ASSIGNMENTS
-static char *expand_assignment_value(const char *raw_value, Session *session) {
+static char *expand_word_no_split(const char *raw_value, Session *session) {
     if (!raw_value) {
         return strdup("");
     }
     char *current = strdup(raw_value);
 
     // 0. Command substitution $(...)
+#ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION
     if (session && session->features.command_substitution) {
         char *after_cmd = expand_command_substitution(current, session);
         if (after_cmd) {
@@ -43,6 +44,7 @@ static char *expand_assignment_value(const char *raw_value, Session *session) {
             current = after_cmd;
         }
     }
+#endif
 
     // 1. Variable expansion
     if (session && session->features.variable_expansion) {
@@ -95,6 +97,17 @@ static char *expand_assignment_value(const char *raw_value, Session *session) {
     }
 
     return current ? current : strdup("");
+}
+
+#ifndef TIDESH_DISABLE_ASSIGNMENTS
+static char *expand_assignment_value(const char *raw_value, Session *session) {
+    return expand_word_no_split(raw_value, session);
+}
+#endif
+
+#ifndef TIDESH_DISABLE_CONDITIONALS
+static char *expand_case_word(const char *raw_value, Session *session) {
+    return expand_word_no_split(raw_value, session);
 }
 #endif
 
@@ -904,6 +917,74 @@ int execute(ASTNode *node, Session *session) {
         // No condition matched, return 0 (or the last condition's status)
         environ_set_exit_status(session->environ, 0);
         return 0;
+    }
+
+    if (node->type == NODE_CASE) {
+        RedirectionState redir_state = {0};
+        if (!apply_in_process_redirections(node, session, &redir_state)) {
+            restore_in_process_redirections(&redir_state);
+            environ_set_exit_status(session->environ, 1);
+            return 1;
+        }
+
+        const char *raw_word =
+            (node->argc > 0 && node->argv) ? node->argv[0] : "";
+        char *expanded_word = expand_case_word(raw_word, session);
+
+        int  last_exit_status = 0;
+        bool fallthrough      = false;
+
+        CaseItem *item = node->case_items;
+        while (item) {
+            if (session->exit_requested) {
+                break;
+            }
+
+            bool matched = false;
+            if (fallthrough) {
+                matched     = true;
+                fallthrough = false;
+            } else {
+                for (int p = 0; p < item->pattern_count; p++) {
+                    char *exp_pat =
+                        expand_case_word(item->patterns[p], session);
+                    if (fnmatch(exp_pat, expanded_word, 0) == 0) {
+                        matched = true;
+                        free(exp_pat);
+                        break;
+                    }
+                    free(exp_pat);
+                }
+            }
+
+            if (matched) {
+                if (item->body) {
+                    last_exit_status = execute(item->body, session);
+                } else {
+                    last_exit_status = 0;
+                }
+
+                if (session->exit_requested || session->loop_break > 0 ||
+                    session->loop_continue > 0) {
+                    break;
+                }
+
+                if (item->terminator == CASE_TERM_BREAK) {
+                    break;
+                } else if (item->terminator == CASE_TERM_FALLTHROUGH) {
+                    fallthrough = true;
+                } else if (item->terminator == CASE_TERM_CONTINUE) {
+                    // Continue matching subsequent clauses
+                }
+            }
+
+            item = item->next;
+        }
+
+        free(expanded_word);
+        restore_in_process_redirections(&redir_state);
+        environ_set_exit_status(session->environ, last_exit_status);
+        return last_exit_status;
     }
 #endif
 
