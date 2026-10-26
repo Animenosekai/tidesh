@@ -15,7 +15,8 @@
 #include "feature-flags.h"   /* Features */
 #include "hooks.h"           /* HOOK_* */
 #include "prompt/terminal.h" /* Terminal, terminal functions */
-#include "session.h"         /* Session, Environ, History, Trie, DirStack */
+#include "sandbox.h"
+#include "session.h" /* Session, Environ, History, Trie, DirStack */
 
 Session *init_session(Session *session, char *history_path) {
     if (!session) {
@@ -109,6 +110,7 @@ Session *init_session(Session *session, char *history_path) {
     session->options.noglob     = !session->features.filename_expansion;
     session->ignore_errexit     = 0;
     session->allowed_exit_codes = NULL;
+    session->fs_sandbox         = NULL;
     session->try_depth          = 0;
     session->try_caught         = false;
     session->try_exit_code      = 0;
@@ -201,6 +203,13 @@ void free_session(Session *session) {
 
     while (session->allowed_exit_codes) {
         session_pop_allowed_exit_codes(session);
+    }
+
+    while (session->fs_sandbox) {
+        FSSandbox *popped = fs_sandbox_pop(session);
+        if (popped) {
+            fs_sandbox_free(popped);
+        }
     }
 }
 

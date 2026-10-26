@@ -669,6 +669,76 @@ def test_session_python_context_managers() -> None:
     assert "SHELL_TEST_VAR" not in session.environ
 
 
+def test_filesystem_sandboxing_context_managers() -> None:
+    session = tidesh.Session()
+    orig_cwd = session.cwd
+
+    # 1. test tempdir
+    created_tmp = None
+    with session.tempdir(var="MY_SANDBOX") as tmp:
+        created_tmp = tmp
+        assert os.path.isdir(tmp)
+        assert session.environ.get("MY_SANDBOX") == tmp
+        assert session.environ.get("TMPDIR") == tmp
+        # CWD should be inside tempdir
+        assert os.path.samefile(session.cwd, tmp)
+        # Should be able to create files inside tempdir
+        ret = session.execute("echo 'inner' > file.txt")
+        assert ret == 0
+        assert os.path.isfile(os.path.join(tmp, "file.txt"))
+
+    # After exiting tempdir:
+    assert session.cwd == orig_cwd
+    assert "MY_SANDBOX" not in session.environ
+    assert not os.path.exists(created_tmp)
+
+    # 2. test sandbox with readonly mode
+    # Writing to /tmp in normal mode
+    session.execute("echo 'normal' > /tmp/py_tidesh_test.txt")
+    with session.sandbox(readonly=True):
+        # Write should be blocked
+        ret = session.execute("echo 'fail' > /tmp/py_tidesh_fail.txt")
+        assert ret != 0
+        assert not os.path.exists("/tmp/py_tidesh_fail.txt")
+
+    # With writable exception
+    with session.sandbox(readonly=True, rw="/tmp"):
+        ret = session.execute("echo 'allowed' > /tmp/py_tidesh_allowed.txt")
+        assert ret == 0
+        assert os.path.exists("/tmp/py_tidesh_allowed.txt")
+
+    if os.path.exists("/tmp/py_tidesh_test.txt"):
+        os.unlink("/tmp/py_tidesh_test.txt")
+    if os.path.exists("/tmp/py_tidesh_allowed.txt"):
+        os.unlink("/tmp/py_tidesh_allowed.txt")
+
+    # 3. test sandbox with rw and deny
+    with session.sandbox(rw=["/tmp"], deny=["/private_forbidden"]):
+        ret = session.execute("echo 'sb' > /tmp/py_tidesh_sb.txt")
+        assert ret == 0
+
+    if os.path.exists("/tmp/py_tidesh_sb.txt"):
+        os.unlink("/tmp/py_tidesh_sb.txt")
+
+    # 4. test chroot with read and write access inside jail
+    import tempfile
+
+    jail = tempfile.mkdtemp(prefix="py_jail_")
+    with session.chroot(jail):
+        assert os.path.samefile(session.cwd, jail)
+        # Verify read and write inside jail
+        ret = session.execute("echo 'inside jail' > jail_file.txt")
+        assert ret == 0
+        assert os.path.isfile(os.path.join(jail, "jail_file.txt"))
+        ret = session.execute("cat jail_file.txt")
+        assert ret == 0
+
+    assert session.cwd == orig_cwd
+    if os.path.exists(os.path.join(jail, "jail_file.txt")):
+        os.unlink(os.path.join(jail, "jail_file.txt"))
+    os.rmdir(jail)
+
+
 if __name__ == "__main__":
     import inspect
     import sys

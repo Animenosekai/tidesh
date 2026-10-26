@@ -198,7 +198,9 @@ bool is_builtin_context_manager(const char *name) {
             strcmp(name, "allow_exit_code") == 0 ||
             strcmp(name, "allowed_codes") == 0 ||
             strcmp(name, "allow_codes") == 0 ||
-            strcmp(name, "allowed_status") == 0);
+            strcmp(name, "allowed_status") == 0 ||
+            strcmp(name, "sandbox") == 0 || strcmp(name, "tempdir") == 0 ||
+            strcmp(name, "chroot") == 0);
 }
 
 /* -------------------------------------------------------------------------
@@ -332,6 +334,12 @@ static void unwind_active_context(Session *session, ActiveContext *act,
                    strcmp(act->name, "allowed_status") == 0) {
             context_exit_allowed_exit_codes(session, exit_status,
                                             act->builtin_state);
+        } else if (strcmp(act->name, "sandbox") == 0) {
+            context_exit_sandbox(session, exit_status, act->builtin_state);
+        } else if (strcmp(act->name, "tempdir") == 0) {
+            context_exit_tempdir(session, exit_status, act->builtin_state);
+        } else if (strcmp(act->name, "chroot") == 0) {
+            context_exit_chroot(session, exit_status, act->builtin_state);
         }
     } else if (act->custom_mgr && act->custom_mgr->exit_cmd &&
                act->custom_mgr->exit_cmd[0] != '\0') {
@@ -484,6 +492,18 @@ int execute_with_block(Session *session, ContextInvocation *invocations,
                 enter_status = context_enter_allowed_exit_codes(
                     session, expanded_args, inv->arg_count,
                     &act->builtin_state);
+            } else if (strcmp(inv->name, "sandbox") == 0) {
+                enter_status =
+                    context_enter_sandbox(session, expanded_args,
+                                          inv->arg_count, &act->builtin_state);
+            } else if (strcmp(inv->name, "tempdir") == 0) {
+                enter_status =
+                    context_enter_tempdir(session, expanded_args,
+                                          inv->arg_count, &act->builtin_state);
+            } else if (strcmp(inv->name, "chroot") == 0) {
+                enter_status =
+                    context_enter_chroot(session, expanded_args, inv->arg_count,
+                                         &act->builtin_state);
             }
         } else {
             CustomContextManager *custom =

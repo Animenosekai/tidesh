@@ -6,7 +6,8 @@
 #include "data/files.h"      /* read_all */
 #include "execute.h"         /* execute_string */
 #include "expand.h"          /* full_expansion */
-#include "session.h"         /* Session */
+#include "sandbox.h"
+#include "session.h" /* Session */
 
 int builtin_source(int argc, char **argv, Session *session) {
     if (argc < 2) {
@@ -29,6 +30,15 @@ int builtin_source(int argc, char **argv, Session *session) {
     char *expanded_filename = array_pop(expanded, 0);
     free_array(expanded);
     free(expanded);
+
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    if (!fs_sandbox_check_access(session, expanded_filename, FS_SANDBOX_READ)) {
+        fprintf(stderr, "source: %s: Permission denied by sandbox\n",
+                expanded_filename);
+        free(expanded_filename);
+        return 1;
+    }
+#endif
 
     // Open the file
     FILE *f = fopen(expanded_filename, "r");

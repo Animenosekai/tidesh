@@ -10,6 +10,7 @@
 #include "ast.h"
 #include "execute.h"
 #include "execute/redirection.h"
+#include "sandbox.h"
 #include "session.h"
 
 #define RW_R__R__ 0644
@@ -106,6 +107,20 @@ int handle_redirections(ASTNode *node, Session *session) {
                 flags |= O_TRUNC;
             } else if (redirect->type == TOKEN_REDIRECT_IN)
                 flags = O_RDONLY;
+
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+            int access_type = (redirect->type == TOKEN_REDIRECT_IN)
+                                  ? FS_SANDBOX_READ
+                                  : FS_SANDBOX_WRITE;
+            if (!fs_sandbox_check_access(session, redirect->target,
+                                         access_type)) {
+                fprintf(stderr, "tidesh: %s: %s\n", redirect->target,
+                        (access_type == FS_SANDBOX_WRITE)
+                            ? "write denied by sandbox"
+                            : "access denied by sandbox");
+                return -1;
+            }
+#endif
 
             fd_file = open(redirect->target, flags, RW_R__R__);
 #ifndef TIDESH_DISABLE_COMMAND_SUBSTITUTION

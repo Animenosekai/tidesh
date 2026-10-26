@@ -19,7 +19,8 @@
 #include "data/trie.h" /* trie_copy, free_trie, init_trie, trie_starting_with */
 #include "environ.h"   /* environ_copy, free_environ, environ_set */
 #include "execute.h"   /* load_function_body, store_function_body */
-#include "session.h"   /* Session, update_working_dir */
+#include "sandbox.h"
+#include "session.h" /* Session, update_working_dir */
 
 struct SessionSnapshot {
     char    *saved_cwd;
@@ -41,9 +42,10 @@ struct SessionSnapshot {
 #ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
     CustomContextManager *saved_context_managers;
 #endif
-    char *saved_trap_exit;
-    char *saved_trap_signals[TIDESH_MAX_SIGNALS];
-    bool  permanent_redirections;
+    char      *saved_trap_exit;
+    char      *saved_trap_signals[TIDESH_MAX_SIGNALS];
+    bool       permanent_redirections;
+    FSSandbox *saved_fs_sandbox;
 };
 
 SessionSnapshot *session_snapshot_create(Session *session) {
@@ -138,6 +140,7 @@ SessionSnapshot *session_snapshot_create(Session *session) {
     }
 
     snap->permanent_redirections = session->permanent_redirections;
+    snap->saved_fs_sandbox       = fs_sandbox_copy_stack(session->fs_sandbox);
 
     return snap;
 }
@@ -259,6 +262,9 @@ void session_snapshot_restore(Session *session, SessionSnapshot *snapshot) {
     }
 
     session->permanent_redirections = snapshot->permanent_redirections;
+
+    fs_sandbox_free_stack(session->fs_sandbox);
+    session->fs_sandbox = fs_sandbox_copy_stack(snapshot->saved_fs_sandbox);
 }
 
 void session_snapshot_free(SessionSnapshot *snapshot) {
@@ -328,6 +334,8 @@ void session_snapshot_free(SessionSnapshot *snapshot) {
     for (int i = 0; i < TIDESH_MAX_SIGNALS; i++) {
         free(snapshot->saved_trap_signals[i]);
     }
+
+    fs_sandbox_free_stack(snapshot->saved_fs_sandbox);
 
     free(snapshot);
 }

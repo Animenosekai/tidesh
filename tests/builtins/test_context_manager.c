@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -349,6 +350,138 @@ describe(context_manager) {
         asserteq(trie_contains(session->functions, "change_state"), true);
         #endif
 
+        free_session(session);
+        free(session);
+    }
+
+    it("should handle tempdir context manager for isolated workspaces") {
+        Session *session = init_session(NULL, NULL);
+
+        char initial_cwd[4096];
+        getcwd(initial_cwd, sizeof(initial_cwd));
+
+        char captured_dir[4096] = {0};
+
+        int st = execute_string(
+            "with tempdir(var=\"ISOLATED_DIR\") {\n"
+            "    echo \"hello sandbox\" > test_file.txt\n"
+            "    cat test_file.txt\n"
+            "}\n", session);
+        asserteq(st, 0);
+
+        // After exit, cwd should be restored
+        char curr_cwd[4096];
+        getcwd(curr_cwd, sizeof(curr_cwd));
+        asserteq_str(curr_cwd, initial_cwd);
+
+        // Environment variables TMPDIR, TEMP, TMP, SANDBOX_DIR, ISOLATED_DIR restored
+        asserteq(environ_get(session->environ, "ISOLATED_DIR"), NULL);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should handle sandbox with readonly mode and write exceptions") {
+        Session *session = init_session(NULL, NULL);
+
+        // Normal write should succeed
+        int st = execute_string("echo 'ok' > /tmp/tidesh_test_rw.txt", session);
+        asserteq(st, 0);
+
+        // Inside sandbox(readonly=true), write redirection should be denied
+        st = execute_string(
+            "with sandbox(readonly=true) {\n"
+            "    echo 'should fail' > /tmp/tidesh_test_ro_fail.txt\n"
+            "}\n", session);
+        assertneq(st, 0);
+
+        // Reading allowed inside sandbox(readonly=true)
+        st = execute_string(
+            "with sandbox(readonly=true) {\n"
+            "    cat /tmp/tidesh_test_rw.txt\n"
+            "}\n", session);
+        asserteq(st, 0);
+
+        // With writable exception
+        st = execute_string(
+            "with sandbox(readonly=true, rw=\"/tmp\") {\n"
+            "    echo 'allowed' > /tmp/tidesh_test_allowed.txt\n"
+            "}\n", session);
+        asserteq(st, 0);
+
+        unlink("/tmp/tidesh_test_rw.txt");
+        unlink("/tmp/tidesh_test_ro_fail.txt");
+        unlink("/tmp/tidesh_test_allowed.txt");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should handle sandbox with fine-grained ro, rw, and deny paths") {
+        Session *session = init_session(NULL, NULL);
+
+        // Test with sandbox: writing to /tmp allowed, writing to /etc blocked
+        int st = execute_string(
+            "with sandbox(rw=\"/tmp\", ro=\"/etc\", deny=\"/private_test\") {\n"
+            "    echo 'in tmp' > /tmp/tidesh_sb_test.txt\n"
+            "}\n", session);
+        asserteq(st, 0);
+
+        // Write to ro path denied
+        st = execute_string(
+            "with sandbox(rw=\"/tmp\", ro=\"/tmp/ro_dir\") {\n"
+            "    echo 'blocked' > /tmp/ro_dir/fail.txt\n"
+            "}\n", session);
+        assertneq(st, 0);
+
+        // Denied path blocked from reading
+        st = execute_string(
+            "with sandbox(deny=\"/tmp/denied_file.txt\") {\n"
+            "    cat /tmp/denied_file.txt\n"
+            "}\n", session);
+        assertneq(st, 0);
+
+        unlink("/tmp/tidesh_sb_test.txt");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should handle chroot context manager jailing paths with read and write access") {
+        Session *session = init_session(NULL, NULL);
+
+        char initial_cwd[4096];
+        getcwd(initial_cwd, sizeof(initial_cwd));
+
+        // Create a temporary directory to act as jail
+        char jail_path[] = "/tmp/tidesh_jail_XXXXXX";
+        char *created = mkdtemp(jail_path);
+        assertneq(created, NULL);
+
+        char chroot_cmd[1024];
+        snprintf(chroot_cmd, sizeof(chroot_cmd),
+                 "with chroot(\"%s\") {\n"
+                 "    pwd\n"
+                 "    echo 'in jail' > jail_file.txt\n"
+                 "    cat jail_file.txt\n"
+                 "}\n",
+                 jail_path);
+
+        int st = execute_string(chroot_cmd, session);
+        asserteq(st, 0);
+
+        // Verify file was created in jail
+        char created_file[PATH_MAX];
+        snprintf(created_file, sizeof(created_file), "%s/jail_file.txt", jail_path);
+        asserteq(access(created_file, F_OK), 0);
+        unlink(created_file);
+
+        // After exiting chroot, cwd restored
+        char curr_cwd[4096];
+        getcwd(curr_cwd, sizeof(curr_cwd));
+        asserteq_str(curr_cwd, initial_cwd);
+
+        rmdir(jail_path);
         free_session(session);
         free(session);
     }

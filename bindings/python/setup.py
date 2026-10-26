@@ -95,87 +95,14 @@ Or ensure sources are staged in bindings/python/src before building.
     raise FileNotFoundError(msg)
 
 sources = [
-    "ast.c",
-    "builtin.c",
-    "context.c",
-    "dirstack.c",
-    "environ.c",
-    "execute.c",
-    "expand.c",
-    "features.c",
-    "history.c",
-    "jobs.c",
-    "lexer.c",
-    "prompt.c",
-    "hooks.c",
-    "session.c",
-    "data/array.c",
-    "data/dynamic.c",
-    "data/trie.c",
-    "data/utf8.c",
-    "data/files.c",
-    "expansions/aliases.c",
-    "expansions/arithmetic.c",
-    "expansions/braces.c",
-    "expansions/filenames.c",
-    "expansions/tildes.c",
-    "expansions/variables.c",
-    "prompt/ansi.c",
-    "prompt/completion.c",
-    "prompt/cursor.c",
-    "prompt/debug.c",
-    "prompt/keyboard.c",
-    "prompt/terminal.c",
-    "builtins/alias.c",
-    "builtins/bg.c",
-    "builtins/cd.c",
-    "builtins/clear.c",
-    "builtins/eval.c",
-    "builtins/exit.c",
-    "builtins/export.c",
-    "builtins/fg.c",
-    "builtins/help.c",
-    "builtins/history.c",
-    "builtins/info.c",
-    "builtins/jobs.c",
-    "builtins/popd.c",
-    "builtins/printenv.c",
-    "builtins/pushd.c",
-    "builtins/pwd.c",
-    "builtins/terminal.c",
-    "builtins/unalias.c",
-    "builtins/which.c",
-    "builtins/type.c",
-    "builtins/source.c",
-    "builtins/test.c",
-    "builtins/hooks.c",
-    "builtins/features.c",
-    "builtins/not.c",
-    "builtins/unset.c",
-    "builtins/break.c",
-    "builtins/continue.c",
-    "builtins/lexer.c",
-    "builtins/ast.c",
-    "builtins/set.c",
-    "builtins/shift.c",
-    "builtins/colon.c",
-    "builtins/context_manager.c",
-    "builtins/return.c",
-    "builtins/exec.c",
-    "builtins/trap.c",
-    "builtins/command.c",
-    "builtins/read.c",
-    "contexts/cwd.c",
-    "contexts/env.c",
-    "contexts/options.c",
-    "contexts/session.c",
-    "contexts/umask.c",
+    str(p.relative_to(src_root))
+    for p in sorted(src_root.glob("**/*.c"))
+    if p.name != "main.c"
 ]
 
-# Convert to relative paths for setup
-# setuptools requires relative paths, not absolute
-source_files = [f"src/{s}" for s in sources]
-include_dirs = ["include"]
+# Convert paths for setup
+source_files = [str(src_root / s) for s in sources]
+include_dirs = [str(include_root)]
 
 # Read the source glue
 source_glue_path = root_path / "tidesh" / "tidesh.c"

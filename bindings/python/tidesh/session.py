@@ -706,6 +706,213 @@ class Session:
             lib.session_snapshot_restore(self._session, snapshot)
             lib.session_snapshot_free(snapshot)
 
+    @contextlib.contextmanager
+    def sandbox(
+        self,
+        *,
+        readonly: bool = False,
+        ro: list[str | os.PathLike[str]] | str | os.PathLike[str] | None = None,
+        rw: list[str | os.PathLike[str]] | str | os.PathLike[str] | None = None,
+        deny: list[str | os.PathLike[str]] | str | os.PathLike[str] | None = None,
+        chroot: str | os.PathLike[str] | None = None,
+        default: str = "allow",
+    ) -> typing.Iterator[Session]:
+        """
+        Filesystem sandboxing context manager.
+
+        Restricts filesystem access within the context scope to specified read-only,
+        read-write, denied paths, and/or chroot directory.
+
+        Parameters
+        ----------
+        readonly : bool
+            Whether to make the filesystem read-only (except paths in rw).
+        ro : list[str] | str | None
+            Paths restricted to read-only access.
+        rw : list[str] | str | None
+            Paths permitted for write access.
+        deny : list[str] | str | None
+            Paths completely forbidden from access.
+        chroot : str | os.PathLike[str] | None
+            Optional chroot jail directory.
+        default : str
+            Default access policy: "allow" or "deny".
+
+        Yields
+        ------
+        Session
+            The current session within the sandboxed scope.
+        """
+        sb = lib.fs_sandbox_create()
+        if sb == ffi.NULL:
+            raise SessionError("Failed to create filesystem sandbox")
+        if readonly or default in ("deny", "ro", "readonly"):
+            sb.readonly_all = True
+        if chroot:
+            lib.fs_sandbox_set_chroot(sb, str(chroot).encode())
+        if ro:
+            paths = ro if isinstance(ro, (list, tuple)) else [ro]
+            for p in paths:
+                lib.fs_sandbox_add_paths(sb, str(p).encode(), 0)
+        if rw:
+            paths = rw if isinstance(rw, (list, tuple)) else [rw]
+            for p in paths:
+                lib.fs_sandbox_add_paths(sb, str(p).encode(), 1)
+        if deny:
+            paths = deny if isinstance(deny, (list, tuple)) else [deny]
+            for p in paths:
+                lib.fs_sandbox_add_paths(sb, str(p).encode(), 2)
+        lib.fs_sandbox_push(self._session, sb)
+        try:
+            yield self
+        finally:
+            popped = lib.fs_sandbox_pop(self._session)
+            if popped != ffi.NULL:
+                lib.fs_sandbox_free(popped)
+
+    @contextlib.contextmanager
+    def tempdir(
+        self,
+        *,
+        var: str | None = None,
+        cd: bool = True,
+        prefix: str = "tidesh_sandbox_",
+        cleanup: bool = True,
+    ) -> typing.Iterator[str]:
+        """
+        Ephemeral isolated temporary directory context manager.
+
+        Creates an isolated temporary directory, exports it to environment variables,
+        optionally enters it, and cleans it up upon exiting.
+
+        Parameters
+        ----------
+        var : str | None
+            Optional environment variable name to export the path to.
+        cd : bool
+            Whether to change working directory to the temporary directory (default True).
+        prefix : str
+            Prefix for the temporary directory name.
+        cleanup : bool
+            Whether to delete the directory and its contents on exit (default True).
+
+        Yields
+        ------
+        str
+            Path to the temporary directory.
+        """
+        import tempfile
+
+        base_dir = self.environ.get("TMPDIR")
+        tmp_path = tempfile.mkdtemp(prefix=prefix, dir=base_dir)
+        old_cwd = self.cwd
+        saved_env = {
+            "TMPDIR": self.environ.get("TMPDIR"),
+            "TEMP": self.environ.get("TEMP"),
+            "TMP": self.environ.get("TMP"),
+            "SANDBOX_DIR": self.environ.get("SANDBOX_DIR"),
+        }
+        if var:
+            saved_env[var] = self.environ.get(var)
+
+        self.environ["TMPDIR"] = tmp_path
+        self.environ["TEMP"] = tmp_path
+        self.environ["TMP"] = tmp_path
+        self.environ["SANDBOX_DIR"] = tmp_path
+        if var:
+            self.environ[var] = tmp_path
+
+        sb = lib.fs_sandbox_create()
+        if sb != ffi.NULL:
+            lib.fs_sandbox_add_rw_path(sb, tmp_path.encode())
+            lib.fs_sandbox_push(self._session, sb)
+
+        if cd:
+            self.cd(tmp_path)
+        try:
+            yield tmp_path
+        finally:
+            if cd:
+                self.cd(old_cwd)
+            if sb != ffi.NULL:
+                popped = lib.fs_sandbox_pop(self._session)
+                if popped != ffi.NULL:
+                    lib.fs_sandbox_free(popped)
+            for k, old_val in saved_env.items():
+                if old_val is None:
+                    self.environ.pop(k, None)
+                else:
+                    self.environ[k] = old_val
+            if cleanup:
+                lib.fs_sandbox_rmtree(tmp_path.encode())
+
+    @contextlib.contextmanager
+    def chroot(
+        self,
+        path: str | os.PathLike[str],
+        *,
+        readonly: bool = False,
+        rw: list[str | os.PathLike[str]] | str | os.PathLike[str] | None = None,
+        ro: list[str | os.PathLike[str]] | str | os.PathLike[str] | None = None,
+        deny: list[str | os.PathLike[str]] | str | os.PathLike[str] | None = None,
+    ) -> typing.Iterator[Session]:
+        """
+        Chroot directory jail context manager.
+
+        Jails filesystem access within the given root directory. Allows read and write
+        access inside the jail by default (unless readonly=True is specified).
+
+        Parameters
+        ----------
+        path : str | os.PathLike[str]
+            Path to the chroot directory.
+        readonly : bool
+            Whether to make the chroot jail read-only.
+        rw : list[str] | str | None
+            Specific writable subpaths inside the jail.
+        ro : list[str] | str | None
+            Specific read-only subpaths inside the jail.
+        deny : list[str] | str | None
+            Forbidden subpaths inside the jail.
+
+        Yields
+        ------
+        Session
+            The current session within the jailed scope.
+        """
+        path_str = str(path)
+        resolved = os.path.abspath(path_str)
+        old_cwd = self.cwd
+        self.cd(resolved)
+        sb = lib.fs_sandbox_create()
+        if sb != ffi.NULL:
+            lib.fs_sandbox_set_chroot(sb, resolved.encode())
+            if readonly:
+                sb.readonly_all = True
+            if rw:
+                paths = rw if isinstance(rw, (list, tuple)) else [rw]
+                for p in paths:
+                    lib.fs_sandbox_add_paths(sb, str(p).encode(), 1)
+            elif not readonly:
+                lib.fs_sandbox_add_rw_path(sb, resolved.encode())
+            if ro:
+                paths = ro if isinstance(ro, (list, tuple)) else [ro]
+                for p in paths:
+                    lib.fs_sandbox_add_paths(sb, str(p).encode(), 0)
+            if deny:
+                paths = deny if isinstance(deny, (list, tuple)) else [deny]
+                for p in paths:
+                    lib.fs_sandbox_add_paths(sb, str(p).encode(), 2)
+            lib.fs_sandbox_push(self._session, sb)
+        try:
+            yield self
+        finally:
+            if sb != ffi.NULL:
+                popped = lib.fs_sandbox_pop(self._session)
+                if popped != ffi.NULL:
+                    lib.fs_sandbox_free(popped)
+            self.cd(old_cwd)
+
     def __del__(self) -> None:
         """Ensure resources are cleaned up when the session is garbage collected."""
         self.close()

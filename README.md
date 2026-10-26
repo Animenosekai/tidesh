@@ -1127,7 +1127,7 @@ done
 
 ##### Builtin Context Managers
 
-The shell includes five built-in context managers:
+The shell includes built-in context managers for session manipulation and filesystem sandboxing:
 
 | Context Manager | Description | Example |
 | :--- | :--- | :--- |
@@ -1136,6 +1136,9 @@ The shell includes five built-in context managers:
 | `options(flags...)` | Temporarily toggle shell options (using standard `set` flags like `-e`, `+x`), restoring previous option values on exit. | `with options("-e", "-x") { ... }` |
 | `session` | Snapshot the entire session state (working directory, environment variables, aliases, functions, shell options, umask, traps, and custom context managers) and revert all changes on exit. | `with session { ... }` |
 | `umask(mode)` | Temporarily change file creation mask, restoring previous mask on exit. | `with umask("077") { ... }` |
+| `tempdir(var=..., cd=..., cleanup=...)` | Create an isolated temporary workspace directory, export it to `$TMPDIR` / `$SANDBOX_DIR` (and optional custom variable), change into it, and recursively clean it up on exit. | `with tempdir(var="TMP") { ... }` |
+| `sandbox(ro=..., rw=..., deny=..., readonly=..., chroot=...)` | Fine-grained filesystem sandbox with read-only (`ro` / `readonly=true`), read-write (`rw`), and forbidden (`deny`) path rules. Supported on macOS (Seatbelt) and UNIX/Linux (Landlock). | `with sandbox(ro="/usr:/lib", rw="/tmp", deny="/root") { ... }` |
+| `chroot(path, rw=..., ro=..., readonly=...)` | Jail filesystem access and directory navigation within the specified root directory, with read & write access enabled inside the jail by default. | `with chroot("/var/jail") { ... }` |
 
 Multiple context managers can be combined in a single `with` statement:
 
@@ -1282,6 +1285,19 @@ with Session() as session:
 
     with session.scope(cwd="/tmp", env={"BUILD": "true"}, options=["-e"]):
         session.execute("echo $BUILD")
+
+    # Filesystem isolation & sandboxing context managers
+    with session.tempdir(var="TMP") as tmp_dir:
+        session.execute("echo 'isolated' > work.txt")
+
+    with session.sandbox(readonly=True, rw=["/tmp"]):
+        session.execute("echo 'ok' > /tmp/out.txt")
+
+    with session.sandbox(ro=["/usr", "/lib"], rw=["/tmp"], deny=["/private/secret"]):
+        session.execute("ls /tmp")
+
+    with session.chroot("/var/jail"):
+        session.execute("pwd")
 ```
 
 ### Development

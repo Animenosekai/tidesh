@@ -26,6 +26,7 @@
 #include "expansions/variables.h"
 #include "hooks.h"
 #include "jobs.h"
+#include "sandbox.h"
 #include "session.h"
 
 char *expand_word_no_split(const char *raw_value, Session *session) {
@@ -649,6 +650,20 @@ int execute_command(ASTNode *node, Session *session) {
             environ_set_exit_status(session->environ, 127);
             return 127;
         }
+
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+        if (!fs_sandbox_check_access(session, resolved_path, FS_SANDBOX_EXEC)) {
+            fprintf(stderr, "tidesh: %s: Permission denied by sandbox\n",
+                    cmd_name);
+            free(resolved_path);
+            free_expanded_args(argc, argv, arg_keys, arg_is_sub);
+            if (cmd_name_trimmed)
+                free(cmd_name_trimmed);
+            environ_set_exit_status(session->environ, 126);
+            return 126;
+        }
+#endif
+
         HookEnvVar exec_vars[] = {{"TIDE_EXEC", resolved_path},
                                   {"TIDE_ARGV0", argv[0]}};
         run_cwd_hook_with_vars(session, HOOK_BEFORE_EXEC, exec_vars, 2);
@@ -661,6 +676,10 @@ int execute_command(ASTNode *node, Session *session) {
         traps_reset_for_subshell(session);
         signal(SIGINT, SIG_DFL);
         signal(SIGQUIT, SIG_DFL);
+
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+        fs_sandbox_apply_child(session);
+#endif
 
         // Handle process substitution in argv
         for (int i = 0; i < argc; i++) {

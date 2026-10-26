@@ -370,5 +370,23 @@ SessionSnapshot *session_snapshot_create(Session *session);
 void session_snapshot_restore(Session *session, SessionSnapshot *snapshot);
 void session_snapshot_free(SessionSnapshot *snapshot);
 
+// Filesystem Sandbox
+typedef struct FSSandbox FSSandbox;
+struct FSSandbox {
+    bool is_active;
+    bool readonly_all;
+    ...;
+};
+FSSandbox *fs_sandbox_create(void);
+void fs_sandbox_free(FSSandbox *sb);
+void fs_sandbox_push(Session *session, FSSandbox *sb);
+FSSandbox *fs_sandbox_pop(Session *session);
+void fs_sandbox_add_ro_path(FSSandbox *sb, const char *path);
+void fs_sandbox_add_rw_path(FSSandbox *sb, const char *path);
+void fs_sandbox_add_deny_path(FSSandbox *sb, const char *path);
+void fs_sandbox_add_paths(FSSandbox *sb, const char *path_list, int target);
+void fs_sandbox_set_chroot(FSSandbox *sb, const char *path);
+int fs_sandbox_rmtree(const char *path);
+
 // General free
 void free(void *ptr);

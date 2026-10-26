@@ -579,185 +579,396 @@ static void (*_cffi_call_python_org)(struct _cffi_externpy_s *, char *);
  */
 
 #include "ast.h"
+#include "builtins/ast.h"
+#include "builtins/bg.h"
+#include "builtins/break.h"
+#include "builtins/cd.h"
+#include "builtins/command.h"
+#include "builtins/continue.h"
+#include "builtins/fg.h"
+#include "builtins/exec.h"
+#include "builtins/hooks.h"
 #include "builtins/info.h"
+#include "builtins/jobs.h"
+#include "builtins/lexer.h"
+#include "builtins/not.h"
+#include "builtins/return.h"
+#include "builtins/set.h"
+#include "builtins/trap.h"
+#include "builtins/unset.h"
+#include "builtins/which.h"
 #include "data/array.h"
 #include "data/trie.h"
 #include "dirstack.h"
 #include "environ.h"
 #include "execute.h"
 #include "expand.h"
+#include "feature-flags.h"
 #include "history.h"
+#include "hooks.h"
+#include "jobs.h"
 #include "lexer.h"
 #include "prompt/terminal.h"
 #include "session.h"
+
+const char *tidesh_compiler = __VERSION__;
 
 
 /************************************************************/
 
 static void *_cffi_types[] = {
-/*  0 */ _CFFI_OP(_CFFI_OP_FUNCTION, 109), // ASTNode *()(LexerInput *, Session *)
-/*  1 */ _CFFI_OP(_CFFI_OP_POINTER, 146), // LexerInput *
-/*  2 */ _CFFI_OP(_CFFI_OP_POINTER, 151), // Session *
+/*  0 */ _CFFI_OP(_CFFI_OP_FUNCTION, 152), // ASTNode *()(LexerInput *, Session *)
+/*  1 */ _CFFI_OP(_CFFI_OP_POINTER, 243), // LexerInput *
+/*  2 */ _CFFI_OP(_CFFI_OP_POINTER, 247), // Session *
 /*  3 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/*  4 */ _CFFI_OP(_CFFI_OP_FUNCTION, 112), // Array *()(Environ *)
-/*  5 */ _CFFI_OP(_CFFI_OP_POINTER, 144), // Environ *
+/*  4 */ _CFFI_OP(_CFFI_OP_FUNCTION, 155), // Array *()(Environ *)
+/*  5 */ _CFFI_OP(_CFFI_OP_POINTER, 233), // Environ *
 /*  6 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/*  7 */ _CFFI_OP(_CFFI_OP_FUNCTION, 112), // Array *()(Trie *, char *)
-/*  8 */ _CFFI_OP(_CFFI_OP_POINTER, 155), // Trie *
-/*  9 */ _CFFI_OP(_CFFI_OP_POINTER, 156), // char *
+/*  7 */ _CFFI_OP(_CFFI_OP_FUNCTION, 155), // Array *()(Trie *, char *)
+/*  8 */ _CFFI_OP(_CFFI_OP_POINTER, 252), // Trie *
+/*  9 */ _CFFI_OP(_CFFI_OP_POINTER, 253), // char *
 /* 10 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 11 */ _CFFI_OP(_CFFI_OP_FUNCTION, 112), // Array *()(char *, Session *)
+/* 11 */ _CFFI_OP(_CFFI_OP_FUNCTION, 155), // Array *()(char *, Session *)
 /* 12 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
 /* 13 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
 /* 14 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 15 */ _CFFI_OP(_CFFI_OP_FUNCTION, 5), // Environ *()(Environ *)
-/* 16 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
-/* 17 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 18 */ _CFFI_OP(_CFFI_OP_FUNCTION, 5), // Environ *()(Environ *, Environ *)
-/* 19 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
+/* 15 */ _CFFI_OP(_CFFI_OP_FUNCTION, 228), // CommandInfo()(char const *, Session *)
+/* 16 */ _CFFI_OP(_CFFI_OP_POINTER, 253), // char const *
+/* 17 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 18 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 19 */ _CFFI_OP(_CFFI_OP_FUNCTION, 5), // Environ *()(Environ *)
 /* 20 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
 /* 21 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 22 */ _CFFI_OP(_CFFI_OP_FUNCTION, 23), // History *()(History *)
-/* 23 */ _CFFI_OP(_CFFI_OP_POINTER, 145), // History *
-/* 24 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 25 */ _CFFI_OP(_CFFI_OP_FUNCTION, 23), // History *()(History *, char *)
-/* 26 */ _CFFI_OP(_CFFI_OP_NOOP, 23),
-/* 27 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 22 */ _CFFI_OP(_CFFI_OP_FUNCTION, 5), // Environ *()(Environ *, Environ *)
+/* 23 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
+/* 24 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
+/* 25 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 26 */ _CFFI_OP(_CFFI_OP_FUNCTION, 166), // FSSandbox *()(Session *)
+/* 27 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
 /* 28 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 29 */ _CFFI_OP(_CFFI_OP_FUNCTION, 1), // LexerInput *()(LexerInput *, char *, void *, Session *)
-/* 30 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 31 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 32 */ _CFFI_OP(_CFFI_OP_POINTER, 159), // void *
-/* 33 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
-/* 34 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 35 */ _CFFI_OP(_CFFI_OP_FUNCTION, 147), // LexerToken()(LexerInput *)
-/* 36 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 37 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 38 */ _CFFI_OP(_CFFI_OP_FUNCTION, 2), // Session *()(Session *, char *)
-/* 39 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
-/* 40 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 41 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 42 */ _CFFI_OP(_CFFI_OP_FUNCTION, 56), // _Bool()(DirStack *)
-/* 43 */ _CFFI_OP(_CFFI_OP_POINTER, 143), // DirStack *
-/* 44 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 45 */ _CFFI_OP(_CFFI_OP_FUNCTION, 56), // _Bool()(DirStack *, char const *)
-/* 46 */ _CFFI_OP(_CFFI_OP_NOOP, 43),
-/* 47 */ _CFFI_OP(_CFFI_OP_POINTER, 156), // char const *
-/* 48 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 49 */ _CFFI_OP(_CFFI_OP_FUNCTION, 56), // _Bool()(Environ *, char *)
-/* 50 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
-/* 51 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 52 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 53 */ _CFFI_OP(_CFFI_OP_FUNCTION, 56), // _Bool()(History *, char const *, _Bool)
-/* 54 */ _CFFI_OP(_CFFI_OP_NOOP, 23),
-/* 55 */ _CFFI_OP(_CFFI_OP_NOOP, 47),
-/* 56 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 1), // _Bool
-/* 57 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 58 */ _CFFI_OP(_CFFI_OP_FUNCTION, 56), // _Bool()(Trie *, char *)
-/* 59 */ _CFFI_OP(_CFFI_OP_NOOP, 8),
-/* 60 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 61 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 62 */ _CFFI_OP(_CFFI_OP_FUNCTION, 56), // _Bool()(Trie *, char *, char *)
-/* 63 */ _CFFI_OP(_CFFI_OP_NOOP, 8),
-/* 64 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 65 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 66 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 67 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(DirStack const *, size_t)
-/* 68 */ _CFFI_OP(_CFFI_OP_POINTER, 143), // DirStack const *
-/* 69 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, _cffi_prim_int(sizeof(size_t), (
+/* 29 */ _CFFI_OP(_CFFI_OP_FUNCTION, 166), // FSSandbox *()(void)
+/* 30 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 31 */ _CFFI_OP(_CFFI_OP_FUNCTION, 32), // Features *()(Features *)
+/* 32 */ _CFFI_OP(_CFFI_OP_POINTER, 235), // Features *
+/* 33 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 34 */ _CFFI_OP(_CFFI_OP_FUNCTION, 35), // History *()(History *)
+/* 35 */ _CFFI_OP(_CFFI_OP_POINTER, 236), // History *
+/* 36 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 37 */ _CFFI_OP(_CFFI_OP_FUNCTION, 35), // History *()(History *, char *)
+/* 38 */ _CFFI_OP(_CFFI_OP_NOOP, 35),
+/* 39 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 40 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 41 */ _CFFI_OP(_CFFI_OP_FUNCTION, 240), // Job *()(Jobs *)
+/* 42 */ _CFFI_OP(_CFFI_OP_POINTER, 242), // Jobs *
+/* 43 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 44 */ _CFFI_OP(_CFFI_OP_FUNCTION, 240), // Job *()(Jobs *, int)
+/* 45 */ _CFFI_OP(_CFFI_OP_NOOP, 42),
+/* 46 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7), // int
+/* 47 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 48 */ _CFFI_OP(_CFFI_OP_FUNCTION, 42), // Jobs *()(void)
+/* 49 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 50 */ _CFFI_OP(_CFFI_OP_FUNCTION, 1), // LexerInput *()(LexerInput *, char *, void *, Session *)
+/* 51 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 52 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 53 */ _CFFI_OP(_CFFI_OP_POINTER, 257), // void *
+/* 54 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 55 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 56 */ _CFFI_OP(_CFFI_OP_FUNCTION, 244), // LexerToken()(LexerInput *)
+/* 57 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 58 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 59 */ _CFFI_OP(_CFFI_OP_FUNCTION, 2), // Session *()(Session *, char *)
+/* 60 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 61 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 62 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 63 */ _CFFI_OP(_CFFI_OP_FUNCTION, 205), // SessionSnapshot *()(Session *)
+/* 64 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 65 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 66 */ _CFFI_OP(_CFFI_OP_FUNCTION, 80), // _Bool()(DirStack *)
+/* 67 */ _CFFI_OP(_CFFI_OP_POINTER, 232), // DirStack *
+/* 68 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 69 */ _CFFI_OP(_CFFI_OP_FUNCTION, 80), // _Bool()(DirStack *, char const *)
+/* 70 */ _CFFI_OP(_CFFI_OP_NOOP, 67),
+/* 71 */ _CFFI_OP(_CFFI_OP_NOOP, 16),
+/* 72 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 73 */ _CFFI_OP(_CFFI_OP_FUNCTION, 80), // _Bool()(Environ *, char *)
+/* 74 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
+/* 75 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 76 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 77 */ _CFFI_OP(_CFFI_OP_FUNCTION, 80), // _Bool()(History *, char const *, _Bool)
+/* 78 */ _CFFI_OP(_CFFI_OP_NOOP, 35),
+/* 79 */ _CFFI_OP(_CFFI_OP_NOOP, 16),
+/* 80 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 1), // _Bool
+/* 81 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 82 */ _CFFI_OP(_CFFI_OP_FUNCTION, 80), // _Bool()(Jobs *, int)
+/* 83 */ _CFFI_OP(_CFFI_OP_NOOP, 42),
+/* 84 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
+/* 85 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 86 */ _CFFI_OP(_CFFI_OP_FUNCTION, 80), // _Bool()(Trie *, char *)
+/* 87 */ _CFFI_OP(_CFFI_OP_NOOP, 8),
+/* 88 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 89 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 90 */ _CFFI_OP(_CFFI_OP_FUNCTION, 80), // _Bool()(Trie *, char *, char *)
+/* 91 */ _CFFI_OP(_CFFI_OP_NOOP, 8),
+/* 92 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 93 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 94 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 95 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(DirStack const *, size_t)
+/* 96 */ _CFFI_OP(_CFFI_OP_POINTER, 232), // DirStack const *
+/* 97 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, _cffi_prim_int(sizeof(size_t), (
            ((size_t)-1) | 0 /* check that size_t is an integer type */
          ) <= 0)), // size_t
-/* 70 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 71 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(Environ *, char *)
-/* 72 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
-/* 73 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 74 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 75 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(Environ *, char *, char *)
-/* 76 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
-/* 77 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 78 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 79 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 80 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(History *)
-/* 81 */ _CFFI_OP(_CFFI_OP_NOOP, 23),
-/* 82 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 83 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(History *, size_t)
-/* 84 */ _CFFI_OP(_CFFI_OP_NOOP, 23),
-/* 85 */ _CFFI_OP(_CFFI_OP_NOOP, 69),
-/* 86 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 87 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(Trie *, char *)
-/* 88 */ _CFFI_OP(_CFFI_OP_NOOP, 8),
-/* 89 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 90 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 91 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(char const *, Session *)
-/* 92 */ _CFFI_OP(_CFFI_OP_NOOP, 47),
-/* 93 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
-/* 94 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 95 */ _CFFI_OP(_CFFI_OP_FUNCTION, 100), // int()(char const *, Session *)
-/* 96 */ _CFFI_OP(_CFFI_OP_NOOP, 47),
-/* 97 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
 /* 98 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 99 */ _CFFI_OP(_CFFI_OP_FUNCTION, 100), // int()(int, char * *, Session *)
-/* 100 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7), // int
-/* 101 */ _CFFI_OP(_CFFI_OP_POINTER, 9), // char * *
-/* 102 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
-/* 103 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 104 */ _CFFI_OP(_CFFI_OP_FUNCTION, 69), // size_t()(size_t, size_t)
-/* 105 */ _CFFI_OP(_CFFI_OP_NOOP, 69),
-/* 106 */ _CFFI_OP(_CFFI_OP_NOOP, 69),
+/* 99 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(Environ *, char *)
+/* 100 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
+/* 101 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 102 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 103 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(Environ *, char *, char *)
+/* 104 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
+/* 105 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 106 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
 /* 107 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 108 */ _CFFI_OP(_CFFI_OP_FUNCTION, 159), // void()(ASTNode *)
-/* 109 */ _CFFI_OP(_CFFI_OP_POINTER, 141), // ASTNode *
+/* 108 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(History *)
+/* 109 */ _CFFI_OP(_CFFI_OP_NOOP, 35),
 /* 110 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 111 */ _CFFI_OP(_CFFI_OP_FUNCTION, 159), // void()(Array *)
-/* 112 */ _CFFI_OP(_CFFI_OP_POINTER, 142), // Array *
-/* 113 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 114 */ _CFFI_OP(_CFFI_OP_FUNCTION, 159), // void()(Environ *)
-/* 115 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
-/* 116 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 117 */ _CFFI_OP(_CFFI_OP_FUNCTION, 159), // void()(Environ *, char *, char *)
-/* 118 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
-/* 119 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 120 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
-/* 121 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 122 */ _CFFI_OP(_CFFI_OP_FUNCTION, 159), // void()(History *)
-/* 123 */ _CFFI_OP(_CFFI_OP_NOOP, 23),
-/* 124 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 125 */ _CFFI_OP(_CFFI_OP_FUNCTION, 159), // void()(History *, char const *)
-/* 126 */ _CFFI_OP(_CFFI_OP_NOOP, 23),
-/* 127 */ _CFFI_OP(_CFFI_OP_NOOP, 47),
+/* 111 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(History *, size_t)
+/* 112 */ _CFFI_OP(_CFFI_OP_NOOP, 35),
+/* 113 */ _CFFI_OP(_CFFI_OP_NOOP, 97),
+/* 114 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 115 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(Trie *, char *)
+/* 116 */ _CFFI_OP(_CFFI_OP_NOOP, 8),
+/* 117 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 118 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 119 */ _CFFI_OP(_CFFI_OP_FUNCTION, 9), // char *()(char const *, Session *)
+/* 120 */ _CFFI_OP(_CFFI_OP_NOOP, 16),
+/* 121 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 122 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 123 */ _CFFI_OP(_CFFI_OP_FUNCTION, 16), // char const *()(NodeType)
+/* 124 */ _CFFI_OP(_CFFI_OP_ENUM, 3), // NodeType
+/* 125 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 126 */ _CFFI_OP(_CFFI_OP_FUNCTION, 16), // char const *()(TokenType)
+/* 127 */ _CFFI_OP(_CFFI_OP_ENUM, 4), // TokenType
 /* 128 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 129 */ _CFFI_OP(_CFFI_OP_FUNCTION, 159), // void()(LexerInput *)
-/* 130 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
-/* 131 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 132 */ _CFFI_OP(_CFFI_OP_FUNCTION, 159), // void()(LexerToken *)
-/* 133 */ _CFFI_OP(_CFFI_OP_POINTER, 147), // LexerToken *
+/* 129 */ _CFFI_OP(_CFFI_OP_FUNCTION, 46), // int()(Jobs *, int, char *, JobState)
+/* 130 */ _CFFI_OP(_CFFI_OP_NOOP, 42),
+/* 131 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
+/* 132 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 133 */ _CFFI_OP(_CFFI_OP_ENUM, 2), // JobState
 /* 134 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 135 */ _CFFI_OP(_CFFI_OP_FUNCTION, 159), // void()(Session *)
-/* 136 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 135 */ _CFFI_OP(_CFFI_OP_FUNCTION, 46), // int()(char const *)
+/* 136 */ _CFFI_OP(_CFFI_OP_NOOP, 16),
 /* 137 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 138 */ _CFFI_OP(_CFFI_OP_FUNCTION, 159), // void()(void *)
-/* 139 */ _CFFI_OP(_CFFI_OP_NOOP, 32),
-/* 140 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
-/* 141 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 0), // ASTNode
-/* 142 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 1), // Array
-/* 143 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 2), // DirStack
-/* 144 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 3), // Environ
-/* 145 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 4), // History
-/* 146 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 5), // LexerInput
-/* 147 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 6), // LexerToken
-/* 148 */ _CFFI_OP(_CFFI_OP_ENUM, 0), // NodeType
-/* 149 */ _CFFI_OP(_CFFI_OP_POINTER, 150), // Redirection *
-/* 150 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 7), // Redirection
-/* 151 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 8), // Session
-/* 152 */ _CFFI_OP(_CFFI_OP_POINTER, 153), // Terminal *
-/* 153 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 9), // Terminal
-/* 154 */ _CFFI_OP(_CFFI_OP_ENUM, 1), // TokenType
-/* 155 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 10), // Trie
-/* 156 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 2), // char
-/* 157 */ _CFFI_OP(_CFFI_OP_POINTER, 100), // int *
-/* 158 */ _CFFI_OP(_CFFI_OP_POINTER, 104), // size_t(*)(size_t, size_t)
-/* 159 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 0), // void
+/* 138 */ _CFFI_OP(_CFFI_OP_FUNCTION, 46), // int()(char const *, Session *)
+/* 139 */ _CFFI_OP(_CFFI_OP_NOOP, 16),
+/* 140 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 141 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 142 */ _CFFI_OP(_CFFI_OP_FUNCTION, 46), // int()(int, char * *, Session *)
+/* 143 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
+/* 144 */ _CFFI_OP(_CFFI_OP_POINTER, 9), // char * *
+/* 145 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 146 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 147 */ _CFFI_OP(_CFFI_OP_FUNCTION, 97), // size_t()(size_t, size_t)
+/* 148 */ _CFFI_OP(_CFFI_OP_NOOP, 97),
+/* 149 */ _CFFI_OP(_CFFI_OP_NOOP, 97),
+/* 150 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 151 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(ASTNode *)
+/* 152 */ _CFFI_OP(_CFFI_OP_POINTER, 223), // ASTNode *
+/* 153 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 154 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(Array *)
+/* 155 */ _CFFI_OP(_CFFI_OP_POINTER, 224), // Array *
+/* 156 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 157 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(Environ *)
+/* 158 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
+/* 159 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 160 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(Environ *, char *, char *)
+/* 161 */ _CFFI_OP(_CFFI_OP_NOOP, 5),
+/* 162 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 163 */ _CFFI_OP(_CFFI_OP_NOOP, 9),
+/* 164 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 165 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(FSSandbox *)
+/* 166 */ _CFFI_OP(_CFFI_OP_POINTER, 234), // FSSandbox *
+/* 167 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 168 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(FSSandbox *, char const *)
+/* 169 */ _CFFI_OP(_CFFI_OP_NOOP, 166),
+/* 170 */ _CFFI_OP(_CFFI_OP_NOOP, 16),
+/* 171 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 172 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(FSSandbox *, char const *, int)
+/* 173 */ _CFFI_OP(_CFFI_OP_NOOP, 166),
+/* 174 */ _CFFI_OP(_CFFI_OP_NOOP, 16),
+/* 175 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 7),
+/* 176 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 177 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(Features *)
+/* 178 */ _CFFI_OP(_CFFI_OP_NOOP, 32),
+/* 179 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 180 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(History *)
+/* 181 */ _CFFI_OP(_CFFI_OP_NOOP, 35),
+/* 182 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 183 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(History *, char const *)
+/* 184 */ _CFFI_OP(_CFFI_OP_NOOP, 35),
+/* 185 */ _CFFI_OP(_CFFI_OP_NOOP, 16),
+/* 186 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 187 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(Jobs *)
+/* 188 */ _CFFI_OP(_CFFI_OP_NOOP, 42),
+/* 189 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 190 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(LexerInput *)
+/* 191 */ _CFFI_OP(_CFFI_OP_NOOP, 1),
+/* 192 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 193 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(LexerToken *)
+/* 194 */ _CFFI_OP(_CFFI_OP_POINTER, 244), // LexerToken *
+/* 195 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 196 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(Session *)
+/* 197 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 198 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 199 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(Session *, FSSandbox *)
+/* 200 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 201 */ _CFFI_OP(_CFFI_OP_NOOP, 166),
+/* 202 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 203 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(Session *, SessionSnapshot *)
+/* 204 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 205 */ _CFFI_OP(_CFFI_OP_POINTER, 248), // SessionSnapshot *
+/* 206 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 207 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(Session *, char const *)
+/* 208 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 209 */ _CFFI_OP(_CFFI_OP_NOOP, 16),
+/* 210 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 211 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(Session *, char const *, HookEnvVar const *, size_t)
+/* 212 */ _CFFI_OP(_CFFI_OP_NOOP, 2),
+/* 213 */ _CFFI_OP(_CFFI_OP_NOOP, 16),
+/* 214 */ _CFFI_OP(_CFFI_OP_POINTER, 239), // HookEnvVar const *
+/* 215 */ _CFFI_OP(_CFFI_OP_NOOP, 97),
+/* 216 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 217 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(SessionSnapshot *)
+/* 218 */ _CFFI_OP(_CFFI_OP_NOOP, 205),
+/* 219 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 220 */ _CFFI_OP(_CFFI_OP_FUNCTION, 257), // void()(void *)
+/* 221 */ _CFFI_OP(_CFFI_OP_NOOP, 53),
+/* 222 */ _CFFI_OP(_CFFI_OP_FUNCTION_END, 0),
+/* 223 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 0), // ASTNode
+/* 224 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 1), // Array
+/* 225 */ _CFFI_OP(_CFFI_OP_POINTER, 226), // CaseItem *
+/* 226 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 2), // CaseItem
+/* 227 */ _CFFI_OP(_CFFI_OP_ENUM, 0), // CaseTerminator
+/* 228 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 3), // CommandInfo
+/* 229 */ _CFFI_OP(_CFFI_OP_ENUM, 1), // CommandType
+/* 230 */ _CFFI_OP(_CFFI_OP_POINTER, 231), // ConditionalBranch *
+/* 231 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 4), // ConditionalBranch
+/* 232 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 5), // DirStack
+/* 233 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 6), // Environ
+/* 234 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 7), // FSSandbox
+/* 235 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 8), // Features
+/* 236 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 9), // History
+/* 237 */ _CFFI_OP(_CFFI_OP_POINTER, 238), // HistoryEntry *
+/* 238 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 10), // HistoryEntry
+/* 239 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 11), // HookEnvVar
+/* 240 */ _CFFI_OP(_CFFI_OP_POINTER, 241), // Job *
+/* 241 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 12), // Job
+/* 242 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 13), // Jobs
+/* 243 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 14), // LexerInput
+/* 244 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 15), // LexerToken
+/* 245 */ _CFFI_OP(_CFFI_OP_POINTER, 246), // Redirection *
+/* 246 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 16), // Redirection
+/* 247 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 17), // Session
+/* 248 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 18), // SessionSnapshot
+/* 249 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 19), // ShellOptions
+/* 250 */ _CFFI_OP(_CFFI_OP_POINTER, 251), // Terminal *
+/* 251 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 20), // Terminal
+/* 252 */ _CFFI_OP(_CFFI_OP_STRUCT_UNION, 21), // Trie
+/* 253 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 2), // char
+/* 254 */ _CFFI_OP(_CFFI_OP_POINTER, 46), // int *
+/* 255 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 9), // long
+/* 256 */ _CFFI_OP(_CFFI_OP_POINTER, 147), // size_t(*)(size_t, size_t)
+/* 257 */ _CFFI_OP(_CFFI_OP_PRIMITIVE, 0), // void
 };
+
+static int _cffi_const_CASE_TERM_BREAK(unsigned long long *o)
+{
+  int n = (CASE_TERM_BREAK) <= 0;
+  *o = (unsigned long long)((CASE_TERM_BREAK) | 0);  /* check that CASE_TERM_BREAK is an integer */
+  return n;
+}
+
+static int _cffi_const_CASE_TERM_FALLTHROUGH(unsigned long long *o)
+{
+  int n = (CASE_TERM_FALLTHROUGH) <= 0;
+  *o = (unsigned long long)((CASE_TERM_FALLTHROUGH) | 0);  /* check that CASE_TERM_FALLTHROUGH is an integer */
+  return n;
+}
+
+static int _cffi_const_CASE_TERM_CONTINUE(unsigned long long *o)
+{
+  int n = (CASE_TERM_CONTINUE) <= 0;
+  *o = (unsigned long long)((CASE_TERM_CONTINUE) | 0);  /* check that CASE_TERM_CONTINUE is an integer */
+  return n;
+}
+
+static int _cffi_const_COMMAND_NOT_FOUND(unsigned long long *o)
+{
+  int n = (COMMAND_NOT_FOUND) <= 0;
+  *o = (unsigned long long)((COMMAND_NOT_FOUND) | 0);  /* check that COMMAND_NOT_FOUND is an integer */
+  return n;
+}
+
+static int _cffi_const_COMMAND_ALIAS(unsigned long long *o)
+{
+  int n = (COMMAND_ALIAS) <= 0;
+  *o = (unsigned long long)((COMMAND_ALIAS) | 0);  /* check that COMMAND_ALIAS is an integer */
+  return n;
+}
+
+static int _cffi_const_COMMAND_BUILTIN(unsigned long long *o)
+{
+  int n = (COMMAND_BUILTIN) <= 0;
+  *o = (unsigned long long)((COMMAND_BUILTIN) | 0);  /* check that COMMAND_BUILTIN is an integer */
+  return n;
+}
+
+static int _cffi_const_COMMAND_SPECIAL_BUILTIN(unsigned long long *o)
+{
+  int n = (COMMAND_SPECIAL_BUILTIN) <= 0;
+  *o = (unsigned long long)((COMMAND_SPECIAL_BUILTIN) | 0);  /* check that COMMAND_SPECIAL_BUILTIN is an integer */
+  return n;
+}
+
+static int _cffi_const_COMMAND_EXTERNAL(unsigned long long *o)
+{
+  int n = (COMMAND_EXTERNAL) <= 0;
+  *o = (unsigned long long)((COMMAND_EXTERNAL) | 0);  /* check that COMMAND_EXTERNAL is an integer */
+  return n;
+}
+
+static int _cffi_const_COMMAND_FUNCTION(unsigned long long *o)
+{
+  int n = (COMMAND_FUNCTION) <= 0;
+  *o = (unsigned long long)((COMMAND_FUNCTION) | 0);  /* check that COMMAND_FUNCTION is an integer */
+  return n;
+}
+
+static int _cffi_const_JOB_RUNNING(unsigned long long *o)
+{
+  int n = (JOB_RUNNING) <= 0;
+  *o = (unsigned long long)((JOB_RUNNING) | 0);  /* check that JOB_RUNNING is an integer */
+  return n;
+}
+
+static int _cffi_const_JOB_STOPPED(unsigned long long *o)
+{
+  int n = (JOB_STOPPED) <= 0;
+  *o = (unsigned long long)((JOB_STOPPED) | 0);  /* check that JOB_STOPPED is an integer */
+  return n;
+}
+
+static int _cffi_const_JOB_DONE(unsigned long long *o)
+{
+  int n = (JOB_DONE) <= 0;
+  *o = (unsigned long long)((JOB_DONE) | 0);  /* check that JOB_DONE is an integer */
+  return n;
+}
+
+static int _cffi_const_JOB_KILLED(unsigned long long *o)
+{
+  int n = (JOB_KILLED) <= 0;
+  *o = (unsigned long long)((JOB_KILLED) | 0);  /* check that JOB_KILLED is an integer */
+  return n;
+}
 
 static int _cffi_const_NODE_COMMAND(unsigned long long *o)
 {
@@ -801,6 +1012,62 @@ static int _cffi_const_NODE_SUBSHELL(unsigned long long *o)
   return n;
 }
 
+static int _cffi_const_NODE_BLOCK(unsigned long long *o)
+{
+  int n = (NODE_BLOCK) <= 0;
+  *o = (unsigned long long)((NODE_BLOCK) | 0);  /* check that NODE_BLOCK is an integer */
+  return n;
+}
+
+static int _cffi_const_NODE_CONDITIONAL(unsigned long long *o)
+{
+  int n = (NODE_CONDITIONAL) <= 0;
+  *o = (unsigned long long)((NODE_CONDITIONAL) | 0);  /* check that NODE_CONDITIONAL is an integer */
+  return n;
+}
+
+static int _cffi_const_NODE_CASE(unsigned long long *o)
+{
+  int n = (NODE_CASE) <= 0;
+  *o = (unsigned long long)((NODE_CASE) | 0);  /* check that NODE_CASE is an integer */
+  return n;
+}
+
+static int _cffi_const_NODE_FUNCTION_DEF(unsigned long long *o)
+{
+  int n = (NODE_FUNCTION_DEF) <= 0;
+  *o = (unsigned long long)((NODE_FUNCTION_DEF) | 0);  /* check that NODE_FUNCTION_DEF is an integer */
+  return n;
+}
+
+static int _cffi_const_NODE_FOR(unsigned long long *o)
+{
+  int n = (NODE_FOR) <= 0;
+  *o = (unsigned long long)((NODE_FOR) | 0);  /* check that NODE_FOR is an integer */
+  return n;
+}
+
+static int _cffi_const_NODE_WHILE(unsigned long long *o)
+{
+  int n = (NODE_WHILE) <= 0;
+  *o = (unsigned long long)((NODE_WHILE) | 0);  /* check that NODE_WHILE is an integer */
+  return n;
+}
+
+static int _cffi_const_NODE_UNTIL(unsigned long long *o)
+{
+  int n = (NODE_UNTIL) <= 0;
+  *o = (unsigned long long)((NODE_UNTIL) | 0);  /* check that NODE_UNTIL is an integer */
+  return n;
+}
+
+static int _cffi_const_NODE_WITH(unsigned long long *o)
+{
+  int n = (NODE_WITH) <= 0;
+  *o = (unsigned long long)((NODE_WITH) | 0);  /* check that NODE_WITH is an integer */
+  return n;
+}
+
 static int _cffi_const_TOKEN_WORD(unsigned long long *o)
 {
   int n = (TOKEN_WORD) <= 0;
@@ -808,17 +1075,17 @@ static int _cffi_const_TOKEN_WORD(unsigned long long *o)
   return n;
 }
 
-static int _cffi_const_TOKEN_IO_NUMBER(unsigned long long *o)
-{
-  int n = (TOKEN_IO_NUMBER) <= 0;
-  *o = (unsigned long long)((TOKEN_IO_NUMBER) | 0);  /* check that TOKEN_IO_NUMBER is an integer */
-  return n;
-}
-
 static int _cffi_const_TOKEN_COMMENT(unsigned long long *o)
 {
   int n = (TOKEN_COMMENT) <= 0;
   *o = (unsigned long long)((TOKEN_COMMENT) | 0);  /* check that TOKEN_COMMENT is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_IO_NUMBER(unsigned long long *o)
+{
+  int n = (TOKEN_IO_NUMBER) <= 0;
+  *o = (unsigned long long)((TOKEN_IO_NUMBER) | 0);  /* check that TOKEN_IO_NUMBER is an integer */
   return n;
 }
 
@@ -847,13 +1114,6 @@ static int _cffi_const_TOKEN_FD_DUPLICATION(unsigned long long *o)
 {
   int n = (TOKEN_FD_DUPLICATION) <= 0;
   *o = (unsigned long long)((TOKEN_FD_DUPLICATION) | 0);  /* check that TOKEN_FD_DUPLICATION is an integer */
-  return n;
-}
-
-static int _cffi_const_TOKEN_PROCESS_SUBSTITUTION_IN(unsigned long long *o)
-{
-  int n = (TOKEN_PROCESS_SUBSTITUTION_IN) <= 0;
-  *o = (unsigned long long)((TOKEN_PROCESS_SUBSTITUTION_IN) | 0);  /* check that TOKEN_PROCESS_SUBSTITUTION_IN is an integer */
   return n;
 }
 
@@ -889,6 +1149,27 @@ static int _cffi_const_TOKEN_REDIRECT_OUT_ERR(unsigned long long *o)
 {
   int n = (TOKEN_REDIRECT_OUT_ERR) <= 0;
   *o = (unsigned long long)((TOKEN_REDIRECT_OUT_ERR) | 0);  /* check that TOKEN_REDIRECT_OUT_ERR is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_REDIRECT_ALL(unsigned long long *o)
+{
+  int n = (TOKEN_REDIRECT_ALL) <= 0;
+  *o = (unsigned long long)((TOKEN_REDIRECT_ALL) | 0);  /* check that TOKEN_REDIRECT_ALL is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_REDIRECT_APPEND_ERR(unsigned long long *o)
+{
+  int n = (TOKEN_REDIRECT_APPEND_ERR) <= 0;
+  *o = (unsigned long long)((TOKEN_REDIRECT_APPEND_ERR) | 0);  /* check that TOKEN_REDIRECT_APPEND_ERR is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_PROCESS_SUBSTITUTION_IN(unsigned long long *o)
+{
+  int n = (TOKEN_PROCESS_SUBSTITUTION_IN) <= 0;
+  *o = (unsigned long long)((TOKEN_PROCESS_SUBSTITUTION_IN) | 0);  /* check that TOKEN_PROCESS_SUBSTITUTION_IN is an integer */
   return n;
 }
 
@@ -941,6 +1222,125 @@ static int _cffi_const_TOKEN_RPAREN(unsigned long long *o)
   return n;
 }
 
+static int _cffi_const_TOKEN_LBRACE(unsigned long long *o)
+{
+  int n = (TOKEN_LBRACE) <= 0;
+  *o = (unsigned long long)((TOKEN_LBRACE) | 0);  /* check that TOKEN_LBRACE is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_RBRACE(unsigned long long *o)
+{
+  int n = (TOKEN_RBRACE) <= 0;
+  *o = (unsigned long long)((TOKEN_RBRACE) | 0);  /* check that TOKEN_RBRACE is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_IF(unsigned long long *o)
+{
+  int n = (TOKEN_IF) <= 0;
+  *o = (unsigned long long)((TOKEN_IF) | 0);  /* check that TOKEN_IF is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_THEN(unsigned long long *o)
+{
+  int n = (TOKEN_THEN) <= 0;
+  *o = (unsigned long long)((TOKEN_THEN) | 0);  /* check that TOKEN_THEN is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_ELSE(unsigned long long *o)
+{
+  int n = (TOKEN_ELSE) <= 0;
+  *o = (unsigned long long)((TOKEN_ELSE) | 0);  /* check that TOKEN_ELSE is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_ELIF(unsigned long long *o)
+{
+  int n = (TOKEN_ELIF) <= 0;
+  *o = (unsigned long long)((TOKEN_ELIF) | 0);  /* check that TOKEN_ELIF is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_FI(unsigned long long *o)
+{
+  int n = (TOKEN_FI) <= 0;
+  *o = (unsigned long long)((TOKEN_FI) | 0);  /* check that TOKEN_FI is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_CASE(unsigned long long *o)
+{
+  int n = (TOKEN_CASE) <= 0;
+  *o = (unsigned long long)((TOKEN_CASE) | 0);  /* check that TOKEN_CASE is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_ESAC(unsigned long long *o)
+{
+  int n = (TOKEN_ESAC) <= 0;
+  *o = (unsigned long long)((TOKEN_ESAC) | 0);  /* check that TOKEN_ESAC is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_DOUBLE_SEMICOLON(unsigned long long *o)
+{
+  int n = (TOKEN_DOUBLE_SEMICOLON) <= 0;
+  *o = (unsigned long long)((TOKEN_DOUBLE_SEMICOLON) | 0);  /* check that TOKEN_DOUBLE_SEMICOLON is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_CASE_FALLTHROUGH(unsigned long long *o)
+{
+  int n = (TOKEN_CASE_FALLTHROUGH) <= 0;
+  *o = (unsigned long long)((TOKEN_CASE_FALLTHROUGH) | 0);  /* check that TOKEN_CASE_FALLTHROUGH is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_CASE_CONTINUE(unsigned long long *o)
+{
+  int n = (TOKEN_CASE_CONTINUE) <= 0;
+  *o = (unsigned long long)((TOKEN_CASE_CONTINUE) | 0);  /* check that TOKEN_CASE_CONTINUE is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_FOR(unsigned long long *o)
+{
+  int n = (TOKEN_FOR) <= 0;
+  *o = (unsigned long long)((TOKEN_FOR) | 0);  /* check that TOKEN_FOR is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_WHILE(unsigned long long *o)
+{
+  int n = (TOKEN_WHILE) <= 0;
+  *o = (unsigned long long)((TOKEN_WHILE) | 0);  /* check that TOKEN_WHILE is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_IN(unsigned long long *o)
+{
+  int n = (TOKEN_IN) <= 0;
+  *o = (unsigned long long)((TOKEN_IN) | 0);  /* check that TOKEN_IN is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_DO(unsigned long long *o)
+{
+  int n = (TOKEN_DO) <= 0;
+  *o = (unsigned long long)((TOKEN_DO) | 0);  /* check that TOKEN_DO is an integer */
+  return n;
+}
+
+static int _cffi_const_TOKEN_DONE(unsigned long long *o)
+{
+  int n = (TOKEN_DONE) <= 0;
+  *o = (unsigned long long)((TOKEN_DONE) | 0);  /* check that TOKEN_DONE is an integer */
+  return n;
+}
+
 static int _cffi_const_TOKEN_EOL(unsigned long long *o)
 {
   int n = (TOKEN_EOL) <= 0;
@@ -955,13 +1355,13 @@ static int _cffi_const_TOKEN_EOF(unsigned long long *o)
   return n;
 }
 
-static int _cffi_d_builtin_info(int x0, char * * x1, Session * x2)
+static int _cffi_d_builtin_cd(int x0, char * * x1, Session * x2)
 {
-  return builtin_info(x0, x1, x2);
+  return builtin_cd(x0, x1, x2);
 }
 #ifndef PYPY_VERSION
 static PyObject *
-_cffi_f_builtin_info(PyObject *self, PyObject *args)
+_cffi_f_builtin_cd(PyObject *self, PyObject *args)
 {
   int x0;
   char * * x1;
@@ -974,7 +1374,7 @@ _cffi_f_builtin_info(PyObject *self, PyObject *args)
   PyObject *arg1;
   PyObject *arg2;
 
-  if (!PyArg_UnpackTuple(args, "builtin_info", 3, 3, &arg0, &arg1, &arg2))
+  if (!PyArg_UnpackTuple(args, "builtin_cd", 3, 3, &arg0, &arg1, &arg2))
     return NULL;
 
   x0 = _cffi_to_c_int(arg0, int);
@@ -982,10 +1382,10 @@ _cffi_f_builtin_info(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(101), arg1, (char **)&x1);
+      _cffi_type(144), arg1, (char **)&x1);
   if (datasize != 0) {
     x1 = ((size_t)datasize) <= 640 ? (char * *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(101), arg1, (char **)&x1,
+    if (_cffi_convert_array_argument(_cffi_type(144), arg1, (char **)&x1,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1001,7 +1401,7 @@ _cffi_f_builtin_info(PyObject *self, PyObject *args)
 
   Py_BEGIN_ALLOW_THREADS
   _cffi_restore_errno();
-  { result = builtin_info(x0, x1, x2); }
+  { result = builtin_cd(x0, x1, x2); }
   _cffi_save_errno();
   Py_END_ALLOW_THREADS
 
@@ -1011,7 +1411,66 @@ _cffi_f_builtin_info(PyObject *self, PyObject *args)
   return pyresult;
 }
 #else
-#  define _cffi_f_builtin_info _cffi_d_builtin_info
+#  define _cffi_f_builtin_cd _cffi_d_builtin_cd
+#endif
+
+static int _cffi_d_builtin_set(int x0, char * * x1, Session * x2)
+{
+  return builtin_set(x0, x1, x2);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_builtin_set(PyObject *self, PyObject *args)
+{
+  int x0;
+  char * * x1;
+  Session * x2;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  int result;
+  PyObject *pyresult;
+  PyObject *arg0;
+  PyObject *arg1;
+  PyObject *arg2;
+
+  if (!PyArg_UnpackTuple(args, "builtin_set", 3, 3, &arg0, &arg1, &arg2))
+    return NULL;
+
+  x0 = _cffi_to_c_int(arg0, int);
+  if (x0 == (int)-1 && PyErr_Occurred())
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(144), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (char * *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(144), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(2), arg2, (char **)&x2);
+  if (datasize != 0) {
+    x2 = ((size_t)datasize) <= 640 ? (Session *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(2), arg2, (char **)&x2,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = builtin_set(x0, x1, x2); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_int(result, int);
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_builtin_set _cffi_d_builtin_set
 #endif
 
 static char * _cffi_d_dirstack_peek(DirStack const * x0, size_t x1)
@@ -1035,10 +1494,10 @@ _cffi_f_dirstack_peek(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(68), arg0, (char **)&x0);
+      _cffi_type(96), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (DirStack const *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(68), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(96), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1077,10 +1536,10 @@ _cffi_f_dirstack_popd(PyObject *self, PyObject *arg0)
   PyObject *pyresult;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(43), arg0, (char **)&x0);
+      _cffi_type(67), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (DirStack *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(43), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(67), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1121,19 +1580,19 @@ _cffi_f_dirstack_pushd(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(43), arg0, (char **)&x0);
+      _cffi_type(67), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (DirStack *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(43), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(67), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(47), arg1, (char **)&x1);
+      _cffi_type(16), arg1, (char **)&x1);
   if (datasize != 0) {
     x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(47), arg1, (char **)&x1,
+    if (_cffi_convert_array_argument(_cffi_type(16), arg1, (char **)&x1,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1521,7 +1980,7 @@ _cffi_f_environ_to_array(PyObject *self, PyObject *arg0)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(112));
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(155));
   if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
   return pyresult;
 }
@@ -1550,10 +2009,10 @@ _cffi_f_execute_string(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(47), arg0, (char **)&x0);
+      _cffi_type(16), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(47), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(16), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1603,10 +2062,10 @@ _cffi_f_execute_string_stdout(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(47), arg0, (char **)&x0);
+      _cffi_type(16), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(47), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(16), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1635,6 +2094,78 @@ _cffi_f_execute_string_stdout(PyObject *self, PyObject *args)
 #  define _cffi_f_execute_string_stdout _cffi_d_execute_string_stdout
 #endif
 
+static void _cffi_d_features_disable_all_expansions(Features * x0)
+{
+  features_disable_all_expansions(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_features_disable_all_expansions(PyObject *self, PyObject *arg0)
+{
+  Features * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(32), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Features *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(32), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { features_disable_all_expansions(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_features_disable_all_expansions _cffi_d_features_disable_all_expansions
+#endif
+
+static void _cffi_d_features_enable_all_expansions(Features * x0)
+{
+  features_enable_all_expansions(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_features_enable_all_expansions(PyObject *self, PyObject *arg0)
+{
+  Features * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(32), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Features *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(32), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { features_enable_all_expansions(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_features_enable_all_expansions _cffi_d_features_enable_all_expansions
+#endif
+
 static char * _cffi_d_find_in_path(char const * x0, Session * x1)
 {
   return find_in_path(x0, x1);
@@ -1656,10 +2187,10 @@ _cffi_f_find_in_path(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(47), arg0, (char **)&x0);
+      _cffi_type(16), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(47), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(16), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1701,10 +2232,10 @@ _cffi_f_free(PyObject *self, PyObject *arg0)
   struct _cffi_freeme_s *large_args_free = NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(32), arg0, (char **)&x0);
+      _cffi_type(53), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (void *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(32), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(53), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1737,10 +2268,10 @@ _cffi_f_free_array(PyObject *self, PyObject *arg0)
   struct _cffi_freeme_s *large_args_free = NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(112), arg0, (char **)&x0);
+      _cffi_type(155), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (Array *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(112), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(155), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1773,10 +2304,10 @@ _cffi_f_free_ast(PyObject *self, PyObject *arg0)
   struct _cffi_freeme_s *large_args_free = NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(109), arg0, (char **)&x0);
+      _cffi_type(152), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (ASTNode *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(109), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(152), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1845,10 +2376,10 @@ _cffi_f_free_history(PyObject *self, PyObject *arg0)
   struct _cffi_freeme_s *large_args_free = NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1866,6 +2397,42 @@ _cffi_f_free_history(PyObject *self, PyObject *arg0)
 }
 #else
 #  define _cffi_f_free_history _cffi_d_free_history
+#endif
+
+static void _cffi_d_free_jobs(Jobs * x0)
+{
+  free_jobs(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_free_jobs(PyObject *self, PyObject *arg0)
+{
+  Jobs * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(42), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Jobs *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(42), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { free_jobs(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_free_jobs _cffi_d_free_jobs
 #endif
 
 static void _cffi_d_free_lexer_input(LexerInput * x0)
@@ -1917,10 +2484,10 @@ _cffi_f_free_lexer_token(PyObject *self, PyObject *arg0)
   struct _cffi_freeme_s *large_args_free = NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(133), arg0, (char **)&x0);
+      _cffi_type(194), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (LexerToken *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(133), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(194), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -1976,6 +2543,456 @@ _cffi_f_free_session(PyObject *self, PyObject *arg0)
 #  define _cffi_f_free_session _cffi_d_free_session
 #endif
 
+static void _cffi_d_fs_sandbox_add_deny_path(FSSandbox * x0, char const * x1)
+{
+  fs_sandbox_add_deny_path(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_fs_sandbox_add_deny_path(PyObject *self, PyObject *args)
+{
+  FSSandbox * x0;
+  char const * x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "fs_sandbox_add_deny_path", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(166), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (FSSandbox *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(166), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(16), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(16), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { fs_sandbox_add_deny_path(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_fs_sandbox_add_deny_path _cffi_d_fs_sandbox_add_deny_path
+#endif
+
+static void _cffi_d_fs_sandbox_add_paths(FSSandbox * x0, char const * x1, int x2)
+{
+  fs_sandbox_add_paths(x0, x1, x2);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_fs_sandbox_add_paths(PyObject *self, PyObject *args)
+{
+  FSSandbox * x0;
+  char const * x1;
+  int x2;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  PyObject *arg0;
+  PyObject *arg1;
+  PyObject *arg2;
+
+  if (!PyArg_UnpackTuple(args, "fs_sandbox_add_paths", 3, 3, &arg0, &arg1, &arg2))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(166), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (FSSandbox *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(166), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(16), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(16), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  x2 = _cffi_to_c_int(arg2, int);
+  if (x2 == (int)-1 && PyErr_Occurred())
+    return NULL;
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { fs_sandbox_add_paths(x0, x1, x2); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_fs_sandbox_add_paths _cffi_d_fs_sandbox_add_paths
+#endif
+
+static void _cffi_d_fs_sandbox_add_ro_path(FSSandbox * x0, char const * x1)
+{
+  fs_sandbox_add_ro_path(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_fs_sandbox_add_ro_path(PyObject *self, PyObject *args)
+{
+  FSSandbox * x0;
+  char const * x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "fs_sandbox_add_ro_path", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(166), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (FSSandbox *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(166), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(16), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(16), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { fs_sandbox_add_ro_path(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_fs_sandbox_add_ro_path _cffi_d_fs_sandbox_add_ro_path
+#endif
+
+static void _cffi_d_fs_sandbox_add_rw_path(FSSandbox * x0, char const * x1)
+{
+  fs_sandbox_add_rw_path(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_fs_sandbox_add_rw_path(PyObject *self, PyObject *args)
+{
+  FSSandbox * x0;
+  char const * x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "fs_sandbox_add_rw_path", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(166), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (FSSandbox *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(166), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(16), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(16), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { fs_sandbox_add_rw_path(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_fs_sandbox_add_rw_path _cffi_d_fs_sandbox_add_rw_path
+#endif
+
+static FSSandbox * _cffi_d_fs_sandbox_create(void)
+{
+  return fs_sandbox_create();
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_fs_sandbox_create(PyObject *self, PyObject *noarg)
+{
+  FSSandbox * result;
+  PyObject *pyresult;
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = fs_sandbox_create(); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  (void)noarg; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(166));
+  return pyresult;
+}
+#else
+#  define _cffi_f_fs_sandbox_create _cffi_d_fs_sandbox_create
+#endif
+
+static void _cffi_d_fs_sandbox_free(FSSandbox * x0)
+{
+  fs_sandbox_free(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_fs_sandbox_free(PyObject *self, PyObject *arg0)
+{
+  FSSandbox * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(166), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (FSSandbox *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(166), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { fs_sandbox_free(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_fs_sandbox_free _cffi_d_fs_sandbox_free
+#endif
+
+static FSSandbox * _cffi_d_fs_sandbox_pop(Session * x0)
+{
+  return fs_sandbox_pop(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_fs_sandbox_pop(PyObject *self, PyObject *arg0)
+{
+  Session * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  FSSandbox * result;
+  PyObject *pyresult;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(2), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Session *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(2), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = fs_sandbox_pop(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(166));
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_fs_sandbox_pop _cffi_d_fs_sandbox_pop
+#endif
+
+static void _cffi_d_fs_sandbox_push(Session * x0, FSSandbox * x1)
+{
+  fs_sandbox_push(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_fs_sandbox_push(PyObject *self, PyObject *args)
+{
+  Session * x0;
+  FSSandbox * x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "fs_sandbox_push", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(2), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Session *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(2), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(166), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (FSSandbox *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(166), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { fs_sandbox_push(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_fs_sandbox_push _cffi_d_fs_sandbox_push
+#endif
+
+static int _cffi_d_fs_sandbox_rmtree(char const * x0)
+{
+  return fs_sandbox_rmtree(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_fs_sandbox_rmtree(PyObject *self, PyObject *arg0)
+{
+  char const * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  int result;
+  PyObject *pyresult;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(16), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(16), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = fs_sandbox_rmtree(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_int(result, int);
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_fs_sandbox_rmtree _cffi_d_fs_sandbox_rmtree
+#endif
+
+static void _cffi_d_fs_sandbox_set_chroot(FSSandbox * x0, char const * x1)
+{
+  fs_sandbox_set_chroot(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_fs_sandbox_set_chroot(PyObject *self, PyObject *args)
+{
+  FSSandbox * x0;
+  char const * x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "fs_sandbox_set_chroot", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(166), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (FSSandbox *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(166), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(16), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(16), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { fs_sandbox_set_chroot(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_fs_sandbox_set_chroot _cffi_d_fs_sandbox_set_chroot
+#endif
+
 static Array * _cffi_d_full_expansion(char * x0, Session * x1)
 {
   return full_expansion(x0, x1);
@@ -2021,12 +3038,68 @@ _cffi_f_full_expansion(PyObject *self, PyObject *args)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(112));
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(155));
   if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
   return pyresult;
 }
 #else
 #  define _cffi_f_full_expansion _cffi_d_full_expansion
+#endif
+
+static CommandInfo _cffi_d_get_command_info(char const * x0, Session * x1)
+{
+  return get_command_info(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_get_command_info(PyObject *self, PyObject *args)
+{
+  char const * x0;
+  Session * x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  CommandInfo result;
+  PyObject *pyresult;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "get_command_info", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(16), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(16), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(2), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (Session *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(2), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = get_command_info(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_struct((char *)&result, _cffi_type(228));
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+static void _cffi_f_get_command_info(CommandInfo *result, char const * x0, Session * x1)
+{
+  { *result = get_command_info(x0, x1); }
+}
 #endif
 
 static void _cffi_d_history_append(History * x0, char const * x1)
@@ -2048,19 +3121,19 @@ _cffi_f_history_append(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(47), arg1, (char **)&x1);
+      _cffi_type(16), arg1, (char **)&x1);
   if (datasize != 0) {
     x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(47), arg1, (char **)&x1,
+    if (_cffi_convert_array_argument(_cffi_type(16), arg1, (char **)&x1,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2093,10 +3166,10 @@ _cffi_f_history_clear(PyObject *self, PyObject *arg0)
   struct _cffi_freeme_s *large_args_free = NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2131,10 +3204,10 @@ _cffi_f_history_get_next(PyObject *self, PyObject *arg0)
   PyObject *pyresult;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2169,10 +3242,10 @@ _cffi_f_history_get_previous(PyObject *self, PyObject *arg0)
   PyObject *pyresult;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2207,10 +3280,10 @@ _cffi_f_history_last_command(PyObject *self, PyObject *arg0)
   PyObject *pyresult;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2251,10 +3324,10 @@ _cffi_f_history_nth_command(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2301,19 +3374,19 @@ _cffi_f_history_remove(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(47), arg1, (char **)&x1);
+      _cffi_type(16), arg1, (char **)&x1);
   if (datasize != 0) {
     x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(47), arg1, (char **)&x1,
+    if (_cffi_convert_array_argument(_cffi_type(16), arg1, (char **)&x1,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2350,10 +3423,10 @@ _cffi_f_history_save(PyObject *self, PyObject *arg0)
   struct _cffi_freeme_s *large_args_free = NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2411,6 +3484,82 @@ _cffi_f_init_environ(PyObject *self, PyObject *arg0)
 #  define _cffi_f_init_environ _cffi_d_init_environ
 #endif
 
+static Features * _cffi_d_init_features(Features * x0)
+{
+  return init_features(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_init_features(PyObject *self, PyObject *arg0)
+{
+  Features * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  Features * result;
+  PyObject *pyresult;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(32), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Features *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(32), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = init_features(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(32));
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_init_features _cffi_d_init_features
+#endif
+
+static Features * _cffi_d_init_features_minimal(Features * x0)
+{
+  return init_features_minimal(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_init_features_minimal(PyObject *self, PyObject *arg0)
+{
+  Features * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  Features * result;
+  PyObject *pyresult;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(32), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Features *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(32), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = init_features_minimal(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(32));
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_init_features_minimal _cffi_d_init_features_minimal
+#endif
+
 static History * _cffi_d_init_history(History * x0)
 {
   return init_history(x0);
@@ -2426,10 +3575,10 @@ _cffi_f_init_history(PyObject *self, PyObject *arg0)
   PyObject *pyresult;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2441,12 +3590,38 @@ _cffi_f_init_history(PyObject *self, PyObject *arg0)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(23));
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(35));
   if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
   return pyresult;
 }
 #else
 #  define _cffi_f_init_history _cffi_d_init_history
+#endif
+
+static Jobs * _cffi_d_init_jobs(void)
+{
+  return init_jobs();
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_init_jobs(PyObject *self, PyObject *noarg)
+{
+  Jobs * result;
+  PyObject *pyresult;
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = init_jobs(); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  (void)noarg; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(42));
+  return pyresult;
+}
+#else
+#  define _cffi_f_init_jobs _cffi_d_init_jobs
 #endif
 
 static LexerInput * _cffi_d_init_lexer_input(LexerInput * x0, char * x1, void * x2, Session * x3)
@@ -2492,10 +3667,10 @@ _cffi_f_init_lexer_input(PyObject *self, PyObject *args)
   }
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(32), arg2, (char **)&x2);
+      _cffi_type(53), arg2, (char **)&x2);
   if (datasize != 0) {
     x2 = ((size_t)datasize) <= 640 ? (void *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(32), arg2, (char **)&x2,
+    if (_cffi_convert_array_argument(_cffi_type(53), arg2, (char **)&x2,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2577,6 +3752,362 @@ _cffi_f_init_session(PyObject *self, PyObject *args)
 #  define _cffi_f_init_session _cffi_d_init_session
 #endif
 
+static int _cffi_d_jobs_add(Jobs * x0, int x1, char * x2, JobState x3)
+{
+  return jobs_add(x0, x1, x2, x3);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_jobs_add(PyObject *self, PyObject *args)
+{
+  Jobs * x0;
+  int x1;
+  char * x2;
+  JobState x3;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  int result;
+  PyObject *pyresult;
+  PyObject *arg0;
+  PyObject *arg1;
+  PyObject *arg2;
+  PyObject *arg3;
+
+  if (!PyArg_UnpackTuple(args, "jobs_add", 4, 4, &arg0, &arg1, &arg2, &arg3))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(42), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Jobs *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(42), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  x1 = _cffi_to_c_int(arg1, int);
+  if (x1 == (int)-1 && PyErr_Occurred())
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(9), arg2, (char **)&x2);
+  if (datasize != 0) {
+    x2 = ((size_t)datasize) <= 640 ? (char *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(9), arg2, (char **)&x2,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  if (_cffi_to_c((char *)&x3, _cffi_type(133), arg3) < 0)
+    return NULL;
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = jobs_add(x0, x1, x2, x3); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_int(result, int);
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_jobs_add _cffi_d_jobs_add
+#endif
+
+static Job * _cffi_d_jobs_get(Jobs * x0, int x1)
+{
+  return jobs_get(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_jobs_get(PyObject *self, PyObject *args)
+{
+  Jobs * x0;
+  int x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  Job * result;
+  PyObject *pyresult;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "jobs_get", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(42), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Jobs *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(42), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  x1 = _cffi_to_c_int(arg1, int);
+  if (x1 == (int)-1 && PyErr_Occurred())
+    return NULL;
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = jobs_get(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(240));
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_jobs_get _cffi_d_jobs_get
+#endif
+
+static Job * _cffi_d_jobs_get_by_pid(Jobs * x0, int x1)
+{
+  return jobs_get_by_pid(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_jobs_get_by_pid(PyObject *self, PyObject *args)
+{
+  Jobs * x0;
+  int x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  Job * result;
+  PyObject *pyresult;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "jobs_get_by_pid", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(42), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Jobs *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(42), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  x1 = _cffi_to_c_int(arg1, int);
+  if (x1 == (int)-1 && PyErr_Occurred())
+    return NULL;
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = jobs_get_by_pid(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(240));
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_jobs_get_by_pid _cffi_d_jobs_get_by_pid
+#endif
+
+static Job * _cffi_d_jobs_get_current(Jobs * x0)
+{
+  return jobs_get_current(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_jobs_get_current(PyObject *self, PyObject *arg0)
+{
+  Jobs * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  Job * result;
+  PyObject *pyresult;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(42), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Jobs *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(42), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = jobs_get_current(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(240));
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_jobs_get_current _cffi_d_jobs_get_current
+#endif
+
+static Job * _cffi_d_jobs_get_previous(Jobs * x0)
+{
+  return jobs_get_previous(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_jobs_get_previous(PyObject *self, PyObject *arg0)
+{
+  Jobs * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  Job * result;
+  PyObject *pyresult;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(42), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Jobs *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(42), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = jobs_get_previous(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(240));
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_jobs_get_previous _cffi_d_jobs_get_previous
+#endif
+
+static void _cffi_d_jobs_notify(Jobs * x0)
+{
+  jobs_notify(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_jobs_notify(PyObject *self, PyObject *arg0)
+{
+  Jobs * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(42), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Jobs *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(42), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { jobs_notify(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_jobs_notify _cffi_d_jobs_notify
+#endif
+
+static _Bool _cffi_d_jobs_remove(Jobs * x0, int x1)
+{
+  return jobs_remove(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_jobs_remove(PyObject *self, PyObject *args)
+{
+  Jobs * x0;
+  int x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  _Bool result;
+  PyObject *pyresult;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "jobs_remove", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(42), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Jobs *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(42), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  x1 = _cffi_to_c_int(arg1, int);
+  if (x1 == (int)-1 && PyErr_Occurred())
+    return NULL;
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = jobs_remove(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c__Bool(result);
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_jobs_remove _cffi_d_jobs_remove
+#endif
+
+static void _cffi_d_jobs_update(Jobs * x0)
+{
+  jobs_update(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_jobs_update(PyObject *self, PyObject *arg0)
+{
+  Jobs * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(42), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Jobs *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(42), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { jobs_update(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_jobs_update _cffi_d_jobs_update
+#endif
+
 static LexerToken _cffi_d_lexer_next_token(LexerInput * x0)
 {
   return lexer_next_token(x0);
@@ -2607,7 +4138,7 @@ _cffi_f_lexer_next_token(PyObject *self, PyObject *arg0)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  pyresult = _cffi_from_c_struct((char *)&result, _cffi_type(147));
+  pyresult = _cffi_from_c_struct((char *)&result, _cffi_type(244));
   if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
   return pyresult;
 }
@@ -2639,10 +4170,10 @@ _cffi_f_load_history(PyObject *self, PyObject *args)
     return NULL;
 
   datasize = _cffi_prepare_pointer_call_argument(
-      _cffi_type(23), arg0, (char **)&x0);
+      _cffi_type(35), arg0, (char **)&x0);
   if (datasize != 0) {
     x0 = ((size_t)datasize) <= 640 ? (History *)alloca((size_t)datasize) : NULL;
-    if (_cffi_convert_array_argument(_cffi_type(23), arg0, (char **)&x0,
+    if (_cffi_convert_array_argument(_cffi_type(35), arg0, (char **)&x0,
             datasize, &large_args_free) < 0)
       return NULL;
   }
@@ -2663,12 +4194,41 @@ _cffi_f_load_history(PyObject *self, PyObject *args)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(23));
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(35));
   if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
   return pyresult;
 }
 #else
 #  define _cffi_f_load_history _cffi_d_load_history
+#endif
+
+static char const * _cffi_d_node_type_to_string(NodeType x0)
+{
+  return node_type_to_string(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_node_type_to_string(PyObject *self, PyObject *arg0)
+{
+  NodeType x0;
+  char const * result;
+  PyObject *pyresult;
+
+  if (_cffi_to_c((char *)&x0, _cffi_type(124), arg0) < 0)
+    return NULL;
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = node_type_to_string(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(16));
+  return pyresult;
+}
+#else
+#  define _cffi_f_node_type_to_string _cffi_d_node_type_to_string
 #endif
 
 static ASTNode * _cffi_d_parse(LexerInput * x0, Session * x1)
@@ -2716,12 +4276,285 @@ _cffi_f_parse(PyObject *self, PyObject *args)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(109));
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(152));
   if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
   return pyresult;
 }
 #else
 #  define _cffi_f_parse _cffi_d_parse
+#endif
+
+static void _cffi_d_run_cwd_hook(Session * x0, char const * x1)
+{
+  run_cwd_hook(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_run_cwd_hook(PyObject *self, PyObject *args)
+{
+  Session * x0;
+  char const * x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "run_cwd_hook", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(2), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Session *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(2), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(16), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(16), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { run_cwd_hook(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_run_cwd_hook _cffi_d_run_cwd_hook
+#endif
+
+static void _cffi_d_run_cwd_hook_with_vars(Session * x0, char const * x1, HookEnvVar const * x2, size_t x3)
+{
+  run_cwd_hook_with_vars(x0, x1, x2, x3);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_run_cwd_hook_with_vars(PyObject *self, PyObject *args)
+{
+  Session * x0;
+  char const * x1;
+  HookEnvVar const * x2;
+  size_t x3;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  PyObject *arg0;
+  PyObject *arg1;
+  PyObject *arg2;
+  PyObject *arg3;
+
+  if (!PyArg_UnpackTuple(args, "run_cwd_hook_with_vars", 4, 4, &arg0, &arg1, &arg2, &arg3))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(2), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Session *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(2), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(16), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (char const *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(16), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(214), arg2, (char **)&x2);
+  if (datasize != 0) {
+    x2 = ((size_t)datasize) <= 640 ? (HookEnvVar const *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(214), arg2, (char **)&x2,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  x3 = _cffi_to_c_int(arg3, size_t);
+  if (x3 == (size_t)-1 && PyErr_Occurred())
+    return NULL;
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { run_cwd_hook_with_vars(x0, x1, x2, x3); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_run_cwd_hook_with_vars _cffi_d_run_cwd_hook_with_vars
+#endif
+
+static SessionSnapshot * _cffi_d_session_snapshot_create(Session * x0)
+{
+  return session_snapshot_create(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_session_snapshot_create(PyObject *self, PyObject *arg0)
+{
+  Session * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  SessionSnapshot * result;
+  PyObject *pyresult;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(2), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Session *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(2), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = session_snapshot_create(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(205));
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  return pyresult;
+}
+#else
+#  define _cffi_f_session_snapshot_create _cffi_d_session_snapshot_create
+#endif
+
+static void _cffi_d_session_snapshot_free(SessionSnapshot * x0)
+{
+  session_snapshot_free(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_session_snapshot_free(PyObject *self, PyObject *arg0)
+{
+  SessionSnapshot * x0;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(205), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (SessionSnapshot *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(205), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { session_snapshot_free(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_session_snapshot_free _cffi_d_session_snapshot_free
+#endif
+
+static void _cffi_d_session_snapshot_restore(Session * x0, SessionSnapshot * x1)
+{
+  session_snapshot_restore(x0, x1);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_session_snapshot_restore(PyObject *self, PyObject *args)
+{
+  Session * x0;
+  SessionSnapshot * x1;
+  Py_ssize_t datasize;
+  struct _cffi_freeme_s *large_args_free = NULL;
+  PyObject *arg0;
+  PyObject *arg1;
+
+  if (!PyArg_UnpackTuple(args, "session_snapshot_restore", 2, 2, &arg0, &arg1))
+    return NULL;
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(2), arg0, (char **)&x0);
+  if (datasize != 0) {
+    x0 = ((size_t)datasize) <= 640 ? (Session *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(2), arg0, (char **)&x0,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  datasize = _cffi_prepare_pointer_call_argument(
+      _cffi_type(205), arg1, (char **)&x1);
+  if (datasize != 0) {
+    x1 = ((size_t)datasize) <= 640 ? (SessionSnapshot *)alloca((size_t)datasize) : NULL;
+    if (_cffi_convert_array_argument(_cffi_type(205), arg1, (char **)&x1,
+            datasize, &large_args_free) < 0)
+      return NULL;
+  }
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { session_snapshot_restore(x0, x1); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+#else
+#  define _cffi_f_session_snapshot_restore _cffi_d_session_snapshot_restore
+#endif
+
+static char const * _cffi_d_token_type_to_string(TokenType x0)
+{
+  return token_type_to_string(x0);
+}
+#ifndef PYPY_VERSION
+static PyObject *
+_cffi_f_token_type_to_string(PyObject *self, PyObject *arg0)
+{
+  TokenType x0;
+  char const * result;
+  PyObject *pyresult;
+
+  if (_cffi_to_c((char *)&x0, _cffi_type(127), arg0) < 0)
+    return NULL;
+
+  Py_BEGIN_ALLOW_THREADS
+  _cffi_restore_errno();
+  { result = token_type_to_string(x0); }
+  _cffi_save_errno();
+  Py_END_ALLOW_THREADS
+
+  (void)self; /* unused */
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(16));
+  return pyresult;
+}
+#else
+#  define _cffi_f_token_type_to_string _cffi_d_token_type_to_string
 #endif
 
 static _Bool _cffi_d_trie_contains(Trie * x0, char * x1)
@@ -2992,7 +4825,7 @@ _cffi_f_trie_starting_with(PyObject *self, PyObject *args)
   Py_END_ALLOW_THREADS
 
   (void)self; /* unused */
-  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(112));
+  pyresult = _cffi_from_c_pointer((char *)result, _cffi_type(155));
   if (large_args_free != NULL) _cffi_free_array_arguments(large_args_free);
   return pyresult;
 }
@@ -3080,12 +4913,16 @@ static void _cffi_checkfld__ASTNode(ASTNode *p)
   { NodeType *tmp = &p->type; (void)tmp; }
   { char * * *tmp = &p->argv; (void)tmp; }
   { int * *tmp = &p->arg_is_sub; (void)tmp; }
+  { char * * *tmp = &p->arg_keys; (void)tmp; }
   (void)((p->argc) | 0);  /* check that 'ASTNode.argc' is an integer */
   { Redirection * *tmp = &p->redirects; (void)tmp; }
   { Array * *tmp = &p->assignments; (void)tmp; }
   { ASTNode * *tmp = &p->left; (void)tmp; }
   { ASTNode * *tmp = &p->right; (void)tmp; }
   (void)((p->background) | 0);  /* check that 'ASTNode.background' is an integer */
+  { ConditionalBranch * *tmp = &p->branches; (void)tmp; }
+  { CaseItem * *tmp = &p->case_items; (void)tmp; }
+  (void)((p->for_has_in) | 0);  /* check that 'ASTNode.for_has_in' is an integer */
 }
 struct _cffi_align__ASTNode { char x; ASTNode y; };
 
@@ -3102,6 +4939,146 @@ static void _cffi_checkfld__Array(Array *p)
 struct _cffi_align__Array { char x; Array y; };
 
 _CFFI_UNUSED_FN
+static void _cffi_checkfld__CaseItem(CaseItem *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  { char * * *tmp = &p->patterns; (void)tmp; }
+  (void)((p->pattern_count) | 0);  /* check that 'CaseItem.pattern_count' is an integer */
+  { ASTNode * *tmp = &p->body; (void)tmp; }
+  { CaseTerminator *tmp = &p->terminator; (void)tmp; }
+  { CaseItem * *tmp = &p->next; (void)tmp; }
+}
+struct _cffi_align__CaseItem { char x; CaseItem y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__CommandInfo(CommandInfo *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  { CommandType *tmp = &p->type; (void)tmp; }
+  { char * *tmp = &p->path; (void)tmp; }
+}
+struct _cffi_align__CommandInfo { char x; CommandInfo y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__ConditionalBranch(ConditionalBranch *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  { ASTNode * *tmp = &p->condition; (void)tmp; }
+  { ASTNode * *tmp = &p->body; (void)tmp; }
+  { ConditionalBranch * *tmp = &p->next; (void)tmp; }
+}
+struct _cffi_align__ConditionalBranch { char x; ConditionalBranch y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__DirStack(DirStack *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  { Array * *tmp = &p->stack; (void)tmp; }
+}
+struct _cffi_align__DirStack { char x; DirStack y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__FSSandbox(FSSandbox *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  (void)((p->is_active) | 0);  /* check that 'FSSandbox.is_active' is an integer */
+  (void)((p->readonly_all) | 0);  /* check that 'FSSandbox.readonly_all' is an integer */
+}
+struct _cffi_align__FSSandbox { char x; FSSandbox y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__Features(Features *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  (void)((p->variable_expansion) | 0);  /* check that 'Features.variable_expansion' is an integer */
+  (void)((p->tilde_expansion) | 0);  /* check that 'Features.tilde_expansion' is an integer */
+  (void)((p->brace_expansion) | 0);  /* check that 'Features.brace_expansion' is an integer */
+  (void)((p->filename_expansion) | 0);  /* check that 'Features.filename_expansion' is an integer */
+  (void)((p->alias_expansion) | 0);  /* check that 'Features.alias_expansion' is an integer */
+  (void)((p->arithmetic_expansion) | 0);  /* check that 'Features.arithmetic_expansion' is an integer */
+  (void)((p->job_control) | 0);  /* check that 'Features.job_control' is an integer */
+  (void)((p->history) | 0);  /* check that 'Features.history' is an integer */
+  (void)((p->directory_stack) | 0);  /* check that 'Features.directory_stack' is an integer */
+  (void)((p->prompt_expansion) | 0);  /* check that 'Features.prompt_expansion' is an integer */
+  (void)((p->completion) | 0);  /* check that 'Features.completion' is an integer */
+  (void)((p->pipes) | 0);  /* check that 'Features.pipes' is an integer */
+  (void)((p->redirections) | 0);  /* check that 'Features.redirections' is an integer */
+  (void)((p->sequences) | 0);  /* check that 'Features.sequences' is an integer */
+  (void)((p->subshells) | 0);  /* check that 'Features.subshells' is an integer */
+  (void)((p->blocks) | 0);  /* check that 'Features.blocks' is an integer */
+  (void)((p->command_substitution) | 0);  /* check that 'Features.command_substitution' is an integer */
+  (void)((p->assignments) | 0);  /* check that 'Features.assignments' is an integer */
+  (void)((p->functions) | 0);  /* check that 'Features.functions' is an integer */
+  (void)((p->context_managers) | 0);  /* check that 'Features.context_managers' is an integer */
+}
+struct _cffi_align__Features { char x; Features y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__History(History *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  { HistoryEntry * *tmp = &p->head; (void)tmp; }
+  { HistoryEntry * *tmp = &p->tail; (void)tmp; }
+  (void)((p->size) | 0);  /* check that 'History.size' is an integer */
+}
+struct _cffi_align__History { char x; History y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__HistoryEntry(HistoryEntry *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  { char * *tmp = &p->command; (void)tmp; }
+  (void)((p->timestamp) | 0);  /* check that 'HistoryEntry.timestamp' is an integer */
+  { HistoryEntry * *tmp = &p->next; (void)tmp; }
+  { HistoryEntry * *tmp = &p->prev; (void)tmp; }
+}
+struct _cffi_align__HistoryEntry { char x; HistoryEntry y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__HookEnvVar(HookEnvVar *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  { char const * *tmp = &p->key; (void)tmp; }
+  { char const * *tmp = &p->value; (void)tmp; }
+}
+struct _cffi_align__HookEnvVar { char x; HookEnvVar y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__Job(Job *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  (void)((p->id) | 0);  /* check that 'Job.id' is an integer */
+  (void)((p->pid) | 0);  /* check that 'Job.pid' is an integer */
+  { char * *tmp = &p->command; (void)tmp; }
+  { JobState *tmp = &p->state; (void)tmp; }
+  (void)((p->exit_status) | 0);  /* check that 'Job.exit_status' is an integer */
+  (void)((p->notified) | 0);  /* check that 'Job.notified' is an integer */
+}
+struct _cffi_align__Job { char x; Job y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__Jobs(Jobs *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  { Job * *tmp = &p->jobs; (void)tmp; }
+  (void)((p->count) | 0);  /* check that 'Jobs.count' is an integer */
+  (void)((p->capacity) | 0);  /* check that 'Jobs.capacity' is an integer */
+  (void)((p->pgid) | 0);  /* check that 'Jobs.pgid' is an integer */
+}
+struct _cffi_align__Jobs { char x; Jobs y; };
+
+_CFFI_UNUSED_FN
 static void _cffi_checkfld__LexerToken(LexerToken *p)
 {
   /* only to generate compile-time warnings or errors */
@@ -3113,6 +5090,19 @@ static void _cffi_checkfld__LexerToken(LexerToken *p)
 struct _cffi_align__LexerToken { char x; LexerToken y; };
 
 _CFFI_UNUSED_FN
+static void _cffi_checkfld__Redirection(Redirection *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  (void)((p->fd) | 0);  /* check that 'Redirection.fd' is an integer */
+  { TokenType *tmp = &p->type; (void)tmp; }
+  { char * *tmp = &p->target; (void)tmp; }
+  (void)((p->is_process_substitution) | 0);  /* check that 'Redirection.is_process_substitution' is an integer */
+  { Redirection * *tmp = &p->next; (void)tmp; }
+}
+struct _cffi_align__Redirection { char x; Redirection y; };
+
+_CFFI_UNUSED_FN
 static void _cffi_checkfld__Session(Session *p)
 {
   /* only to generate compile-time warnings or errors */
@@ -3122,12 +5112,35 @@ static void _cffi_checkfld__Session(Session *p)
   { Environ * *tmp = &p->environ; (void)tmp; }
   { History * *tmp = &p->history; (void)tmp; }
   { Trie * *tmp = &p->aliases; (void)tmp; }
+  { Trie * *tmp = &p->functions; (void)tmp; }
   { Trie * *tmp = &p->path_commands; (void)tmp; }
   { DirStack * *tmp = &p->dirstack; (void)tmp; }
   { Terminal * *tmp = &p->terminal; (void)tmp; }
+  { Jobs * *tmp = &p->jobs; (void)tmp; }
+  { Features *tmp = &p->features; (void)tmp; }
+  { ShellOptions *tmp = &p->options; (void)tmp; }
   (void)((p->exit_requested) | 0);  /* check that 'Session.exit_requested' is an integer */
+  (void)((p->hooks_disabled) | 0);  /* check that 'Session.hooks_disabled' is an integer */
 }
 struct _cffi_align__Session { char x; Session y; };
+
+_CFFI_UNUSED_FN
+static void _cffi_checkfld__ShellOptions(ShellOptions *p)
+{
+  /* only to generate compile-time warnings or errors */
+  (void)p;
+  (void)((p->allexport) | 0);  /* check that 'ShellOptions.allexport' is an integer */
+  (void)((p->errexit) | 0);  /* check that 'ShellOptions.errexit' is an integer */
+  (void)((p->noglob) | 0);  /* check that 'ShellOptions.noglob' is an integer */
+  (void)((p->nounset) | 0);  /* check that 'ShellOptions.nounset' is an integer */
+  (void)((p->verbose) | 0);  /* check that 'ShellOptions.verbose' is an integer */
+  (void)((p->xtrace) | 0);  /* check that 'ShellOptions.xtrace' is an integer */
+  (void)((p->noexec) | 0);  /* check that 'ShellOptions.noexec' is an integer */
+  (void)((p->noclobber) | 0);  /* check that 'ShellOptions.noclobber' is an integer */
+  (void)((p->monitor) | 0);  /* check that 'ShellOptions.monitor' is an integer */
+  (void)((p->pipefail) | 0);  /* check that 'ShellOptions.pipefail' is an integer */
+}
+struct _cffi_align__ShellOptions { char x; ShellOptions y; };
 
 _CFFI_UNUSED_FN
 static void _cffi_checkfld__Terminal(Terminal *p)
@@ -3140,131 +5153,393 @@ static void _cffi_checkfld__Terminal(Terminal *p)
 }
 struct _cffi_align__Terminal { char x; Terminal y; };
 
+static char const * *_cffi_var_tidesh_compiler(void)
+{
+  return &(tidesh_compiler);
+}
+
 static const struct _cffi_global_s _cffi_globals[] = {
+  { "CASE_TERM_BREAK", (void *)_cffi_const_CASE_TERM_BREAK, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "CASE_TERM_CONTINUE", (void *)_cffi_const_CASE_TERM_CONTINUE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "CASE_TERM_FALLTHROUGH", (void *)_cffi_const_CASE_TERM_FALLTHROUGH, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "COMMAND_ALIAS", (void *)_cffi_const_COMMAND_ALIAS, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "COMMAND_BUILTIN", (void *)_cffi_const_COMMAND_BUILTIN, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "COMMAND_EXTERNAL", (void *)_cffi_const_COMMAND_EXTERNAL, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "COMMAND_FUNCTION", (void *)_cffi_const_COMMAND_FUNCTION, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "COMMAND_NOT_FOUND", (void *)_cffi_const_COMMAND_NOT_FOUND, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "COMMAND_SPECIAL_BUILTIN", (void *)_cffi_const_COMMAND_SPECIAL_BUILTIN, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "JOB_DONE", (void *)_cffi_const_JOB_DONE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "JOB_KILLED", (void *)_cffi_const_JOB_KILLED, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "JOB_RUNNING", (void *)_cffi_const_JOB_RUNNING, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "JOB_STOPPED", (void *)_cffi_const_JOB_STOPPED, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "NODE_AND", (void *)_cffi_const_NODE_AND, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "NODE_BLOCK", (void *)_cffi_const_NODE_BLOCK, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "NODE_CASE", (void *)_cffi_const_NODE_CASE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "NODE_COMMAND", (void *)_cffi_const_NODE_COMMAND, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "NODE_CONDITIONAL", (void *)_cffi_const_NODE_CONDITIONAL, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "NODE_FOR", (void *)_cffi_const_NODE_FOR, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "NODE_FUNCTION_DEF", (void *)_cffi_const_NODE_FUNCTION_DEF, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "NODE_OR", (void *)_cffi_const_NODE_OR, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "NODE_PIPE", (void *)_cffi_const_NODE_PIPE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "NODE_SEQUENCE", (void *)_cffi_const_NODE_SEQUENCE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "NODE_SUBSHELL", (void *)_cffi_const_NODE_SUBSHELL, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "NODE_UNTIL", (void *)_cffi_const_NODE_UNTIL, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "NODE_WHILE", (void *)_cffi_const_NODE_WHILE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "NODE_WITH", (void *)_cffi_const_NODE_WITH, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_ASSIGNMENT", (void *)_cffi_const_TOKEN_ASSIGNMENT, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_BACKGROUND", (void *)_cffi_const_TOKEN_BACKGROUND, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_CASE", (void *)_cffi_const_TOKEN_CASE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_CASE_CONTINUE", (void *)_cffi_const_TOKEN_CASE_CONTINUE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_CASE_FALLTHROUGH", (void *)_cffi_const_TOKEN_CASE_FALLTHROUGH, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_COMMENT", (void *)_cffi_const_TOKEN_COMMENT, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_DO", (void *)_cffi_const_TOKEN_DO, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_DONE", (void *)_cffi_const_TOKEN_DONE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_DOUBLE_SEMICOLON", (void *)_cffi_const_TOKEN_DOUBLE_SEMICOLON, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_ELIF", (void *)_cffi_const_TOKEN_ELIF, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_ELSE", (void *)_cffi_const_TOKEN_ELSE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_EOF", (void *)_cffi_const_TOKEN_EOF, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_EOL", (void *)_cffi_const_TOKEN_EOL, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_ESAC", (void *)_cffi_const_TOKEN_ESAC, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_FD_DUPLICATION", (void *)_cffi_const_TOKEN_FD_DUPLICATION, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_FI", (void *)_cffi_const_TOKEN_FI, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_FOR", (void *)_cffi_const_TOKEN_FOR, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_HEREDOC", (void *)_cffi_const_TOKEN_HEREDOC, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_HERESTRING", (void *)_cffi_const_TOKEN_HERESTRING, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_IF", (void *)_cffi_const_TOKEN_IF, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_IN", (void *)_cffi_const_TOKEN_IN, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_IO_NUMBER", (void *)_cffi_const_TOKEN_IO_NUMBER, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_LBRACE", (void *)_cffi_const_TOKEN_LBRACE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_LPAREN", (void *)_cffi_const_TOKEN_LPAREN, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_OR", (void *)_cffi_const_TOKEN_OR, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_PIPE", (void *)_cffi_const_TOKEN_PIPE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_PROCESS_SUBSTITUTION_IN", (void *)_cffi_const_TOKEN_PROCESS_SUBSTITUTION_IN, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_PROCESS_SUBSTITUTION_OUT", (void *)_cffi_const_TOKEN_PROCESS_SUBSTITUTION_OUT, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_RBRACE", (void *)_cffi_const_TOKEN_RBRACE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_REDIRECT_ALL", (void *)_cffi_const_TOKEN_REDIRECT_ALL, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_REDIRECT_APPEND", (void *)_cffi_const_TOKEN_REDIRECT_APPEND, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_REDIRECT_APPEND_ERR", (void *)_cffi_const_TOKEN_REDIRECT_APPEND_ERR, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_REDIRECT_IN", (void *)_cffi_const_TOKEN_REDIRECT_IN, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_REDIRECT_OUT", (void *)_cffi_const_TOKEN_REDIRECT_OUT, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_REDIRECT_OUT_ERR", (void *)_cffi_const_TOKEN_REDIRECT_OUT_ERR, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_RPAREN", (void *)_cffi_const_TOKEN_RPAREN, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_SEMICOLON", (void *)_cffi_const_TOKEN_SEMICOLON, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_SEQUENCE", (void *)_cffi_const_TOKEN_SEQUENCE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_THEN", (void *)_cffi_const_TOKEN_THEN, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
+  { "TOKEN_WHILE", (void *)_cffi_const_TOKEN_WHILE, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
   { "TOKEN_WORD", (void *)_cffi_const_TOKEN_WORD, _CFFI_OP(_CFFI_OP_ENUM, -1), (void *)0 },
-  { "builtin_info", (void *)_cffi_f_builtin_info, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 99), (void *)_cffi_d_builtin_info },
-  { "dirstack_peek", (void *)_cffi_f_dirstack_peek, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 67), (void *)_cffi_d_dirstack_peek },
-  { "dirstack_popd", (void *)_cffi_f_dirstack_popd, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 42), (void *)_cffi_d_dirstack_popd },
-  { "dirstack_pushd", (void *)_cffi_f_dirstack_pushd, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 45), (void *)_cffi_d_dirstack_pushd },
-  { "environ_contains", (void *)_cffi_f_environ_contains, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 49), (void *)_cffi_d_environ_contains },
-  { "environ_copy", (void *)_cffi_f_environ_copy, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 18), (void *)_cffi_d_environ_copy },
-  { "environ_get", (void *)_cffi_f_environ_get, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 71), (void *)_cffi_d_environ_get },
-  { "environ_get_default", (void *)_cffi_f_environ_get_default, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 75), (void *)_cffi_d_environ_get_default },
-  { "environ_remove", (void *)_cffi_f_environ_remove, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 49), (void *)_cffi_d_environ_remove },
-  { "environ_set", (void *)_cffi_f_environ_set, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 117), (void *)_cffi_d_environ_set },
+  { "builtin_cd", (void *)_cffi_f_builtin_cd, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 142), (void *)_cffi_d_builtin_cd },
+  { "builtin_set", (void *)_cffi_f_builtin_set, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 142), (void *)_cffi_d_builtin_set },
+  { "dirstack_peek", (void *)_cffi_f_dirstack_peek, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 95), (void *)_cffi_d_dirstack_peek },
+  { "dirstack_popd", (void *)_cffi_f_dirstack_popd, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 66), (void *)_cffi_d_dirstack_popd },
+  { "dirstack_pushd", (void *)_cffi_f_dirstack_pushd, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 69), (void *)_cffi_d_dirstack_pushd },
+  { "environ_contains", (void *)_cffi_f_environ_contains, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 73), (void *)_cffi_d_environ_contains },
+  { "environ_copy", (void *)_cffi_f_environ_copy, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 22), (void *)_cffi_d_environ_copy },
+  { "environ_get", (void *)_cffi_f_environ_get, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 99), (void *)_cffi_d_environ_get },
+  { "environ_get_default", (void *)_cffi_f_environ_get_default, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 103), (void *)_cffi_d_environ_get_default },
+  { "environ_remove", (void *)_cffi_f_environ_remove, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 73), (void *)_cffi_d_environ_remove },
+  { "environ_set", (void *)_cffi_f_environ_set, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 160), (void *)_cffi_d_environ_set },
   { "environ_to_array", (void *)_cffi_f_environ_to_array, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 4), (void *)_cffi_d_environ_to_array },
-  { "execute_string", (void *)_cffi_f_execute_string, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 95), (void *)_cffi_d_execute_string },
-  { "execute_string_stdout", (void *)_cffi_f_execute_string_stdout, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 91), (void *)_cffi_d_execute_string_stdout },
-  { "find_in_path", (void *)_cffi_f_find_in_path, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 91), (void *)_cffi_d_find_in_path },
-  { "free", (void *)_cffi_f_free, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 138), (void *)_cffi_d_free },
-  { "free_array", (void *)_cffi_f_free_array, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 111), (void *)_cffi_d_free_array },
-  { "free_ast", (void *)_cffi_f_free_ast, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 108), (void *)_cffi_d_free_ast },
-  { "free_environ", (void *)_cffi_f_free_environ, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 114), (void *)_cffi_d_free_environ },
-  { "free_history", (void *)_cffi_f_free_history, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 122), (void *)_cffi_d_free_history },
-  { "free_lexer_input", (void *)_cffi_f_free_lexer_input, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 129), (void *)_cffi_d_free_lexer_input },
-  { "free_lexer_token", (void *)_cffi_f_free_lexer_token, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 132), (void *)_cffi_d_free_lexer_token },
-  { "free_session", (void *)_cffi_f_free_session, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 135), (void *)_cffi_d_free_session },
+  { "execute_string", (void *)_cffi_f_execute_string, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 138), (void *)_cffi_d_execute_string },
+  { "execute_string_stdout", (void *)_cffi_f_execute_string_stdout, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 119), (void *)_cffi_d_execute_string_stdout },
+  { "features_disable_all_expansions", (void *)_cffi_f_features_disable_all_expansions, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 177), (void *)_cffi_d_features_disable_all_expansions },
+  { "features_enable_all_expansions", (void *)_cffi_f_features_enable_all_expansions, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 177), (void *)_cffi_d_features_enable_all_expansions },
+  { "find_in_path", (void *)_cffi_f_find_in_path, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 119), (void *)_cffi_d_find_in_path },
+  { "free", (void *)_cffi_f_free, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 220), (void *)_cffi_d_free },
+  { "free_array", (void *)_cffi_f_free_array, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 154), (void *)_cffi_d_free_array },
+  { "free_ast", (void *)_cffi_f_free_ast, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 151), (void *)_cffi_d_free_ast },
+  { "free_environ", (void *)_cffi_f_free_environ, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 157), (void *)_cffi_d_free_environ },
+  { "free_history", (void *)_cffi_f_free_history, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 180), (void *)_cffi_d_free_history },
+  { "free_jobs", (void *)_cffi_f_free_jobs, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 187), (void *)_cffi_d_free_jobs },
+  { "free_lexer_input", (void *)_cffi_f_free_lexer_input, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 190), (void *)_cffi_d_free_lexer_input },
+  { "free_lexer_token", (void *)_cffi_f_free_lexer_token, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 193), (void *)_cffi_d_free_lexer_token },
+  { "free_session", (void *)_cffi_f_free_session, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 196), (void *)_cffi_d_free_session },
+  { "fs_sandbox_add_deny_path", (void *)_cffi_f_fs_sandbox_add_deny_path, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 168), (void *)_cffi_d_fs_sandbox_add_deny_path },
+  { "fs_sandbox_add_paths", (void *)_cffi_f_fs_sandbox_add_paths, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 172), (void *)_cffi_d_fs_sandbox_add_paths },
+  { "fs_sandbox_add_ro_path", (void *)_cffi_f_fs_sandbox_add_ro_path, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 168), (void *)_cffi_d_fs_sandbox_add_ro_path },
+  { "fs_sandbox_add_rw_path", (void *)_cffi_f_fs_sandbox_add_rw_path, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 168), (void *)_cffi_d_fs_sandbox_add_rw_path },
+  { "fs_sandbox_create", (void *)_cffi_f_fs_sandbox_create, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_N, 29), (void *)_cffi_d_fs_sandbox_create },
+  { "fs_sandbox_free", (void *)_cffi_f_fs_sandbox_free, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 165), (void *)_cffi_d_fs_sandbox_free },
+  { "fs_sandbox_pop", (void *)_cffi_f_fs_sandbox_pop, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 26), (void *)_cffi_d_fs_sandbox_pop },
+  { "fs_sandbox_push", (void *)_cffi_f_fs_sandbox_push, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 199), (void *)_cffi_d_fs_sandbox_push },
+  { "fs_sandbox_rmtree", (void *)_cffi_f_fs_sandbox_rmtree, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 135), (void *)_cffi_d_fs_sandbox_rmtree },
+  { "fs_sandbox_set_chroot", (void *)_cffi_f_fs_sandbox_set_chroot, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 168), (void *)_cffi_d_fs_sandbox_set_chroot },
   { "full_expansion", (void *)_cffi_f_full_expansion, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 11), (void *)_cffi_d_full_expansion },
-  { "history_append", (void *)_cffi_f_history_append, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 125), (void *)_cffi_d_history_append },
-  { "history_clear", (void *)_cffi_f_history_clear, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 122), (void *)_cffi_d_history_clear },
-  { "history_get_next", (void *)_cffi_f_history_get_next, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 80), (void *)_cffi_d_history_get_next },
-  { "history_get_previous", (void *)_cffi_f_history_get_previous, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 80), (void *)_cffi_d_history_get_previous },
-  { "history_last_command", (void *)_cffi_f_history_last_command, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 80), (void *)_cffi_d_history_last_command },
-  { "history_nth_command", (void *)_cffi_f_history_nth_command, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 83), (void *)_cffi_d_history_nth_command },
-  { "history_remove", (void *)_cffi_f_history_remove, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 53), (void *)_cffi_d_history_remove },
-  { "history_save", (void *)_cffi_f_history_save, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 122), (void *)_cffi_d_history_save },
-  { "init_environ", (void *)_cffi_f_init_environ, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 15), (void *)_cffi_d_init_environ },
-  { "init_history", (void *)_cffi_f_init_history, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 22), (void *)_cffi_d_init_history },
-  { "init_lexer_input", (void *)_cffi_f_init_lexer_input, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 29), (void *)_cffi_d_init_lexer_input },
-  { "init_session", (void *)_cffi_f_init_session, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 38), (void *)_cffi_d_init_session },
-  { "lexer_next_token", (void *)_cffi_f_lexer_next_token, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 35), (void *)_cffi_d_lexer_next_token },
-  { "load_history", (void *)_cffi_f_load_history, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 25), (void *)_cffi_d_load_history },
+  { "get_command_info", (void *)_cffi_f_get_command_info, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 15), (void *)_cffi_d_get_command_info },
+  { "history_append", (void *)_cffi_f_history_append, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 183), (void *)_cffi_d_history_append },
+  { "history_clear", (void *)_cffi_f_history_clear, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 180), (void *)_cffi_d_history_clear },
+  { "history_get_next", (void *)_cffi_f_history_get_next, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 108), (void *)_cffi_d_history_get_next },
+  { "history_get_previous", (void *)_cffi_f_history_get_previous, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 108), (void *)_cffi_d_history_get_previous },
+  { "history_last_command", (void *)_cffi_f_history_last_command, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 108), (void *)_cffi_d_history_last_command },
+  { "history_nth_command", (void *)_cffi_f_history_nth_command, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 111), (void *)_cffi_d_history_nth_command },
+  { "history_remove", (void *)_cffi_f_history_remove, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 77), (void *)_cffi_d_history_remove },
+  { "history_save", (void *)_cffi_f_history_save, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 180), (void *)_cffi_d_history_save },
+  { "init_environ", (void *)_cffi_f_init_environ, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 19), (void *)_cffi_d_init_environ },
+  { "init_features", (void *)_cffi_f_init_features, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 31), (void *)_cffi_d_init_features },
+  { "init_features_minimal", (void *)_cffi_f_init_features_minimal, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 31), (void *)_cffi_d_init_features_minimal },
+  { "init_history", (void *)_cffi_f_init_history, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 34), (void *)_cffi_d_init_history },
+  { "init_jobs", (void *)_cffi_f_init_jobs, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_N, 48), (void *)_cffi_d_init_jobs },
+  { "init_lexer_input", (void *)_cffi_f_init_lexer_input, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 50), (void *)_cffi_d_init_lexer_input },
+  { "init_session", (void *)_cffi_f_init_session, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 59), (void *)_cffi_d_init_session },
+  { "jobs_add", (void *)_cffi_f_jobs_add, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 129), (void *)_cffi_d_jobs_add },
+  { "jobs_get", (void *)_cffi_f_jobs_get, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 44), (void *)_cffi_d_jobs_get },
+  { "jobs_get_by_pid", (void *)_cffi_f_jobs_get_by_pid, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 44), (void *)_cffi_d_jobs_get_by_pid },
+  { "jobs_get_current", (void *)_cffi_f_jobs_get_current, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 41), (void *)_cffi_d_jobs_get_current },
+  { "jobs_get_previous", (void *)_cffi_f_jobs_get_previous, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 41), (void *)_cffi_d_jobs_get_previous },
+  { "jobs_notify", (void *)_cffi_f_jobs_notify, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 187), (void *)_cffi_d_jobs_notify },
+  { "jobs_remove", (void *)_cffi_f_jobs_remove, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 82), (void *)_cffi_d_jobs_remove },
+  { "jobs_update", (void *)_cffi_f_jobs_update, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 187), (void *)_cffi_d_jobs_update },
+  { "lexer_next_token", (void *)_cffi_f_lexer_next_token, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 56), (void *)_cffi_d_lexer_next_token },
+  { "load_history", (void *)_cffi_f_load_history, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 37), (void *)_cffi_d_load_history },
+  { "node_type_to_string", (void *)_cffi_f_node_type_to_string, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 123), (void *)_cffi_d_node_type_to_string },
   { "parse", (void *)_cffi_f_parse, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 0), (void *)_cffi_d_parse },
-  { "trie_contains", (void *)_cffi_f_trie_contains, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 58), (void *)_cffi_d_trie_contains },
-  { "trie_delete_key", (void *)_cffi_f_trie_delete_key, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 58), (void *)_cffi_d_trie_delete_key },
-  { "trie_get", (void *)_cffi_f_trie_get, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 87), (void *)_cffi_d_trie_get },
-  { "trie_set", (void *)_cffi_f_trie_set, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 62), (void *)_cffi_d_trie_set },
+  { "run_cwd_hook", (void *)_cffi_f_run_cwd_hook, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 207), (void *)_cffi_d_run_cwd_hook },
+  { "run_cwd_hook_with_vars", (void *)_cffi_f_run_cwd_hook_with_vars, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 211), (void *)_cffi_d_run_cwd_hook_with_vars },
+  { "session_snapshot_create", (void *)_cffi_f_session_snapshot_create, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 63), (void *)_cffi_d_session_snapshot_create },
+  { "session_snapshot_free", (void *)_cffi_f_session_snapshot_free, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 217), (void *)_cffi_d_session_snapshot_free },
+  { "session_snapshot_restore", (void *)_cffi_f_session_snapshot_restore, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 203), (void *)_cffi_d_session_snapshot_restore },
+  { "tidesh_compiler", (void *)_cffi_var_tidesh_compiler, _CFFI_OP(_CFFI_OP_GLOBAL_VAR_F, 16), (void *)0 },
+  { "token_type_to_string", (void *)_cffi_f_token_type_to_string, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 126), (void *)_cffi_d_token_type_to_string },
+  { "trie_contains", (void *)_cffi_f_trie_contains, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 86), (void *)_cffi_d_trie_contains },
+  { "trie_delete_key", (void *)_cffi_f_trie_delete_key, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 86), (void *)_cffi_d_trie_delete_key },
+  { "trie_get", (void *)_cffi_f_trie_get, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 115), (void *)_cffi_d_trie_get },
+  { "trie_set", (void *)_cffi_f_trie_set, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 90), (void *)_cffi_d_trie_set },
   { "trie_starting_with", (void *)_cffi_f_trie_starting_with, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_V, 7), (void *)_cffi_d_trie_starting_with },
-  { "update_path", (void *)_cffi_f_update_path, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 135), (void *)_cffi_d_update_path },
-  { "update_working_dir", (void *)_cffi_f_update_working_dir, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 135), (void *)_cffi_d_update_working_dir },
+  { "update_path", (void *)_cffi_f_update_path, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 196), (void *)_cffi_d_update_path },
+  { "update_working_dir", (void *)_cffi_f_update_working_dir, _CFFI_OP(_CFFI_OP_CPYTHON_BLTN_O, 196), (void *)_cffi_d_update_working_dir },
 };
 
 static const struct _cffi_field_s _cffi_fields[] = {
   { "type", offsetof(ASTNode, type),
             sizeof(((ASTNode *)0)->type),
-            _CFFI_OP(_CFFI_OP_NOOP, 148) },
+            _CFFI_OP(_CFFI_OP_NOOP, 124) },
   { "argv", offsetof(ASTNode, argv),
             sizeof(((ASTNode *)0)->argv),
-            _CFFI_OP(_CFFI_OP_NOOP, 101) },
+            _CFFI_OP(_CFFI_OP_NOOP, 144) },
   { "arg_is_sub", offsetof(ASTNode, arg_is_sub),
                   sizeof(((ASTNode *)0)->arg_is_sub),
-                  _CFFI_OP(_CFFI_OP_NOOP, 157) },
+                  _CFFI_OP(_CFFI_OP_NOOP, 254) },
+  { "arg_keys", offsetof(ASTNode, arg_keys),
+                sizeof(((ASTNode *)0)->arg_keys),
+                _CFFI_OP(_CFFI_OP_NOOP, 144) },
   { "argc", offsetof(ASTNode, argc),
             sizeof(((ASTNode *)0)->argc),
-            _CFFI_OP(_CFFI_OP_NOOP, 100) },
+            _CFFI_OP(_CFFI_OP_NOOP, 46) },
   { "redirects", offsetof(ASTNode, redirects),
                  sizeof(((ASTNode *)0)->redirects),
-                 _CFFI_OP(_CFFI_OP_NOOP, 149) },
+                 _CFFI_OP(_CFFI_OP_NOOP, 245) },
   { "assignments", offsetof(ASTNode, assignments),
                    sizeof(((ASTNode *)0)->assignments),
-                   _CFFI_OP(_CFFI_OP_NOOP, 112) },
+                   _CFFI_OP(_CFFI_OP_NOOP, 155) },
   { "left", offsetof(ASTNode, left),
             sizeof(((ASTNode *)0)->left),
-            _CFFI_OP(_CFFI_OP_NOOP, 109) },
+            _CFFI_OP(_CFFI_OP_NOOP, 152) },
   { "right", offsetof(ASTNode, right),
              sizeof(((ASTNode *)0)->right),
-             _CFFI_OP(_CFFI_OP_NOOP, 109) },
+             _CFFI_OP(_CFFI_OP_NOOP, 152) },
   { "background", offsetof(ASTNode, background),
                   sizeof(((ASTNode *)0)->background),
-                  _CFFI_OP(_CFFI_OP_NOOP, 56) },
+                  _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "branches", offsetof(ASTNode, branches),
+                sizeof(((ASTNode *)0)->branches),
+                _CFFI_OP(_CFFI_OP_NOOP, 230) },
+  { "case_items", offsetof(ASTNode, case_items),
+                  sizeof(((ASTNode *)0)->case_items),
+                  _CFFI_OP(_CFFI_OP_NOOP, 225) },
+  { "for_has_in", offsetof(ASTNode, for_has_in),
+                  sizeof(((ASTNode *)0)->for_has_in),
+                  _CFFI_OP(_CFFI_OP_NOOP, 80) },
   { "items", offsetof(Array, items),
              sizeof(((Array *)0)->items),
-             _CFFI_OP(_CFFI_OP_NOOP, 101) },
+             _CFFI_OP(_CFFI_OP_NOOP, 144) },
   { "count", offsetof(Array, count),
              sizeof(((Array *)0)->count),
-             _CFFI_OP(_CFFI_OP_NOOP, 69) },
+             _CFFI_OP(_CFFI_OP_NOOP, 97) },
   { "capacity", offsetof(Array, capacity),
                 sizeof(((Array *)0)->capacity),
-                _CFFI_OP(_CFFI_OP_NOOP, 69) },
+                _CFFI_OP(_CFFI_OP_NOOP, 97) },
   { "growing_strategy", offsetof(Array, growing_strategy),
                         sizeof(((Array *)0)->growing_strategy),
-                        _CFFI_OP(_CFFI_OP_NOOP, 158) },
+                        _CFFI_OP(_CFFI_OP_NOOP, 256) },
+  { "patterns", offsetof(CaseItem, patterns),
+                sizeof(((CaseItem *)0)->patterns),
+                _CFFI_OP(_CFFI_OP_NOOP, 144) },
+  { "pattern_count", offsetof(CaseItem, pattern_count),
+                     sizeof(((CaseItem *)0)->pattern_count),
+                     _CFFI_OP(_CFFI_OP_NOOP, 46) },
+  { "body", offsetof(CaseItem, body),
+            sizeof(((CaseItem *)0)->body),
+            _CFFI_OP(_CFFI_OP_NOOP, 152) },
+  { "terminator", offsetof(CaseItem, terminator),
+                  sizeof(((CaseItem *)0)->terminator),
+                  _CFFI_OP(_CFFI_OP_NOOP, 227) },
+  { "next", offsetof(CaseItem, next),
+            sizeof(((CaseItem *)0)->next),
+            _CFFI_OP(_CFFI_OP_NOOP, 225) },
+  { "type", offsetof(CommandInfo, type),
+            sizeof(((CommandInfo *)0)->type),
+            _CFFI_OP(_CFFI_OP_NOOP, 229) },
+  { "path", offsetof(CommandInfo, path),
+            sizeof(((CommandInfo *)0)->path),
+            _CFFI_OP(_CFFI_OP_NOOP, 9) },
+  { "condition", offsetof(ConditionalBranch, condition),
+                 sizeof(((ConditionalBranch *)0)->condition),
+                 _CFFI_OP(_CFFI_OP_NOOP, 152) },
+  { "body", offsetof(ConditionalBranch, body),
+            sizeof(((ConditionalBranch *)0)->body),
+            _CFFI_OP(_CFFI_OP_NOOP, 152) },
+  { "next", offsetof(ConditionalBranch, next),
+            sizeof(((ConditionalBranch *)0)->next),
+            _CFFI_OP(_CFFI_OP_NOOP, 230) },
+  { "stack", offsetof(DirStack, stack),
+             sizeof(((DirStack *)0)->stack),
+             _CFFI_OP(_CFFI_OP_NOOP, 155) },
+  { "is_active", offsetof(FSSandbox, is_active),
+                 sizeof(((FSSandbox *)0)->is_active),
+                 _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "readonly_all", offsetof(FSSandbox, readonly_all),
+                    sizeof(((FSSandbox *)0)->readonly_all),
+                    _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "variable_expansion", offsetof(Features, variable_expansion),
+                          sizeof(((Features *)0)->variable_expansion),
+                          _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "tilde_expansion", offsetof(Features, tilde_expansion),
+                       sizeof(((Features *)0)->tilde_expansion),
+                       _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "brace_expansion", offsetof(Features, brace_expansion),
+                       sizeof(((Features *)0)->brace_expansion),
+                       _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "filename_expansion", offsetof(Features, filename_expansion),
+                          sizeof(((Features *)0)->filename_expansion),
+                          _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "alias_expansion", offsetof(Features, alias_expansion),
+                       sizeof(((Features *)0)->alias_expansion),
+                       _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "arithmetic_expansion", offsetof(Features, arithmetic_expansion),
+                            sizeof(((Features *)0)->arithmetic_expansion),
+                            _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "job_control", offsetof(Features, job_control),
+                   sizeof(((Features *)0)->job_control),
+                   _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "history", offsetof(Features, history),
+               sizeof(((Features *)0)->history),
+               _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "directory_stack", offsetof(Features, directory_stack),
+                       sizeof(((Features *)0)->directory_stack),
+                       _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "prompt_expansion", offsetof(Features, prompt_expansion),
+                        sizeof(((Features *)0)->prompt_expansion),
+                        _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "completion", offsetof(Features, completion),
+                  sizeof(((Features *)0)->completion),
+                  _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "pipes", offsetof(Features, pipes),
+             sizeof(((Features *)0)->pipes),
+             _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "redirections", offsetof(Features, redirections),
+                    sizeof(((Features *)0)->redirections),
+                    _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "sequences", offsetof(Features, sequences),
+                 sizeof(((Features *)0)->sequences),
+                 _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "subshells", offsetof(Features, subshells),
+                 sizeof(((Features *)0)->subshells),
+                 _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "blocks", offsetof(Features, blocks),
+              sizeof(((Features *)0)->blocks),
+              _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "command_substitution", offsetof(Features, command_substitution),
+                            sizeof(((Features *)0)->command_substitution),
+                            _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "assignments", offsetof(Features, assignments),
+                   sizeof(((Features *)0)->assignments),
+                   _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "functions", offsetof(Features, functions),
+                 sizeof(((Features *)0)->functions),
+                 _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "context_managers", offsetof(Features, context_managers),
+                        sizeof(((Features *)0)->context_managers),
+                        _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "head", offsetof(History, head),
+            sizeof(((History *)0)->head),
+            _CFFI_OP(_CFFI_OP_NOOP, 237) },
+  { "tail", offsetof(History, tail),
+            sizeof(((History *)0)->tail),
+            _CFFI_OP(_CFFI_OP_NOOP, 237) },
+  { "size", offsetof(History, size),
+            sizeof(((History *)0)->size),
+            _CFFI_OP(_CFFI_OP_NOOP, 97) },
+  { "command", offsetof(HistoryEntry, command),
+               sizeof(((HistoryEntry *)0)->command),
+               _CFFI_OP(_CFFI_OP_NOOP, 9) },
+  { "timestamp", offsetof(HistoryEntry, timestamp),
+                 sizeof(((HistoryEntry *)0)->timestamp),
+                 _CFFI_OP(_CFFI_OP_NOOP, 255) },
+  { "next", offsetof(HistoryEntry, next),
+            sizeof(((HistoryEntry *)0)->next),
+            _CFFI_OP(_CFFI_OP_NOOP, 237) },
+  { "prev", offsetof(HistoryEntry, prev),
+            sizeof(((HistoryEntry *)0)->prev),
+            _CFFI_OP(_CFFI_OP_NOOP, 237) },
+  { "key", offsetof(HookEnvVar, key),
+           sizeof(((HookEnvVar *)0)->key),
+           _CFFI_OP(_CFFI_OP_NOOP, 16) },
+  { "value", offsetof(HookEnvVar, value),
+             sizeof(((HookEnvVar *)0)->value),
+             _CFFI_OP(_CFFI_OP_NOOP, 16) },
+  { "id", offsetof(Job, id),
+          sizeof(((Job *)0)->id),
+          _CFFI_OP(_CFFI_OP_NOOP, 46) },
+  { "pid", offsetof(Job, pid),
+           sizeof(((Job *)0)->pid),
+           _CFFI_OP(_CFFI_OP_NOOP, 46) },
+  { "command", offsetof(Job, command),
+               sizeof(((Job *)0)->command),
+               _CFFI_OP(_CFFI_OP_NOOP, 9) },
+  { "state", offsetof(Job, state),
+             sizeof(((Job *)0)->state),
+             _CFFI_OP(_CFFI_OP_NOOP, 133) },
+  { "exit_status", offsetof(Job, exit_status),
+                   sizeof(((Job *)0)->exit_status),
+                   _CFFI_OP(_CFFI_OP_NOOP, 46) },
+  { "notified", offsetof(Job, notified),
+                sizeof(((Job *)0)->notified),
+                _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "jobs", offsetof(Jobs, jobs),
+            sizeof(((Jobs *)0)->jobs),
+            _CFFI_OP(_CFFI_OP_NOOP, 240) },
+  { "count", offsetof(Jobs, count),
+             sizeof(((Jobs *)0)->count),
+             _CFFI_OP(_CFFI_OP_NOOP, 46) },
+  { "capacity", offsetof(Jobs, capacity),
+                sizeof(((Jobs *)0)->capacity),
+                _CFFI_OP(_CFFI_OP_NOOP, 46) },
+  { "pgid", offsetof(Jobs, pgid),
+            sizeof(((Jobs *)0)->pgid),
+            _CFFI_OP(_CFFI_OP_NOOP, 46) },
   { "type", offsetof(LexerToken, type),
             sizeof(((LexerToken *)0)->type),
-            _CFFI_OP(_CFFI_OP_NOOP, 154) },
+            _CFFI_OP(_CFFI_OP_NOOP, 127) },
   { "value", offsetof(LexerToken, value),
              sizeof(((LexerToken *)0)->value),
              _CFFI_OP(_CFFI_OP_NOOP, 9) },
   { "extra", offsetof(LexerToken, extra),
              sizeof(((LexerToken *)0)->extra),
              _CFFI_OP(_CFFI_OP_NOOP, 9) },
+  { "fd", offsetof(Redirection, fd),
+          sizeof(((Redirection *)0)->fd),
+          _CFFI_OP(_CFFI_OP_NOOP, 46) },
+  { "type", offsetof(Redirection, type),
+            sizeof(((Redirection *)0)->type),
+            _CFFI_OP(_CFFI_OP_NOOP, 127) },
+  { "target", offsetof(Redirection, target),
+              sizeof(((Redirection *)0)->target),
+              _CFFI_OP(_CFFI_OP_NOOP, 9) },
+  { "is_process_substitution", offsetof(Redirection, is_process_substitution),
+                               sizeof(((Redirection *)0)->is_process_substitution),
+                               _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "next", offsetof(Redirection, next),
+            sizeof(((Redirection *)0)->next),
+            _CFFI_OP(_CFFI_OP_NOOP, 245) },
   { "current_working_dir", offsetof(Session, current_working_dir),
                            sizeof(((Session *)0)->current_working_dir),
                            _CFFI_OP(_CFFI_OP_NOOP, 9) },
@@ -3276,81 +5551,168 @@ static const struct _cffi_field_s _cffi_fields[] = {
                _CFFI_OP(_CFFI_OP_NOOP, 5) },
   { "history", offsetof(Session, history),
                sizeof(((Session *)0)->history),
-               _CFFI_OP(_CFFI_OP_NOOP, 23) },
+               _CFFI_OP(_CFFI_OP_NOOP, 35) },
   { "aliases", offsetof(Session, aliases),
                sizeof(((Session *)0)->aliases),
                _CFFI_OP(_CFFI_OP_NOOP, 8) },
+  { "functions", offsetof(Session, functions),
+                 sizeof(((Session *)0)->functions),
+                 _CFFI_OP(_CFFI_OP_NOOP, 8) },
   { "path_commands", offsetof(Session, path_commands),
                      sizeof(((Session *)0)->path_commands),
                      _CFFI_OP(_CFFI_OP_NOOP, 8) },
   { "dirstack", offsetof(Session, dirstack),
                 sizeof(((Session *)0)->dirstack),
-                _CFFI_OP(_CFFI_OP_NOOP, 43) },
+                _CFFI_OP(_CFFI_OP_NOOP, 67) },
   { "terminal", offsetof(Session, terminal),
                 sizeof(((Session *)0)->terminal),
-                _CFFI_OP(_CFFI_OP_NOOP, 152) },
+                _CFFI_OP(_CFFI_OP_NOOP, 250) },
+  { "jobs", offsetof(Session, jobs),
+            sizeof(((Session *)0)->jobs),
+            _CFFI_OP(_CFFI_OP_NOOP, 42) },
+  { "features", offsetof(Session, features),
+                sizeof(((Session *)0)->features),
+                _CFFI_OP(_CFFI_OP_NOOP, 235) },
+  { "options", offsetof(Session, options),
+               sizeof(((Session *)0)->options),
+               _CFFI_OP(_CFFI_OP_NOOP, 249) },
   { "exit_requested", offsetof(Session, exit_requested),
                       sizeof(((Session *)0)->exit_requested),
-                      _CFFI_OP(_CFFI_OP_NOOP, 56) },
+                      _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "hooks_disabled", offsetof(Session, hooks_disabled),
+                      sizeof(((Session *)0)->hooks_disabled),
+                      _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "allexport", offsetof(ShellOptions, allexport),
+                 sizeof(((ShellOptions *)0)->allexport),
+                 _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "errexit", offsetof(ShellOptions, errexit),
+               sizeof(((ShellOptions *)0)->errexit),
+               _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "noglob", offsetof(ShellOptions, noglob),
+              sizeof(((ShellOptions *)0)->noglob),
+              _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "nounset", offsetof(ShellOptions, nounset),
+               sizeof(((ShellOptions *)0)->nounset),
+               _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "verbose", offsetof(ShellOptions, verbose),
+               sizeof(((ShellOptions *)0)->verbose),
+               _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "xtrace", offsetof(ShellOptions, xtrace),
+              sizeof(((ShellOptions *)0)->xtrace),
+              _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "noexec", offsetof(ShellOptions, noexec),
+              sizeof(((ShellOptions *)0)->noexec),
+              _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "noclobber", offsetof(ShellOptions, noclobber),
+                 sizeof(((ShellOptions *)0)->noclobber),
+                 _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "monitor", offsetof(ShellOptions, monitor),
+               sizeof(((ShellOptions *)0)->monitor),
+               _CFFI_OP(_CFFI_OP_NOOP, 80) },
+  { "pipefail", offsetof(ShellOptions, pipefail),
+                sizeof(((ShellOptions *)0)->pipefail),
+                _CFFI_OP(_CFFI_OP_NOOP, 80) },
   { "rows", offsetof(Terminal, rows),
             sizeof(((Terminal *)0)->rows),
-            _CFFI_OP(_CFFI_OP_NOOP, 69) },
+            _CFFI_OP(_CFFI_OP_NOOP, 97) },
   { "cols", offsetof(Terminal, cols),
             sizeof(((Terminal *)0)->cols),
-            _CFFI_OP(_CFFI_OP_NOOP, 69) },
+            _CFFI_OP(_CFFI_OP_NOOP, 97) },
   { "supports_colors", offsetof(Terminal, supports_colors),
                        sizeof(((Terminal *)0)->supports_colors),
-                       _CFFI_OP(_CFFI_OP_NOOP, 56) },
+                       _CFFI_OP(_CFFI_OP_NOOP, 80) },
 };
 
 static const struct _cffi_struct_union_s _cffi_struct_unions[] = {
-  { "ASTNode", 141, 0,
-    sizeof(ASTNode), offsetof(struct _cffi_align__ASTNode, y), 0, 9 },
-  { "Array", 142, 0,
-    sizeof(Array), offsetof(struct _cffi_align__Array, y), 9, 4 },
-  { "DirStack", 143, _CFFI_F_OPAQUE,
+  { "ASTNode", 223, 0,
+    sizeof(ASTNode), offsetof(struct _cffi_align__ASTNode, y), 0, 13 },
+  { "Array", 224, 0,
+    sizeof(Array), offsetof(struct _cffi_align__Array, y), 13, 4 },
+  { "CaseItem", 226, 0,
+    sizeof(CaseItem), offsetof(struct _cffi_align__CaseItem, y), 17, 5 },
+  { "CommandInfo", 228, _CFFI_F_CHECK_FIELDS,
+    sizeof(CommandInfo), offsetof(struct _cffi_align__CommandInfo, y), 22, 2 },
+  { "ConditionalBranch", 231, 0,
+    sizeof(ConditionalBranch), offsetof(struct _cffi_align__ConditionalBranch, y), 24, 3 },
+  { "DirStack", 232, 0,
+    sizeof(DirStack), offsetof(struct _cffi_align__DirStack, y), 27, 1 },
+  { "Environ", 233, _CFFI_F_OPAQUE,
     (size_t)-1, -1, -1, 0 /* opaque */ },
-  { "Environ", 144, _CFFI_F_OPAQUE,
+  { "FSSandbox", 234, 0,
+    sizeof(FSSandbox), offsetof(struct _cffi_align__FSSandbox, y), 28, 2 },
+  { "Features", 235, 0,
+    sizeof(Features), offsetof(struct _cffi_align__Features, y), 30, 20 },
+  { "History", 236, 0,
+    sizeof(History), offsetof(struct _cffi_align__History, y), 50, 3 },
+  { "HistoryEntry", 238, 0,
+    sizeof(HistoryEntry), offsetof(struct _cffi_align__HistoryEntry, y), 53, 4 },
+  { "HookEnvVar", 239, _CFFI_F_CHECK_FIELDS,
+    sizeof(HookEnvVar), offsetof(struct _cffi_align__HookEnvVar, y), 57, 2 },
+  { "Job", 241, 0,
+    sizeof(Job), offsetof(struct _cffi_align__Job, y), 59, 6 },
+  { "Jobs", 242, 0,
+    sizeof(Jobs), offsetof(struct _cffi_align__Jobs, y), 65, 4 },
+  { "LexerInput", 243, _CFFI_F_OPAQUE,
     (size_t)-1, -1, -1, 0 /* opaque */ },
-  { "History", 145, _CFFI_F_OPAQUE,
+  { "LexerToken", 244, 0,
+    sizeof(LexerToken), offsetof(struct _cffi_align__LexerToken, y), 69, 3 },
+  { "Redirection", 246, 0,
+    sizeof(Redirection), offsetof(struct _cffi_align__Redirection, y), 72, 5 },
+  { "Session", 247, 0,
+    sizeof(Session), offsetof(struct _cffi_align__Session, y), 77, 14 },
+  { "SessionSnapshot", 248, _CFFI_F_OPAQUE,
     (size_t)-1, -1, -1, 0 /* opaque */ },
-  { "LexerInput", 146, _CFFI_F_OPAQUE,
-    (size_t)-1, -1, -1, 0 /* opaque */ },
-  { "LexerToken", 147, 0,
-    sizeof(LexerToken), offsetof(struct _cffi_align__LexerToken, y), 13, 3 },
-  { "Redirection", 150, _CFFI_F_OPAQUE,
-    (size_t)-1, -1, -1, 0 /* opaque */ },
-  { "Session", 151, 0,
-    sizeof(Session), offsetof(struct _cffi_align__Session, y), 16, 9 },
-  { "Terminal", 153, 0,
-    sizeof(Terminal), offsetof(struct _cffi_align__Terminal, y), 25, 3 },
-  { "Trie", 155, _CFFI_F_OPAQUE,
+  { "ShellOptions", 249, 0,
+    sizeof(ShellOptions), offsetof(struct _cffi_align__ShellOptions, y), 91, 10 },
+  { "Terminal", 251, 0,
+    sizeof(Terminal), offsetof(struct _cffi_align__Terminal, y), 101, 3 },
+  { "Trie", 252, _CFFI_F_OPAQUE,
     (size_t)-1, -1, -1, 0 /* opaque */ },
 };
 
 static const struct _cffi_enum_s _cffi_enums[] = {
-  { "NodeType", 148, _cffi_prim_int(sizeof(NodeType), ((NodeType)-1) <= 0),
-    "NODE_COMMAND,NODE_PIPE,NODE_AND,NODE_OR,NODE_SEQUENCE,NODE_SUBSHELL" },
-  { "TokenType", 154, _cffi_prim_int(sizeof(TokenType), ((TokenType)-1) <= 0),
-    "TOKEN_WORD,TOKEN_IO_NUMBER,TOKEN_COMMENT,TOKEN_ASSIGNMENT,TOKEN_PIPE,TOKEN_REDIRECT_IN,TOKEN_FD_DUPLICATION,TOKEN_PROCESS_SUBSTITUTION_IN,TOKEN_HEREDOC,TOKEN_HERESTRING,TOKEN_REDIRECT_OUT,TOKEN_REDIRECT_APPEND,TOKEN_REDIRECT_OUT_ERR,TOKEN_PROCESS_SUBSTITUTION_OUT,TOKEN_BACKGROUND,TOKEN_SEQUENCE,TOKEN_OR,TOKEN_SEMICOLON,TOKEN_LPAREN,TOKEN_RPAREN,TOKEN_EOL,TOKEN_EOF" },
+  { "CaseTerminator", 227, _cffi_prim_int(sizeof(CaseTerminator), ((CaseTerminator)-1) <= 0),
+    "CASE_TERM_BREAK,CASE_TERM_FALLTHROUGH,CASE_TERM_CONTINUE" },
+  { "CommandType", 229, _cffi_prim_int(sizeof(CommandType), ((CommandType)-1) <= 0),
+    "COMMAND_NOT_FOUND,COMMAND_ALIAS,COMMAND_BUILTIN,COMMAND_SPECIAL_BUILTIN,COMMAND_EXTERNAL,COMMAND_FUNCTION" },
+  { "JobState", 133, _cffi_prim_int(sizeof(JobState), ((JobState)-1) <= 0),
+    "JOB_RUNNING,JOB_STOPPED,JOB_DONE,JOB_KILLED" },
+  { "NodeType", 124, _cffi_prim_int(sizeof(NodeType), ((NodeType)-1) <= 0),
+    "NODE_COMMAND,NODE_PIPE,NODE_AND,NODE_OR,NODE_SEQUENCE,NODE_SUBSHELL,NODE_BLOCK,NODE_CONDITIONAL,NODE_CASE,NODE_FUNCTION_DEF,NODE_FOR,NODE_WHILE,NODE_UNTIL,NODE_WITH" },
+  { "TokenType", 127, _cffi_prim_int(sizeof(TokenType), ((TokenType)-1) <= 0),
+    "TOKEN_WORD,TOKEN_COMMENT,TOKEN_IO_NUMBER,TOKEN_ASSIGNMENT,TOKEN_PIPE,TOKEN_REDIRECT_IN,TOKEN_FD_DUPLICATION,TOKEN_HEREDOC,TOKEN_HERESTRING,TOKEN_REDIRECT_OUT,TOKEN_REDIRECT_APPEND,TOKEN_REDIRECT_OUT_ERR,TOKEN_REDIRECT_ALL,TOKEN_REDIRECT_APPEND_ERR,TOKEN_PROCESS_SUBSTITUTION_IN,TOKEN_PROCESS_SUBSTITUTION_OUT,TOKEN_BACKGROUND,TOKEN_SEQUENCE,TOKEN_OR,TOKEN_SEMICOLON,TOKEN_LPAREN,TOKEN_RPAREN,TOKEN_LBRACE,TOKEN_RBRACE,TOKEN_IF,TOKEN_THEN,TOKEN_ELSE,TOKEN_ELIF,TOKEN_FI,TOKEN_CASE,TOKEN_ESAC,TOKEN_DOUBLE_SEMICOLON,TOKEN_CASE_FALLTHROUGH,TOKEN_CASE_CONTINUE,TOKEN_FOR,TOKEN_WHILE,TOKEN_IN,TOKEN_DO,TOKEN_DONE,TOKEN_EOL,TOKEN_EOF" },
 };
 
 static const struct _cffi_typename_s _cffi_typenames[] = {
-  { "ASTNode", 141 },
-  { "Array", 142 },
-  { "DirStack", 143 },
-  { "Environ", 144 },
-  { "History", 145 },
-  { "LexerInput", 146 },
-  { "LexerToken", 147 },
-  { "NodeType", 148 },
-  { "Redirection", 150 },
-  { "Session", 151 },
-  { "Terminal", 153 },
-  { "TokenType", 154 },
-  { "Trie", 155 },
-  { "bool", 56 },
-  { "size_t", 69 },
+  { "ASTNode", 223 },
+  { "Array", 224 },
+  { "CaseItem", 226 },
+  { "CaseTerminator", 227 },
+  { "CommandInfo", 228 },
+  { "CommandType", 229 },
+  { "ConditionalBranch", 231 },
+  { "DirStack", 232 },
+  { "Environ", 233 },
+  { "FSSandbox", 234 },
+  { "Features", 235 },
+  { "History", 236 },
+  { "HistoryEntry", 238 },
+  { "HookEnvVar", 239 },
+  { "Job", 241 },
+  { "JobState", 133 },
+  { "Jobs", 242 },
+  { "LexerInput", 243 },
+  { "LexerToken", 244 },
+  { "NodeType", 124 },
+  { "Redirection", 246 },
+  { "Session", 247 },
+  { "SessionSnapshot", 248 },
+  { "ShellOptions", 249 },
+  { "Terminal", 251 },
+  { "TokenType", 127 },
+  { "Trie", 252 },
+  { "bool", 80 },
+  { "size_t", 97 },
 };
 
 static const struct _cffi_type_context_s _cffi_type_context = {
@@ -3360,12 +5722,12 @@ static const struct _cffi_type_context_s _cffi_type_context = {
   _cffi_struct_unions,
   _cffi_enums,
   _cffi_typenames,
-  73,  /* num_globals */
-  11,  /* num_struct_unions */
-  2,  /* num_enums */
-  15,  /* num_typenames */
+  147,  /* num_globals */
+  22,  /* num_struct_unions */
+  5,  /* num_enums */
+  29,  /* num_typenames */
   NULL,  /* no includes */
-  160,  /* num_types */
+  258,  /* num_types */
   0,  /* flags */
 };
 

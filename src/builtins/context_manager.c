@@ -42,7 +42,12 @@ static int list_context_managers(Session *session) {
         "  umask(mask)          Temporarily change file mode creation mask "
         "(restores on exit)\n"
         "  allowed_exit_codes(codes...) Configure allowed exit codes for "
-        "try...catch (default: 0)\n");
+        "try...catch (default: 0)\n"
+        "  sandbox(args...)     Filesystem sandbox (readonly, ro=..., rw=..., "
+        "deny=...)\n"
+        "  tempdir(args...)     Create isolated temporary directory and clean "
+        "up on exit\n"
+        "  chroot(path, ...)    Confine operations to jail directory\n");
 
     if (session && session->context_managers) {
         printf("\nCustom context managers:\n");
