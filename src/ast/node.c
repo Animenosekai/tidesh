@@ -40,6 +40,8 @@ ASTNode *init_ast(ASTNode *node, NodeType type) {
 #ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
     node->with_contexts = NULL;
 #endif
+    node->catch_clauses = NULL;
+    node->finally_body  = NULL;
     return node;
 }
 
