@@ -100,9 +100,9 @@ sources = [
     if p.name not in ("main.c", "preload.c", "sandbox_preload.c")
 ]
 
-# Convert paths for setup
-source_files = [str(src_root / s) for s in sources]
-include_dirs = [str(include_root)]
+# Setuptools requires source and include paths to be relative to setup.py.
+source_files = [os.path.relpath(src_root / s, root_path) for s in sources]
+include_dirs = [os.path.relpath(include_root, root_path)]
 
 # Read the source glue
 source_glue_path = root_path / "tidesh" / "tidesh.c"
