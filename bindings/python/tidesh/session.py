@@ -368,6 +368,7 @@ class Session:
         noclobber: bool | None = None,
         monitor: bool | None = None,
         pipefail: bool | None = None,
+        default_glob: bool | None = None,
         positional: Sequence[str] | None = None,
         **options: bool,
     ) -> int:
@@ -421,6 +422,7 @@ class Session:
             "noclobber": noclobber,
             "monitor": monitor,
             "pipefail": pipefail,
+            "default-glob": default_glob,
         }
         for name, val in known_opts.items():
             if val is not None:

@@ -958,7 +958,8 @@ describe(lexer) {
         free(input);
 
         // Concatenated quotes: "foo""bar" and 'foo'"bar"
-        input = init_lexer_input(NULL, "\"foo\"\"bar\" 'foo'\"bar\" \"foo\"bar\"baz\"", NULL, NULL);
+        input = init_lexer_input(
+            NULL, "\"foo\"\"bar\" 'foo'\"bar\" \"foo\"bar\"baz\"", NULL, NULL);
         assertneq(input, NULL);
 
         token = lexer_next_token(input);
@@ -1003,7 +1004,8 @@ describe(lexer) {
 
         // eval "set -- $1 \"\${$1}\" \"\" \"\""
         input = init_lexer_input(
-            NULL, "eval \"set -- $1 \\\"\\${$1}\\\" \\\"\\\" \\\"\\\"\"", NULL, NULL);
+            NULL, "eval \"set -- $1 \\\"\\${$1}\\\" \\\"\\\" \\\"\\\"\"", NULL,
+            NULL);
         assertneq(input, NULL);
 
         token = lexer_next_token(input);
@@ -1024,15 +1026,18 @@ describe(lexer) {
         free(input);
     }
 
-    it("should handle command substitution containing escaped characters and quotes") {
+    it("should handle command substitution containing escaped characters and "
+       "quotes") {
         LexerInput *input = init_lexer_input(
-            NULL, "chunk=$(printf '%s\\n' \"$initializer\"; read_chunk)", NULL, NULL);
+            NULL, "chunk=$(printf '%s\\n' \"$initializer\"; read_chunk)", NULL,
+            NULL);
         assertneq(input, NULL);
 
         LexerToken token = lexer_next_token(input);
         asserteq(token.type, TOKEN_ASSIGNMENT);
         asserteq_str(token.value, "chunk");
-        asserteq_str(token.extra, "$(printf '%s\\n' \"$initializer\"; read_chunk)");
+        asserteq_str(token.extra,
+                     "$(printf '%s\\n' \"$initializer\"; read_chunk)");
         free_lexer_token(&token);
 
         token = lexer_next_token(input);

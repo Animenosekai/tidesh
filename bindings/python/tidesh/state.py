@@ -382,6 +382,15 @@ class Options:
     def pipefail(self, value: bool) -> None:
         self._options.pipefail = value
 
+    @property
+    def default_glob(self) -> bool:
+        """Use default system glob implementation instead of extended globbing."""
+        return bool(self._options.default_glob)
+
+    @default_glob.setter
+    def default_glob(self, value: bool) -> None:
+        self._options.default_glob = value
+
     def __repr__(self) -> str:
         """Return a string representation of the options."""
         enabled = []
@@ -405,6 +414,8 @@ class Options:
             enabled.append("monitor")
         if self.pipefail:
             enabled.append("pipefail")
+        if self.default_glob:
+            enabled.append("default_glob")
         return f"Options({', '.join(enabled)})"
 
 

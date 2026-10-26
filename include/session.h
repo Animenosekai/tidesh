@@ -46,6 +46,8 @@ typedef struct ShellOptions {
     bool notify;    // -b: Report status of background jobs immediately
     bool hashall;   // -h: Remember locations of commands
     bool ignoreeof; // Do not exit on EOF
+    bool default_glob; // Use system glob implementation instead of extended
+                       // globbing (which supports **)
 } ShellOptions;
 
 typedef struct Session {

@@ -81,9 +81,9 @@ static int print_all_variables(Session *session) {
 static const struct {
     const char *name;
 } standard_options[] = {
-    {"allexport"}, {"errexit"}, {"hashall"}, {"ignoreeof"}, {"monitor"},
-    {"noclobber"}, {"noexec"},  {"noglob"},  {"notify"},    {"nounset"},
-    {"pipefail"},  {"verbose"}, {"xtrace"},
+    {"allexport"}, {"default-glob"}, {"errexit"}, {"hashall"}, {"ignoreeof"},
+    {"monitor"},   {"noclobber"},    {"noexec"},  {"noglob"},  {"notify"},
+    {"nounset"},   {"pipefail"},     {"verbose"}, {"xtrace"},
 };
 
 static size_t standard_options_count(void) {
@@ -93,6 +93,8 @@ static size_t standard_options_count(void) {
 static bool get_option_status(Session *session, const char *name) {
     if (strcmp(name, "allexport") == 0)
         return session->options.allexport;
+    if (strcmp(name, "default-glob") == 0 || strcmp(name, "default_glob") == 0)
+        return session->options.default_glob;
     if (strcmp(name, "errexit") == 0)
         return session->options.errexit;
     if (strcmp(name, "noglob") == 0)
@@ -140,6 +142,11 @@ static bool set_option_by_name(Session *session, const char *name,
                                bool enable) {
     if (strcmp(name, "allexport") == 0) {
         session->options.allexport = enable;
+        return true;
+    }
+    if (strcmp(name, "default-glob") == 0 ||
+        strcmp(name, "default_glob") == 0) {
+        session->options.default_glob = enable;
         return true;
     }
     if (strcmp(name, "errexit") == 0) {

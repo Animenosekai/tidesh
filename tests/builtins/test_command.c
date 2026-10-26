@@ -66,10 +66,12 @@ describe(command_builtin) {
         free(out_ext);
 
         // Nonexistent command
-        int st = execute_string("command -v nonexistent_command_xyz123", session);
+        int st =
+            execute_string("command -v nonexistent_command_xyz123", session);
         asserteq(st, 1);
 
-        char *out_none = execute_string_stdout("command -v nonexistent_command_xyz123", session);
+        char *out_none = execute_string_stdout(
+            "command -v nonexistent_command_xyz123", session);
         asserteq_str(out_none, "");
         free(out_none);
 
@@ -88,7 +90,8 @@ describe(command_builtin) {
 
         // Function
         execute_string("my_test_fn_v() { :; }", session);
-        char *out_fn = execute_string_stdout("command -V my_test_fn_v", session);
+        char *out_fn =
+            execute_string_stdout("command -V my_test_fn_v", session);
         assertneq(out_fn, NULL);
         assert(strstr(out_fn, "function") != NULL);
         free(out_fn);
@@ -100,7 +103,8 @@ describe(command_builtin) {
         free(out_ext);
 
         // Nonexistent command
-        int st = execute_string("command -V nonexistent_command_xyz123", session);
+        int st =
+            execute_string("command -V nonexistent_command_xyz123", session);
         asserteq(st, 1);
 
         free_session(session);

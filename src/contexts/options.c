@@ -46,6 +46,9 @@ int context_enter_options(Session *session, ContextArg *args, size_t argc,
             session->options.allexport = enable;
         } else if (strcmp(opt, "pipefail") == 0) {
             session->options.pipefail = enable;
+        } else if (strcmp(opt, "default-glob") == 0 ||
+                   strcmp(opt, "default_glob") == 0) {
+            session->options.default_glob = enable;
         }
     }
 

@@ -794,9 +794,11 @@ describe(ast) {
 
     it("should parse POSIX conditional statement with if, elif, else, fi") {
         Session    *session = init_session(NULL, "/tmp/test_history");
-        LexerInput *lexer   = init_lexer_input(
-            NULL, "if test $x -eq 1; then echo 1; elif test $x -eq 2; then echo 2; else echo 3; fi",
-            NULL, session);
+        LexerInput *lexer =
+            init_lexer_input(NULL,
+                             "if test $x -eq 1; then echo 1; elif test $x -eq "
+                             "2; then echo 2; else echo 3; fi",
+                             NULL, session);
         ASTNode *ast = parse(lexer, session);
 
         assertneq(ast, NULL);
@@ -826,12 +828,14 @@ describe(ast) {
         free(session);
     }
 
-    it("should parse block style conditional statement with braces and else if / elif") {
+    it("should parse block style conditional statement with braces and else if "
+       "/ elif") {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // if condition { body }
-        LexerInput *l1 = init_lexer_input(NULL, "if test $x -eq 1 { echo 1; }", NULL, session);
-        ASTNode *ast1 = parse(l1, session);
+        LexerInput *l1 = init_lexer_input(NULL, "if test $x -eq 1 { echo 1; }",
+                                          NULL, session);
+        ASTNode    *ast1 = parse(l1, session);
         assertneq(ast1, NULL);
         asserteq(ast1->type, NODE_CONDITIONAL);
         assertneq(ast1->branches, NULL);
@@ -844,17 +848,16 @@ describe(ast) {
         free(l1);
 
         // if (condition) { body } else if (condition2) { body2 } else { body3 }
-        LexerInput *l2 = init_lexer_input(
-            NULL,
-            "if (test $x -eq 1) {\n"
-            "    echo 1\n"
-            "} else if (test $x -eq 2) {\n"
-            "    echo 2\n"
-            "} else {\n"
-            "    echo 3\n"
-            "}\n",
-            NULL, session);
-        ASTNode *ast2 = parse(l2, session);
+        LexerInput *l2   = init_lexer_input(NULL,
+                                            "if (test $x -eq 1) {\n"
+                                            "    echo 1\n"
+                                            "} else if (test $x -eq 2) {\n"
+                                            "    echo 2\n"
+                                            "} else {\n"
+                                            "    echo 3\n"
+                                            "}\n",
+                                            NULL, session);
+        ASTNode    *ast2 = parse(l2, session);
         assertneq(ast2, NULL);
         asserteq(ast2->type, NODE_CONDITIONAL);
 
@@ -880,9 +883,11 @@ describe(ast) {
         free(l2);
 
         // if condition { body } elif condition { body } else { body }
-        LexerInput *l3 = init_lexer_input(
-            NULL, "if test $x -eq 1 { echo 1; } elif test $x -eq 2 { echo 2; } else { echo 3; }",
-            NULL, session);
+        LexerInput *l3 =
+            init_lexer_input(NULL,
+                             "if test $x -eq 1 { echo 1; } elif test $x -eq 2 "
+                             "{ echo 2; } else { echo 3; }",
+                             NULL, session);
         ASTNode *ast3 = parse(l3, session);
         assertneq(ast3, NULL);
         asserteq(ast3->type, NODE_CONDITIONAL);
@@ -902,21 +907,24 @@ describe(ast) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Missing then or {
-        LexerInput *l1 = init_lexer_input(NULL, "if true; echo 1; fi", NULL, session);
+        LexerInput *l1 =
+            init_lexer_input(NULL, "if true; echo 1; fi", NULL, session);
         ASTNode *ast1 = parse(l1, session);
         asserteq(ast1, NULL);
         free_lexer_input(l1);
         free(l1);
 
         // Missing closing } in block style
-        LexerInput *l2 = init_lexer_input(NULL, "if true { echo 1;", NULL, session);
+        LexerInput *l2 =
+            init_lexer_input(NULL, "if true { echo 1;", NULL, session);
         ASTNode *ast2 = parse(l2, session);
         asserteq(ast2, NULL);
         free_lexer_input(l2);
         free(l2);
 
         // Missing { after else in block style
-        LexerInput *l3 = init_lexer_input(NULL, "if true { echo 1; } else echo 2", NULL, session);
+        LexerInput *l3 = init_lexer_input(
+            NULL, "if true { echo 1; } else echo 2", NULL, session);
         ASTNode *ast3 = parse(l3, session);
         asserteq(ast3, NULL);
         free_lexer_input(l3);
@@ -930,9 +938,9 @@ describe(ast) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // for x in a b c { echo $x; }
-        LexerInput *l1 = init_lexer_input(
-            NULL, "for x in a b c { echo $x; }", NULL, session);
-        ASTNode *ast1 = parse(l1, session);
+        LexerInput *l1   = init_lexer_input(NULL, "for x in a b c { echo $x; }",
+                                            NULL, session);
+        ASTNode    *ast1 = parse(l1, session);
         assertneq(ast1, NULL);
         asserteq(ast1->type, NODE_FOR);
         assert(ast1->for_has_in);
@@ -948,9 +956,9 @@ describe(ast) {
         free(l1);
 
         // for (x in a b c) { echo $x; }
-        LexerInput *l2 = init_lexer_input(
-            NULL, "for (x in a b c) { echo $x; }", NULL, session);
-        ASTNode *ast2 = parse(l2, session);
+        LexerInput *l2 = init_lexer_input(NULL, "for (x in a b c) { echo $x; }",
+                                          NULL, session);
+        ASTNode    *ast2 = parse(l2, session);
         assertneq(ast2, NULL);
         asserteq(ast2->type, NODE_FOR);
         assert(ast2->for_has_in);
@@ -963,8 +971,8 @@ describe(ast) {
         free(l2);
 
         // for item { echo $item; }
-        LexerInput *l3 = init_lexer_input(
-            NULL, "for item { echo $item; }", NULL, session);
+        LexerInput *l3 =
+            init_lexer_input(NULL, "for item { echo $item; }", NULL, session);
         ASTNode *ast3 = parse(l3, session);
         assertneq(ast3, NULL);
         asserteq(ast3->type, NODE_FOR);
@@ -978,13 +986,12 @@ describe(ast) {
         free(l3);
 
         // Multi-line block-style for loop
-        LexerInput *l4 = init_lexer_input(
-            NULL,
-            "for x in 1 2 3 {\n"
-            "    echo $x\n"
-            "}\n",
-            NULL, session);
-        ASTNode *ast4 = parse(l4, session);
+        LexerInput *l4   = init_lexer_input(NULL,
+                                            "for x in 1 2 3 {\n"
+                                            "    echo $x\n"
+                                            "}\n",
+                                            NULL, session);
+        ASTNode    *ast4 = parse(l4, session);
         assertneq(ast4, NULL);
         asserteq(ast4->type, NODE_FOR);
         assertneq(ast4->left, NULL);
@@ -1060,22 +1067,25 @@ describe(ast) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Missing closing } in for loop
-        LexerInput *l1 = init_lexer_input(NULL, "for x in a b { echo 1;", NULL, session);
+        LexerInput *l1 =
+            init_lexer_input(NULL, "for x in a b { echo 1;", NULL, session);
         ASTNode *ast1 = parse(l1, session);
         asserteq(ast1, NULL);
         free_lexer_input(l1);
         free(l1);
 
         // Missing closing } in while loop
-        LexerInput *l2 = init_lexer_input(NULL, "while test $x -lt 5 { echo 1;", NULL, session);
-        ASTNode *ast2 = parse(l2, session);
+        LexerInput *l2 = init_lexer_input(NULL, "while test $x -lt 5 { echo 1;",
+                                          NULL, session);
+        ASTNode    *ast2 = parse(l2, session);
         asserteq(ast2, NULL);
         free_lexer_input(l2);
         free(l2);
 
         // Missing closing } in until loop
-        LexerInput *l3 = init_lexer_input(NULL, "until test $x -ge 5 { echo 1;", NULL, session);
-        ASTNode *ast3 = parse(l3, session);
+        LexerInput *l3 = init_lexer_input(NULL, "until test $x -ge 5 { echo 1;",
+                                          NULL, session);
+        ASTNode    *ast3 = parse(l3, session);
         asserteq(ast3, NULL);
         free_lexer_input(l3);
         free(l3);
@@ -1088,17 +1098,16 @@ describe(ast) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // try { do_something; } catch 1 { echo 1; } catch { echo any; }
-        LexerInput *l1 = init_lexer_input(
-            NULL,
-            "try {\n"
-            "    do_something\n"
-            "} catch 1 {\n"
-            "    echo 1\n"
-            "} catch {\n"
-            "    echo any\n"
-            "}\n",
-            NULL, session);
-        ASTNode *ast1 = parse(l1, session);
+        LexerInput *l1   = init_lexer_input(NULL,
+                                            "try {\n"
+                                            "    do_something\n"
+                                            "} catch 1 {\n"
+                                            "    echo 1\n"
+                                            "} catch {\n"
+                                            "    echo any\n"
+                                            "}\n",
+                                            NULL, session);
+        ASTNode    *ast1 = parse(l1, session);
         assertneq(ast1, NULL);
         asserteq(ast1->type, NODE_TRY);
         assertneq(ast1->left, NULL);
@@ -1149,7 +1158,7 @@ describe(ast) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         LexerInput *l1 = init_lexer_input(NULL, "try arg1 arg2", NULL, session);
-        ASTNode *ast1 = parse(l1, session);
+        ASTNode    *ast1 = parse(l1, session);
         assertneq(ast1, NULL);
         asserteq(ast1->type, NODE_COMMAND);
         asserteq(ast1->argc, 3);
@@ -1170,22 +1179,25 @@ describe(ast) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Missing catch or finally
-        LexerInput *l1 = init_lexer_input(NULL, "try { echo 1; }", NULL, session);
+        LexerInput *l1 =
+            init_lexer_input(NULL, "try { echo 1; }", NULL, session);
         ASTNode *ast1 = parse(l1, session);
         asserteq(ast1, NULL);
         free_lexer_input(l1);
         free(l1);
 
         // Unclosed try body
-        LexerInput *l2 = init_lexer_input(NULL, "try { echo 1; catch { echo 2; }", NULL, session);
+        LexerInput *l2 = init_lexer_input(
+            NULL, "try { echo 1; catch { echo 2; }", NULL, session);
         ASTNode *ast2 = parse(l2, session);
         asserteq(ast2, NULL);
         free_lexer_input(l2);
         free(l2);
 
         // Missing { after catch
-        LexerInput *l3 = init_lexer_input(NULL, "try { echo 1; } catch echo 2;", NULL, session);
-        ASTNode *ast3 = parse(l3, session);
+        LexerInput *l3 = init_lexer_input(NULL, "try { echo 1; } catch echo 2;",
+                                          NULL, session);
+        ASTNode    *ast3 = parse(l3, session);
         asserteq(ast3, NULL);
         free_lexer_input(l3);
         free(l3);

@@ -106,17 +106,18 @@ Session *init_session(Session *session, char *history_path) {
     // Initialize feature flags (all enabled by default)
     init_features(&session->features);
 
-    session->options.monitor    = session->features.job_control;
-    session->options.noglob     = !session->features.filename_expansion;
-    session->ignore_errexit     = 0;
-    session->allowed_exit_codes = NULL;
-    session->fs_sandbox         = NULL;
-    session->net_sandbox        = NULL;
-    session->limit_sandbox      = NULL;
-    session->active_child_count = 0;
-    session->try_depth          = 0;
-    session->try_caught         = false;
-    session->try_exit_code      = 0;
+    session->options.monitor      = session->features.job_control;
+    session->options.noglob       = !session->features.filename_expansion;
+    session->options.default_glob = false;
+    session->ignore_errexit       = 0;
+    session->allowed_exit_codes   = NULL;
+    session->fs_sandbox           = NULL;
+    session->net_sandbox          = NULL;
+    session->limit_sandbox        = NULL;
+    session->active_child_count   = 0;
+    session->try_depth            = 0;
+    session->try_caught           = false;
+    session->try_exit_code        = 0;
 
     // Initialize working directories
     update_working_dir(session);

@@ -196,6 +196,14 @@ describe(set) {
         assert(!session->options.noglob);
         assert(session->features.filename_expansion);
 
+        char *argv_dg_on[] = {"set", "-o", "default-glob"};
+        asserteq(builtin_set(3, argv_dg_on, session), 0);
+        assert(session->options.default_glob);
+
+        char *argv_dg_off[] = {"set", "+o", "default-glob"};
+        asserteq(builtin_set(3, argv_dg_off, session), 0);
+        assert(!session->options.default_glob);
+
         free_session(session);
         free(session);
     }

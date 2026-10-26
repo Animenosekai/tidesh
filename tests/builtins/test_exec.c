@@ -107,7 +107,7 @@ describe(exec_builtin) {
     }
 
     it("should fail with 126 if target is not executable") {
-        Session *session   = init_session(NULL, NULL);
+        Session    *session  = init_session(NULL, NULL);
         const char *tmp_file = "/tmp/test_exec_noexec.txt";
         FILE       *f        = fopen(tmp_file, "w");
         if (f) {
@@ -160,8 +160,8 @@ describe(exec_builtin) {
 
         Session *session = init_session(NULL, NULL);
         char     cmd[256];
-        snprintf(cmd, sizeof(cmd),
-                 "( exec > %s; echo inside subshell )", out_path);
+        snprintf(cmd, sizeof(cmd), "( exec > %s; echo inside subshell )",
+                 out_path);
         int st = execute_string(cmd, session);
         asserteq(st, 0);
 
@@ -203,8 +203,8 @@ describe(exec_builtin) {
             snprintf(cmd, sizeof(cmd), "exec > %s", out_path);
             execute_string(cmd, session);
 
-            char *argv[] = {"exec", "-a", "custom_sh_name", "/bin/sh",
-                            "-c",   "echo $0",              NULL};
+            char *argv[] = {"exec",    "-a", "custom_sh_name", "/bin/sh", "-c",
+                            "echo $0", NULL};
             builtin_exec(6, argv, session);
             exit(1);
         }
@@ -233,7 +233,7 @@ describe(exec_builtin) {
             snprintf(cmd, sizeof(cmd), "exec > %s", out_path);
             execute_string(cmd, session);
 
-            char *argv[] = {"exec", "-l",  "-a",      "login_sh",
+            char *argv[] = {"exec",    "-l", "-a",      "login_sh",
                             "/bin/sh", "-c", "echo $0", NULL};
             builtin_exec(7, argv, session);
             exit(1);
@@ -259,7 +259,8 @@ describe(exec_builtin) {
         asserteq(pid >= 0, true);
         if (pid == 0) {
             Session *session = init_session(NULL, NULL);
-            environ_set(session->environ, "TIDESH_TEST_VAR", "should_be_cleared");
+            environ_set(session->environ, "TIDESH_TEST_VAR",
+                        "should_be_cleared");
 
             char cmd[256];
             snprintf(cmd, sizeof(cmd), "exec > %s", out_path);

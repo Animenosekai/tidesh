@@ -329,7 +329,8 @@ describe(test) {
         snprintf(fd_str, sizeof(fd_str), "%d", p[0]);
 
         char *argv_test[] = {"test", "-t", fd_str};
-        asserteq(builtin_test(3, argv_test, session), 1); // false (pipe is not a tty)
+        asserteq(builtin_test(3, argv_test, session),
+                 1); // false (pipe is not a tty)
 
         char *argv_bracket[] = {"[", "-t", fd_str, "]"};
         asserteq(bracket_func(4, argv_bracket, session), 1); // false
@@ -359,7 +360,8 @@ describe(test) {
         asserteq(bracket_func(4, argv_bracket, session), expected);
 
         char *argv_bracket_neg[] = {"[", "!", "-t", "1", "]"};
-        asserteq(bracket_func(5, argv_bracket_neg, session), expected == 0 ? 1 : 0);
+        asserteq(bracket_func(5, argv_bracket_neg, session),
+                 expected == 0 ? 1 : 0);
 
         free_session(session);
         free(session);
@@ -380,7 +382,8 @@ describe(test) {
         asserteq(bracket_func(3, argv_bracket, session), expected);
 
         char *argv_bracket_neg[] = {"[", "!", "-t", "]"};
-        asserteq(bracket_func(4, argv_bracket_neg, session), expected == 0 ? 1 : 0);
+        asserteq(bracket_func(4, argv_bracket_neg, session),
+                 expected == 0 ? 1 : 0);
 
         free_session(session);
         free(session);

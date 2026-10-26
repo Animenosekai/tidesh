@@ -203,10 +203,9 @@ describe(trap_builtin) {
 
         Session *session = init_session(NULL, NULL);
         char     cmd[256];
-        snprintf(
-            cmd, sizeof(cmd),
-            "( trap 'echo subshell_exit >> %s' EXIT; echo inside >> %s )",
-            out_path, out_path);
+        snprintf(cmd, sizeof(cmd),
+                 "( trap 'echo subshell_exit >> %s' EXIT; echo inside >> %s )",
+                 out_path, out_path);
         int st = execute_string(cmd, session);
         asserteq(st, 0);
 

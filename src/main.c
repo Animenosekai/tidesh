@@ -138,6 +138,8 @@ static void print_usage(const char *prog_name, bool colors) {
            "Disable command history");
     printf("  %s%-20s%s %s\n", option_clr, "--disable-hooks", reset,
            "Disable hook execution");
+    printf("  %s%-20s%s %s\n", option_clr, "--default-glob", reset,
+           "Use default system glob implementation");
 }
 
 #ifndef TESTING
@@ -162,6 +164,7 @@ int main(int argc, char **argv) {
     bool  disable_colors   = false;
     bool  disable_history  = false;
     bool  disable_hooks    = false;
+    bool  default_glob     = false;
 
     Array *script_args = init_array(NULL);
     if (!script_args) {
@@ -200,6 +203,8 @@ int main(int argc, char **argv) {
             disable_history = true;
         } else if (strcmp(argv[i], "--disable-hooks") == 0) {
             disable_hooks = true;
+        } else if (strcmp(argv[i], "--default-glob") == 0) {
+            default_glob = true;
         } else if (script_path == NULL) {
             script_path = argv[i];
         } else if (script_path != NULL) {
@@ -248,6 +253,10 @@ int main(int argc, char **argv) {
 
     if (disable_hooks) {
         session->hooks_disabled = true;
+    }
+
+    if (default_glob) {
+        session->options.default_glob = true;
     }
 
     if (argc > 0)
@@ -341,6 +350,10 @@ int main(int argc, char **argv) {
 
     if (disable_hooks) {
         session->hooks_disabled = true;
+    }
+
+    if (default_glob) {
+        session->options.default_glob = true;
     }
 
     // Run initial parent enter hooks after environment is set up from .tideshrc

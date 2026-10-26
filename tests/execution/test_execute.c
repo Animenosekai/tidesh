@@ -548,22 +548,27 @@ describe(execute) {
         char *out1 = execute_string_stdout(
             "greet(greeting = \"Hello\", name = \"World\")", session);
         assertneq(out1, NULL);
-        assert(strstr(out1, "Greeting: Hello, Name: World (pos: World, Hello)") !=
-               NULL);
+        assert(
+            strstr(out1, "Greeting: Hello, Name: World (pos: World, Hello)") !=
+            NULL);
         free(out1);
 
         // 2. Invocation with traditional shell syntax
-        char *out2 = execute_string_stdout("greet \"World\" \"Hello\"", session);
+        char *out2 =
+            execute_string_stdout("greet \"World\" \"Hello\"", session);
         assertneq(out2, NULL);
-        assert(strstr(out2, "Greeting: Hello, Name: World (pos: World, Hello)") !=
-               NULL);
+        assert(
+            strstr(out2, "Greeting: Hello, Name: World (pos: World, Hello)") !=
+            NULL);
         free(out2);
 
         // 3. Invocation with function call syntax and positional arguments
-        char *out3 = execute_string_stdout("greet(\"World\", \"Hello\")", session);
+        char *out3 =
+            execute_string_stdout("greet(\"World\", \"Hello\")", session);
         assertneq(out3, NULL);
-        assert(strstr(out3, "Greeting: Hello, Name: World (pos: World, Hello)") !=
-               NULL);
+        assert(
+            strstr(out3, "Greeting: Hello, Name: World (pos: World, Hello)") !=
+            NULL);
         free(out3);
 
         free_session(session);
@@ -575,11 +580,10 @@ describe(execute) {
 
         environ_set(session->environ, "name", "GlobalName");
 
-        execute_string(
-            "test_scope(name, greeting) {\n"
-            "    echo \"inside: $name, $greeting\"\n"
-            "}",
-            session);
+        execute_string("test_scope(name, greeting) {\n"
+                       "    echo \"inside: $name, $greeting\"\n"
+                       "}",
+                       session);
 
         char *out = execute_string_stdout(
             "test_scope(greeting = \"Hi\", name = \"InnerName\")", session);
@@ -595,7 +599,8 @@ describe(execute) {
         free(session);
     }
 
-    it("should allow old fashion function definition alongside named parameters") {
+    it("should allow old fashion function definition alongside named "
+       "parameters") {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         execute_string("old_func() { echo \"Old: $1, $2\"; }", session);
@@ -605,7 +610,8 @@ describe(execute) {
         assert(strstr(out1, "Old: foo, bar") != NULL);
         free(out1);
 
-        char *out2 = execute_string_stdout("old_func(\"foo\", \"bar\")", session);
+        char *out2 =
+            execute_string_stdout("old_func(\"foo\", \"bar\")", session);
         assertneq(out2, NULL);
         assert(strstr(out2, "Old: foo, bar") != NULL);
         free(out2);
@@ -617,7 +623,8 @@ describe(execute) {
     it("should support commands called with parentheses syntax") {
         Session *session = init_session(NULL, "/tmp/test_history");
 
-        char *out = execute_string_stdout("echo(\"hello\", \"world\")", session);
+        char *out =
+            execute_string_stdout("echo(\"hello\", \"world\")", session);
         assertneq(out, NULL);
         assert(strstr(out, "hello world") != NULL);
         free(out);
@@ -852,8 +859,8 @@ describe(execute) {
     it("should iterate over positional parameters when in is omitted") {
         Session *session = init_session(NULL, "/tmp/test_history");
         int      def = execute_string("test_for_pos() { RES=\"\"; for arg; do "
-                                 "RES=\"${RES}${arg}.\"; done; }",
-                                 session);
+                                      "RES=\"${RES}${arg}.\"; done; }",
+                                      session);
         asserteq(def, 0);
         int run = execute_string("test_for_pos one two three", session);
         asserteq(run, 0);
@@ -1346,15 +1353,13 @@ describe(execute) {
         environ_set(session->environ, "FILEPATH", "path/to/my.tar.gz");
 
         // Shortest prefix removal: ${FILEPATH#*/}
-        char *out1 =
-            execute_string_stdout("echo \"${FILEPATH#*/}\"", session);
+        char *out1 = execute_string_stdout("echo \"${FILEPATH#*/}\"", session);
         assertneq(out1, NULL);
         asserteq_str(out1, "to/my.tar.gz");
         free(out1);
 
         // Longest prefix removal: ${FILEPATH##*/}
-        char *out2 =
-            execute_string_stdout("echo \"${FILEPATH##*/}\"", session);
+        char *out2 = execute_string_stdout("echo \"${FILEPATH##*/}\"", session);
         assertneq(out2, NULL);
         asserteq_str(out2, "my.tar.gz");
         free(out2);
@@ -1369,15 +1374,13 @@ describe(execute) {
         environ_set(session->environ, "FILEPATH", "path/to/my.tar.gz");
 
         // Shortest suffix removal: ${FILEPATH%.*}
-        char *out1 =
-            execute_string_stdout("echo \"${FILEPATH%.*}\"", session);
+        char *out1 = execute_string_stdout("echo \"${FILEPATH%.*}\"", session);
         assertneq(out1, NULL);
         asserteq_str(out1, "path/to/my.tar");
         free(out1);
 
         // Longest suffix removal: ${FILEPATH%%.*}
-        char *out2 =
-            execute_string_stdout("echo \"${FILEPATH%%.*}\"", session);
+        char *out2 = execute_string_stdout("echo \"${FILEPATH%%.*}\"", session);
         assertneq(out2, NULL);
         asserteq_str(out2, "path/to/my");
         free(out2);
@@ -1463,7 +1466,8 @@ describe(execute) {
         free(session);
     }
 
-    it("should support nested parameter expansions and leading whitespace trimming") {
+    it("should support nested parameter expansions and leading whitespace "
+       "trimming") {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         environ_set(session->environ, "line", "   hello world");
@@ -1476,8 +1480,8 @@ describe(execute) {
         free(out);
 
         // Default value with spaces and inner quotes
-        char *out2 =
-            execute_string_stdout("echo \"${UNSET_FOO:-\"bar baz\"}\"", session);
+        char *out2 = execute_string_stdout("echo \"${UNSET_FOO:-\"bar baz\"}\"",
+                                           session);
         assertneq(out2, NULL);
         asserteq_str(out2, "bar baz");
         free(out2);
@@ -1487,7 +1491,7 @@ describe(execute) {
     }
 
     it("should obey nounset (set -u) for parameter expansions") {
-        Session *session = init_session(NULL, "/tmp/test_history");
+        Session *session         = init_session(NULL, "/tmp/test_history");
         session->options.nounset = true;
 
         // Missing variable with # should fail under nounset
@@ -1499,7 +1503,8 @@ describe(execute) {
         assertneq(st2, 0);
 
         // Missing variable with / should fail under nounset
-        int st3 = execute_string("echo \"${UNBOUND_REPLACE_VAR/foo/bar}\"", session);
+        int st3 =
+            execute_string("echo \"${UNBOUND_REPLACE_VAR/foo/bar}\"", session);
         assertneq(st3, 0);
 
         // Missing variable with : should fail under nounset
@@ -1513,7 +1518,8 @@ describe(execute) {
     it("should execute commands and case statements with adjacent quotes") {
         Session *session = init_session(NULL, "/tmp/test_history");
 
-        // Case statement pattern with adjacent quote and glob: ("#bench" | "#bench"[[:space:]]*)
+        // Case statement pattern with adjacent quote and glob: ("#bench" |
+        // "#bench"[[:space:]]*)
         char *out1 = execute_string_stdout(
             "line=\"#bench foo\"; case \"$line\" in "
             "(\"#bench\" | \"#bench\"[[:space:]]*) echo \"matched_bench\" ;; "
@@ -1524,7 +1530,8 @@ describe(execute) {
         free(out1);
 
         // Concatenated quotes in word
-        char *out2 = execute_string_stdout("echo \"hello\"\"world\" 'foo'\"bar\"", session);
+        char *out2 = execute_string_stdout(
+            "echo \"hello\"\"world\" 'foo'\"bar\"", session);
         assertneq(out2, NULL);
         asserteq_str(out2, "helloworld foobar");
         free(out2);
@@ -1537,13 +1544,15 @@ describe(execute) {
         asserteq_str(val, "abcdefghi");
 
         // Escaped quotes in double quotes
-        char *out3 = execute_string_stdout("echo \"hello \\\"world\\\"\"", session);
+        char *out3 =
+            execute_string_stdout("echo \"hello \\\"world\\\"\"", session);
         assertneq(out3, NULL);
         asserteq_str(out3, "hello \"world\"");
         free(out3);
 
         // Piping into ast builtin reading stdin
-        char *out4 = execute_string_stdout("echo \"echo hello\" | ast", session);
+        char *out4 =
+            execute_string_stdout("echo \"echo hello\" | ast", session);
         assertneq(out4, NULL);
         assert(strstr(out4, "NODE_COMMAND") != NULL);
         assert(strstr(out4, "[\"echo\", \"hello\"]") != NULL);
@@ -1564,70 +1573,72 @@ describe(execute) {
         asserteq_str(val, "yes");
 
         // if false { ... } else { ... }
-        st = execute_string("RES=init; if false { RES=no; } else { RES=else_branch; }", session);
+        st = execute_string(
+            "RES=init; if false { RES=no; } else { RES=else_branch; }",
+            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "else_branch");
 
         // if false { ... } elif true { ... } else { ... }
-        st = execute_string(
-            "RES=init; if false { RES=branch1; } elif true { RES=branch2; } else { RES=branch3; }",
-            session);
+        st = execute_string("RES=init; if false { RES=branch1; } elif true { "
+                            "RES=branch2; } else { RES=branch3; }",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "branch2");
 
         // if false { ... } else if true { ... } else { ... }
-        st = execute_string(
-            "RES=init; if false { RES=b1; } else if true { RES=b2; } else { RES=b3; }",
-            session);
+        st = execute_string("RES=init; if false { RES=b1; } else if true { "
+                            "RES=b2; } else { RES=b3; }",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "b2");
 
         // With parentheses around condition: if (condition) { ... }
-        st = execute_string("RES=init; if (test 1 -eq 1) { RES=paren_ok; }", session);
+        st = execute_string("RES=init; if (test 1 -eq 1) { RES=paren_ok; }",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "paren_ok");
 
         // With test brackets [ ... ]
-        st = execute_string("RES=init; if [ \"abc\" = \"abc\" ] { RES=bracket_ok; }", session);
+        st = execute_string(
+            "RES=init; if [ \"abc\" = \"abc\" ] { RES=bracket_ok; }", session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "bracket_ok");
 
         // Multi-line block style with newlines before braces
-        st = execute_string(
-            "RES=init\n"
-            "if false\n"
-            "{\n"
-            "    RES=wrong\n"
-            "}\n"
-            "else\n"
-            "{\n"
-            "    RES=multi_line_ok\n"
-            "}\n",
-            session);
+        st = execute_string("RES=init\n"
+                            "if false\n"
+                            "{\n"
+                            "    RES=wrong\n"
+                            "}\n"
+                            "else\n"
+                            "{\n"
+                            "    RES=multi_line_ok\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "multi_line_ok");
 
         // Block style if followed by another statement on next line
-        st = execute_string(
-            "X=0\n"
-            "Y=0\n"
-            "if true {\n"
-            "    X=1\n"
-            "}\n"
-            "Y=2\n",
-            session);
+        st = execute_string("X=0\n"
+                            "Y=0\n"
+                            "if true {\n"
+                            "    X=1\n"
+                            "}\n"
+                            "Y=2\n",
+                            session);
         asserteq(st, 0);
         char *vx = environ_get(session->environ, "X");
         char *vy = environ_get(session->environ, "Y");
@@ -1637,44 +1648,41 @@ describe(execute) {
         asserteq_str(vy, "2");
 
         // Nested block-style conditionals
-        st = execute_string(
-            "OUT=init\n"
-            "if true {\n"
-            "    if false {\n"
-            "        OUT=inner_false\n"
-            "    } else {\n"
-            "        OUT=inner_true\n"
-            "    }\n"
-            "}\n",
-            session);
+        st = execute_string("OUT=init\n"
+                            "if true {\n"
+                            "    if false {\n"
+                            "        OUT=inner_false\n"
+                            "    } else {\n"
+                            "        OUT=inner_true\n"
+                            "    }\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "OUT");
         assertneq(val, NULL);
         asserteq_str(val, "inner_true");
 
         // Mixed nesting: POSIX inside block style
-        st = execute_string(
-            "OUT=init\n"
-            "if true {\n"
-            "    if true; then\n"
-            "        OUT=posix_in_block\n"
-            "    fi\n"
-            "}\n",
-            session);
+        st = execute_string("OUT=init\n"
+                            "if true {\n"
+                            "    if true; then\n"
+                            "        OUT=posix_in_block\n"
+                            "    fi\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "OUT");
         assertneq(val, NULL);
         asserteq_str(val, "posix_in_block");
 
         // Mixed nesting: block style inside POSIX
-        st = execute_string(
-            "OUT=init\n"
-            "if true; then\n"
-            "    if true {\n"
-            "        OUT=block_in_posix\n"
-            "    }\n"
-            "fi\n",
-            session);
+        st = execute_string("OUT=init\n"
+                            "if true; then\n"
+                            "    if true {\n"
+                            "        OUT=block_in_posix\n"
+                            "    }\n"
+                            "fi\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "OUT");
         assertneq(val, NULL);
@@ -1682,11 +1690,10 @@ describe(execute) {
 
         // Redirection with block style
         unlink("/tmp/test_block_redir.txt");
-        st = execute_string(
-            "if true {\n"
-            "    echo \"block_redir_content\"\n"
-            "} > /tmp/test_block_redir.txt\n",
-            session);
+        st = execute_string("if true {\n"
+                            "    echo \"block_redir_content\"\n"
+                            "} > /tmp/test_block_redir.txt\n",
+                            session);
         asserteq(st, 0);
         FILE *rf = fopen("/tmp/test_block_redir.txt", "r");
         assertneq(rf, NULL);
@@ -1700,20 +1707,22 @@ describe(execute) {
         free(session);
     }
 
-    it("should maintain full backward compatibility with POSIX conditional statements") {
+    it("should maintain full backward compatibility with POSIX conditional "
+       "statements") {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Standard POSIX if then fi
-        int st = execute_string("RES=init; if true; then RES=posix_yes; fi", session);
+        int st = execute_string("RES=init; if true; then RES=posix_yes; fi",
+                                session);
         asserteq(st, 0);
         char *val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "posix_yes");
 
         // Standard POSIX if then elif then else fi
-        st = execute_string(
-            "RES=init; if false; then RES=1; elif true; then RES=2; else RES=3; fi",
-            session);
+        st = execute_string("RES=init; if false; then RES=1; elif true; then "
+                            "RES=2; else RES=3; fi",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
@@ -1721,8 +1730,7 @@ describe(execute) {
 
         // POSIX with braces inside then body
         st = execute_string(
-            "RES=init; if true; then { RES=block_in_body; }; fi",
-            session);
+            "RES=init; if true; then { RES=block_in_body; }; fi", session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
@@ -1730,8 +1738,7 @@ describe(execute) {
 
         // POSIX with condition as a block: if { cmd; }; then ... fi
         st = execute_string(
-            "RES=init; if { true; }; then RES=block_cond_ok; fi",
-            session);
+            "RES=init; if { true; }; then RES=block_cond_ok; fi", session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
@@ -1753,37 +1760,36 @@ describe(execute) {
         asserteq_str(val, "abc");
 
         // Parenthesized block-style for loop
-        st = execute_string(
-            "ACC=\"\"; for (x in d e f) { ACC=\"${ACC}$x\"; }", session);
+        st = execute_string("ACC=\"\"; for (x in d e f) { ACC=\"${ACC}$x\"; }",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
         asserteq_str(val, "def");
 
         // Multi-line block-style for loop
-        st = execute_string(
-            "ACC=\"\"\n"
-            "for item in 1 2 3 {\n"
-            "    ACC=\"${ACC}${item}\"\n"
-            "}\n",
-            session);
+        st = execute_string("ACC=\"\"\n"
+                            "for item in 1 2 3 {\n"
+                            "    ACC=\"${ACC}${item}\"\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
         asserteq_str(val, "123");
 
         // Break and continue in block-style for loop
-        st = execute_string(
-            "ACC=\"\"; for x in 1 2 3 4 5 { if test \"$x\" = \"3\" { break; } ACC=\"${ACC}$x\"; }",
-            session);
+        st = execute_string("ACC=\"\"; for x in 1 2 3 4 5 { if test \"$x\" = "
+                            "\"3\" { break; } ACC=\"${ACC}$x\"; }",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
         asserteq_str(val, "12");
 
-        st = execute_string(
-            "ACC=\"\"; for x in 1 2 3 4 5 { if test \"$x\" = \"3\" { continue; } ACC=\"${ACC}$x\"; }",
-            session);
+        st = execute_string("ACC=\"\"; for x in 1 2 3 4 5 { if test \"$x\" = "
+                            "\"3\" { continue; } ACC=\"${ACC}$x\"; }",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
@@ -1792,14 +1798,14 @@ describe(execute) {
         // Redirection on block-style for loop
         const char *outfile = "/tmp/test_for_block_redir.txt";
         unlink(outfile);
-        st = execute_string(
-            "for i in x y z { echo \"item_$i\"; } > /tmp/test_for_block_redir.txt",
-            session);
+        st = execute_string("for i in x y z { echo \"item_$i\"; } > "
+                            "/tmp/test_for_block_redir.txt",
+                            session);
         asserteq(st, 0);
         FILE *f = fopen(outfile, "r");
         assertneq(f, NULL);
-        char buf[128] = {0};
-        size_t bytes = fread(buf, 1, sizeof(buf) - 1, f);
+        char   buf[128] = {0};
+        size_t bytes    = fread(buf, 1, sizeof(buf) - 1, f);
         fclose(f);
         unlink(outfile);
         assert(bytes > 0);
@@ -1813,32 +1819,31 @@ describe(execute) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Basic while loop
-        int st = execute_string(
-            "ACC=\"\"; I=\"\"; while test \"$I\" != \"aaa\" { I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
-            session);
+        int st = execute_string("ACC=\"\"; I=\"\"; while test \"$I\" != "
+                                "\"aaa\" { I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
+                                session);
         asserteq(st, 0);
         char *val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
         asserteq_str(val, "aaaaaa");
 
         // Parenthesized while loop
-        st = execute_string(
-            "ACC=\"\"; I=\"\"; while (test \"$I\" != \"aaa\") { I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
-            session);
+        st = execute_string("ACC=\"\"; I=\"\"; while (test \"$I\" != \"aaa\") "
+                            "{ I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
         asserteq_str(val, "aaaaaa");
 
         // Multi-line while loop
-        st = execute_string(
-            "ACC=\"\"\n"
-            "I=\"\"\n"
-            "while test \"$I\" != \"aa\" {\n"
-            "    I=\"${I}a\"\n"
-            "    ACC=\"${ACC}$I\"\n"
-            "}\n",
-            session);
+        st = execute_string("ACC=\"\"\n"
+                            "I=\"\"\n"
+                            "while test \"$I\" != \"aa\" {\n"
+                            "    I=\"${I}a\"\n"
+                            "    ACC=\"${ACC}$I\"\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
@@ -1859,18 +1864,18 @@ describe(execute) {
         asserteq_str(val, "aaaa");
 
         // Basic until loop
-        st = execute_string(
-            "ACC=\"\"; I=\"\"; until test \"$I\" = \"aaa\" { I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
-            session);
+        st = execute_string("ACC=\"\"; I=\"\"; until test \"$I\" = \"aaa\" { "
+                            "I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
         asserteq_str(val, "aaaaaa");
 
         // Parenthesized until loop
-        st = execute_string(
-            "ACC=\"\"; I=\"\"; until (test \"$I\" = \"aaa\") { I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
-            session);
+        st = execute_string("ACC=\"\"; I=\"\"; until (test \"$I\" = \"aaa\") { "
+                            "I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
@@ -1880,13 +1885,14 @@ describe(execute) {
         const char *outfile = "/tmp/test_while_block_redir.txt";
         unlink(outfile);
         st = execute_string(
-            "I=\"\"; while test \"$I\" != \"aaa\" { I=\"${I}a\"; echo \"run_$I\"; } > /tmp/test_while_block_redir.txt",
+            "I=\"\"; while test \"$I\" != \"aaa\" { I=\"${I}a\"; echo "
+            "\"run_$I\"; } > /tmp/test_while_block_redir.txt",
             session);
         asserteq(st, 0);
         FILE *f = fopen(outfile, "r");
         assertneq(f, NULL);
-        char buf[128] = {0};
-        size_t bytes = fread(buf, 1, sizeof(buf) - 1, f);
+        char   buf[128] = {0};
+        size_t bytes    = fread(buf, 1, sizeof(buf) - 1, f);
         fclose(f);
         unlink(outfile);
         assert(bytes > 0);
@@ -1896,7 +1902,8 @@ describe(execute) {
         free(session);
     }
 
-    it("should maintain full backward compatibility with POSIX loops and nested mixed loops") {
+    it("should maintain full backward compatibility with POSIX loops and "
+       "nested mixed loops") {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Standard POSIX for loop
@@ -1915,48 +1922,50 @@ describe(execute) {
         assertneq(val, NULL);
         asserteq_str(val, "12");
 
-        // POSIX while loop with condition as a block: while { ...; }; do ... done
-        st = execute_string(
-            "ACC=\"\"; I=\"\"; while { test \"$I\" != \"aa\"; }; do I=\"${I}a\"; ACC=\"${ACC}$I\"; done",
-            session);
+        // POSIX while loop with condition as a block: while { ...; }; do ...
+        // done
+        st = execute_string("ACC=\"\"; I=\"\"; while { test \"$I\" != \"aa\"; "
+                            "}; do I=\"${I}a\"; ACC=\"${ACC}$I\"; done",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
         asserteq_str(val, "aaa");
 
-        // POSIX until loop with condition as a block: until { ...; }; do ... done
-        st = execute_string(
-            "ACC=\"\"; I=\"\"; until { test \"$I\" = \"aa\"; }; do I=\"${I}a\"; ACC=\"${ACC}$I\"; done",
-            session);
+        // POSIX until loop with condition as a block: until { ...; }; do ...
+        // done
+        st = execute_string("ACC=\"\"; I=\"\"; until { test \"$I\" = \"aa\"; "
+                            "}; do I=\"${I}a\"; ACC=\"${ACC}$I\"; done",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
         asserteq_str(val, "aaa");
 
-        // Mixed nesting: block-style outer loop with POSIX inner loop and block-style conditional
-        st = execute_string(
-            "ACC=\"\"; for x in 1 2 {\n"
-            "    for y in a b; do\n"
-            "        if test \"$y\" = \"b\" { continue; }\n"
-            "        ACC=\"${ACC}${x}${y}\"\n"
-            "    done\n"
-            "}\n",
-            session);
+        // Mixed nesting: block-style outer loop with POSIX inner loop and
+        // block-style conditional
+        st = execute_string("ACC=\"\"; for x in 1 2 {\n"
+                            "    for y in a b; do\n"
+                            "        if test \"$y\" = \"b\" { continue; }\n"
+                            "        ACC=\"${ACC}${x}${y}\"\n"
+                            "    done\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
         asserteq_str(val, "1a2a");
 
-        // Mixed nesting: POSIX outer loop with block-style inner loop and POSIX conditional
-        st = execute_string(
-            "ACC=\"\"; for x in 1 2; do\n"
-            "    for y in a b {\n"
-            "        if test \"$y\" = \"a\"; then\n"
-            "            ACC=\"${ACC}${x}${y}\"\n"
-            "        fi\n"
-            "    }\n"
-            "done\n",
-            session);
+        // Mixed nesting: POSIX outer loop with block-style inner loop and POSIX
+        // conditional
+        st = execute_string("ACC=\"\"; for x in 1 2; do\n"
+                            "    for y in a b {\n"
+                            "        if test \"$y\" = \"a\"; then\n"
+                            "            ACC=\"${ACC}${x}${y}\"\n"
+                            "        fi\n"
+                            "    }\n"
+                            "done\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
@@ -1970,24 +1979,23 @@ describe(execute) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Success path: catch does not run
-        int st = execute_string(
-            "RES=init; try { RES=ok; } catch { RES=err; }", session);
+        int st = execute_string("RES=init; try { RES=ok; } catch { RES=err; }",
+                                session);
         asserteq(st, 0);
         char *val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "ok");
 
         // Failure path: command failure stops try block and jumps to catch
-        st = execute_string(
-            "RES=init; CODE=init;\n"
-            "try {\n"
-            "    (exit 1)\n"
-            "    RES=unreachable\n"
-            "} catch {\n"
-            "    CODE=$?\n"
-            "    RES=caught\n"
-            "}\n",
-            session);
+        st = execute_string("RES=init; CODE=init;\n"
+                            "try {\n"
+                            "    (exit 1)\n"
+                            "    RES=unreachable\n"
+                            "} catch {\n"
+                            "    CODE=$?\n"
+                            "    RES=caught\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
@@ -1997,14 +2005,13 @@ describe(execute) {
         asserteq_str(val, "1");
 
         // TIDE_TRY_STATUS environment variable
-        st = execute_string(
-            "STATUS=init;\n"
-            "try {\n"
-            "    (exit 42)\n"
-            "} catch {\n"
-            "    STATUS=$TIDE_TRY_STATUS\n"
-            "}\n",
-            session);
+        st = execute_string("STATUS=init;\n"
+                            "try {\n"
+                            "    (exit 42)\n"
+                            "} catch {\n"
+                            "    STATUS=$TIDE_TRY_STATUS\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "STATUS");
         assertneq(val, NULL);
@@ -2018,62 +2025,58 @@ describe(execute) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Targeted catch 1 matches exit code 1
-        int st = execute_string(
-            "RES=init;\n"
-            "try {\n"
-            "    (exit 1)\n"
-            "} catch 1 {\n"
-            "    RES=caught_one\n"
-            "} catch {\n"
-            "    RES=caught_other\n"
-            "}\n",
-            session);
+        int st = execute_string("RES=init;\n"
+                                "try {\n"
+                                "    (exit 1)\n"
+                                "} catch 1 {\n"
+                                "    RES=caught_one\n"
+                                "} catch {\n"
+                                "    RES=caught_other\n"
+                                "}\n",
+                                session);
         asserteq(st, 0);
         char *val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "caught_one");
 
         // Exit code 2 falls back to catch-all
-        st = execute_string(
-            "RES=init;\n"
-            "try {\n"
-            "    (exit 2)\n"
-            "} catch 1 {\n"
-            "    RES=caught_one\n"
-            "} catch {\n"
-            "    RES=caught_other\n"
-            "}\n",
-            session);
+        st = execute_string("RES=init;\n"
+                            "try {\n"
+                            "    (exit 2)\n"
+                            "} catch 1 {\n"
+                            "    RES=caught_one\n"
+                            "} catch {\n"
+                            "    RES=caught_other\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "caught_other");
 
         // Multiple target codes in parentheses: catch (1, 2)
-        st = execute_string(
-            "RES=init;\n"
-            "try {\n"
-            "    (exit 2)\n"
-            "} catch (1, 2) {\n"
-            "    RES=caught_one_or_two\n"
-            "} catch {\n"
-            "    RES=caught_other\n"
-            "}\n",
-            session);
+        st = execute_string("RES=init;\n"
+                            "try {\n"
+                            "    (exit 2)\n"
+                            "} catch (1, 2) {\n"
+                            "    RES=caught_one_or_two\n"
+                            "} catch {\n"
+                            "    RES=caught_other\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "caught_one_or_two");
 
         // Uncaught error code propagates exit status
-        st = execute_string(
-            "RES=init;\n"
-            "try {\n"
-            "    (exit 3)\n"
-            "} catch 1 {\n"
-            "    RES=caught_one\n"
-            "}\n",
-            session);
+        st = execute_string("RES=init;\n"
+                            "try {\n"
+                            "    (exit 3)\n"
+                            "} catch 1 {\n"
+                            "    RES=caught_one\n"
+                            "}\n",
+                            session);
         asserteq(st, 3);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
@@ -2088,7 +2091,8 @@ describe(execute) {
 
         // Success: try and finally run
         int st = execute_string(
-            "RES=\"\"; try { RES=\"${RES}try;\"; } catch { RES=\"${RES}catch;\"; } finally { RES=\"${RES}finally;\"; }",
+            "RES=\"\"; try { RES=\"${RES}try;\"; } catch { "
+            "RES=\"${RES}catch;\"; } finally { RES=\"${RES}finally;\"; }",
             session);
         asserteq(st, 0);
         char *val = environ_get(session->environ, "RES");
@@ -2096,17 +2100,16 @@ describe(execute) {
         asserteq_str(val, "try;finally;");
 
         // Error: catch and finally run
-        st = execute_string(
-            "RES=\"\";\n"
-            "try {\n"
-            "    (exit 1)\n"
-            "    RES=\"${RES}unreachable;\"\n"
-            "} catch {\n"
-            "    RES=\"${RES}catch;\"\n"
-            "} finally {\n"
-            "    RES=\"${RES}finally;\"\n"
-            "}\n",
-            session);
+        st = execute_string("RES=\"\";\n"
+                            "try {\n"
+                            "    (exit 1)\n"
+                            "    RES=\"${RES}unreachable;\"\n"
+                            "} catch {\n"
+                            "    RES=\"${RES}catch;\"\n"
+                            "} finally {\n"
+                            "    RES=\"${RES}finally;\"\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
@@ -2120,74 +2123,71 @@ describe(execute) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Default behavior: exit code 1 is caught
-        int st = execute_string(
-            "RES=init;\n"
-            "try {\n"
-            "    (exit 1)\n"
-            "    RES=ok\n"
-            "} catch {\n"
-            "    RES=caught_one\n"
-            "}\n",
-            session);
+        int st = execute_string("RES=init;\n"
+                                "try {\n"
+                                "    (exit 1)\n"
+                                "    RES=ok\n"
+                                "} catch {\n"
+                                "    RES=caught_one\n"
+                                "}\n",
+                                session);
         asserteq(st, 0);
         char *val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "caught_one");
 
-        // With allowed_exit_codes(1): exit code 1 is allowed and does NOT trigger catch,
-        // while exit code 2 is not allowed and DOES trigger catch!
-        st = execute_string(
-            "RES=init;\n"
-            "with allowed_exit_codes(1) {\n"
-            "    try {\n"
-            "        (exit 1)\n"
-            "        RES=allowed_one_ran\n"
-            "        (exit 2)\n"
-            "        RES=unreachable\n"
-            "    } catch 2 {\n"
-            "        RES=\"${RES}_caught_two\"\n"
-            "    } catch {\n"
-            "        RES=caught_other\n"
-            "    }\n"
-            "}\n",
-            session);
+        // With allowed_exit_codes(1): exit code 1 is allowed and does NOT
+        // trigger catch, while exit code 2 is not allowed and DOES trigger
+        // catch!
+        st = execute_string("RES=init;\n"
+                            "with allowed_exit_codes(1) {\n"
+                            "    try {\n"
+                            "        (exit 1)\n"
+                            "        RES=allowed_one_ran\n"
+                            "        (exit 2)\n"
+                            "        RES=unreachable\n"
+                            "    } catch 2 {\n"
+                            "        RES=\"${RES}_caught_two\"\n"
+                            "    } catch {\n"
+                            "        RES=caught_other\n"
+                            "    }\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "allowed_one_ran_caught_two");
 
         // with allowed_exit_codes(1, 2): both 1 and 2 are allowed
-        st = execute_string(
-            "RES=init;\n"
-            "with allowed_exit_codes(1, 2) {\n"
-            "    try {\n"
-            "        (exit 1)\n"
-            "        (exit 2)\n"
-            "        RES=both_allowed\n"
-            "    } catch {\n"
-            "        RES=caught_unexpected\n"
-            "    }\n"
-            "}\n",
-            session);
+        st = execute_string("RES=init;\n"
+                            "with allowed_exit_codes(1, 2) {\n"
+                            "    try {\n"
+                            "        (exit 1)\n"
+                            "        (exit 2)\n"
+                            "        RES=both_allowed\n"
+                            "    } catch {\n"
+                            "        RES=caught_unexpected\n"
+                            "    }\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "both_allowed");
 
         // Nesting with allowed_exit_codes inside try
-        st = execute_string(
-            "RES=init;\n"
-            "try {\n"
-            "    with allowed_exit_codes(1) {\n"
-            "        (exit 1)\n"
-            "        RES=inside_with_ok\n"
-            "    }\n"
-            "    (exit 1)\n"
-            "    RES=after_with_unreachable\n"
-            "} catch {\n"
-            "    RES=\"${RES}_caught_outside\"\n"
-            "}\n",
-            session);
+        st = execute_string("RES=init;\n"
+                            "try {\n"
+                            "    with allowed_exit_codes(1) {\n"
+                            "        (exit 1)\n"
+                            "        RES=inside_with_ok\n"
+                            "    }\n"
+                            "    (exit 1)\n"
+                            "    RES=after_with_unreachable\n"
+                            "} catch {\n"
+                            "    RES=\"${RES}_caught_outside\"\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
@@ -2201,57 +2201,54 @@ describe(execute) {
         Session *session = init_session(NULL, "/tmp/test_history");
 
         // Inner try catches error, outer execution continues
-        int st = execute_string(
-            "RES=\"\";\n"
-            "try {\n"
-            "    RES=\"${RES}outer_start;\"\n"
-            "    try {\n"
-            "        (exit 1)\n"
-            "    } catch 1 {\n"
-            "        RES=\"${RES}inner_caught;\"\n"
-            "    }\n"
-            "    RES=\"${RES}outer_end;\"\n"
-            "} catch {\n"
-            "    RES=\"${RES}outer_caught;\"\n"
-            "}\n",
-            session);
+        int st = execute_string("RES=\"\";\n"
+                                "try {\n"
+                                "    RES=\"${RES}outer_start;\"\n"
+                                "    try {\n"
+                                "        (exit 1)\n"
+                                "    } catch 1 {\n"
+                                "        RES=\"${RES}inner_caught;\"\n"
+                                "    }\n"
+                                "    RES=\"${RES}outer_end;\"\n"
+                                "} catch {\n"
+                                "    RES=\"${RES}outer_caught;\"\n"
+                                "}\n",
+                                session);
         asserteq(st, 0);
         char *val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "outer_start;inner_caught;outer_end;");
 
         // Inner try does not catch error, outer catches it
-        st = execute_string(
-            "RES=\"\";\n"
-            "try {\n"
-            "    try {\n"
-            "        (exit 2)\n"
-            "    } catch 1 {\n"
-            "        RES=\"${RES}inner_caught;\"\n"
-            "    }\n"
-            "    RES=\"${RES}inner_after;\"\n"
-            "} catch 2 {\n"
-            "    RES=\"${RES}outer_caught_2;\"\n"
-            "}\n",
-            session);
+        st = execute_string("RES=\"\";\n"
+                            "try {\n"
+                            "    try {\n"
+                            "        (exit 2)\n"
+                            "    } catch 1 {\n"
+                            "        RES=\"${RES}inner_caught;\"\n"
+                            "    }\n"
+                            "    RES=\"${RES}inner_after;\"\n"
+                            "} catch 2 {\n"
+                            "    RES=\"${RES}outer_caught_2;\"\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "RES");
         assertneq(val, NULL);
         asserteq_str(val, "outer_caught_2;");
 
         // Loop inside try breaks immediately on error
-        st = execute_string(
-            "ACC=\"\";\n"
-            "try {\n"
-            "    for x in 1 2 3 4 {\n"
-            "        if test \"$x\" = \"3\" { (exit 1); }\n"
-            "        ACC=\"${ACC}$x\"\n"
-            "    }\n"
-            "    ACC=\"${ACC}after_loop\"\n"
-            "} catch {\n"
-            "    ACC=\"${ACC}_caught\"\n"
-            "}\n",
-            session);
+        st = execute_string("ACC=\"\";\n"
+                            "try {\n"
+                            "    for x in 1 2 3 4 {\n"
+                            "        if test \"$x\" = \"3\" { (exit 1); }\n"
+                            "        ACC=\"${ACC}$x\"\n"
+                            "    }\n"
+                            "    ACC=\"${ACC}after_loop\"\n"
+                            "} catch {\n"
+                            "    ACC=\"${ACC}_caught\"\n"
+                            "}\n",
+                            session);
         asserteq(st, 0);
         val = environ_get(session->environ, "ACC");
         assertneq(val, NULL);
@@ -2260,14 +2257,14 @@ describe(execute) {
         // Redirection on try statement
         const char *outfile = "/tmp/test_try_redir.txt";
         unlink(outfile);
-        st = execute_string(
-            "try { echo \"try_out\"; (exit 1); } catch { echo \"catch_out\"; } > /tmp/test_try_redir.txt",
-            session);
+        st = execute_string("try { echo \"try_out\"; (exit 1); } catch { echo "
+                            "\"catch_out\"; } > /tmp/test_try_redir.txt",
+                            session);
         asserteq(st, 0);
         FILE *f = fopen(outfile, "r");
         assertneq(f, NULL);
-        char buf[128] = {0};
-        size_t bytes = fread(buf, 1, sizeof(buf) - 1, f);
+        char   buf[128] = {0};
+        size_t bytes    = fread(buf, 1, sizeof(buf) - 1, f);
         fclose(f);
         unlink(outfile);
         assert(bytes > 0);

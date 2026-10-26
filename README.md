@@ -150,6 +150,7 @@ or by using arguments when running tidesh.
 | `--disable-colors` | Disable terminal colors |
 | `--disable-history` | Disable command history |
 | `--disable-hooks` | Disable hook execution |
+| `--default-glob` | Use the default system `glob()` implementation instead of extended recursive globbing |
 
 ### Configuration
 
@@ -690,15 +691,18 @@ It supports complex brace expansions for generating multiple strings from patter
 
 #### Filename Expansion (Globbing)
 
-`glob`-style filename expansion is supported using the standard `glob` algorithm :
+`glob`-style filename expansion is supported:
 
-- `*` - Matches any string of characters
+- `*` - Matches any string of characters within a path component
+- `**` - Matches zero or more directories recursively (e.g. `**/*.c`, `src/**`)
 - `?` - Matches any single character
 - `[...]` - Matches any one character from the set
 - `[!...]` - Matches any one character not in the set
 
-> [!NOTE]  
-> This features relies on the POSIX `glob` function, which doesn't support some advanced patterns like `**` for recursive matching.
+By default, `tidesh` uses an extended globbing implementation that supports `**` for recursive path matching. If you want to use the standard system POSIX `glob` implementation instead, you can:
+- Pass the `--default-glob` flag on startup (e.g. `tidesh --default-glob`)
+- Run `set -o default-glob` (and revert with `set +o default-glob`)
+- Use the `options` context manager: `with options("default-glob") { ... }`
 
 #### Command Substitution
 
