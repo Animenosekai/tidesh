@@ -136,6 +136,18 @@ ASTNode *ast_parse_for(Parser *parser, Session *session) {
         token = parser_peek(parser);
     }
 
+    // Optional leading '(' for C-style for (x in ...)
+    bool has_paren = false;
+    if (token->type == TOKEN_LPAREN) {
+        has_paren = true;
+        parser_skip(parser); // consume '('
+        token = parser_peek(parser);
+        while (token->type == TOKEN_EOL || token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+            token = parser_peek(parser);
+        }
+    }
+
     // Variable name
     LexerToken var_tok = parser_next(parser);
     if ((var_tok.type != TOKEN_WORD && var_tok.type != TOKEN_IN) ||
@@ -152,7 +164,7 @@ ASTNode *ast_parse_for(Parser *parser, Session *session) {
     add_argument(for_node, var_tok.value, 0);
     free_lexer_token(&var_tok);
 
-    // Skip newlines or comments before 'in' or ';' or 'do'
+    // Skip newlines or comments before 'in' or ';' or 'do' or '{'
     token = parser_peek(parser);
     while (token->type == TOKEN_EOL || token->type == TOKEN_COMMENT) {
         parser_skip(parser);
@@ -165,12 +177,13 @@ ASTNode *ast_parse_for(Parser *parser, Session *session) {
         for_node->for_has_in = true;
         parser_skip(parser); // consume 'in'
 
-        // Parse wordlist until ';', newline, 'do', or EOF
+        // Parse wordlist until ';', newline, 'do', '{', ')', or EOF
         while (true) {
             token = parser_peek(parser);
             if (token->type == TOKEN_SEMICOLON || token->type == TOKEN_EOL ||
-                token->type == TOKEN_DO || token->type == TOKEN_EOF ||
-                token->type == TOKEN_COMMENT) {
+                token->type == TOKEN_DO || token->type == TOKEN_LBRACE ||
+                token->type == TOKEN_EOF || token->type == TOKEN_COMMENT ||
+                (has_paren && token->type == TOKEN_RPAREN)) {
                 break;
             }
 
@@ -199,7 +212,18 @@ ASTNode *ast_parse_for(Parser *parser, Session *session) {
         for_node->for_has_in = false;
     }
 
-    // Skip newlines, semicolons, comments before 'do'
+    if (has_paren) {
+        token = parser_peek(parser);
+        while (token->type == TOKEN_EOL || token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+            token = parser_peek(parser);
+        }
+        if (token->type == TOKEN_RPAREN) {
+            parser_skip(parser); // consume ')'
+        }
+    }
+
+    // Skip newlines, semicolons, comments before 'do' or '{'
     token = parser_peek(parser);
     while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
            token->type == TOKEN_COMMENT) {
@@ -207,77 +231,106 @@ ASTNode *ast_parse_for(Parser *parser, Session *session) {
         token = parser_peek(parser);
     }
 
-    // Expect 'do'
-    if (token->type != TOKEN_DO) {
-        fprintf(stderr, "Syntax error: expected 'do' in for loop\n");
+    bool is_block_style = false;
+    if (token->type == TOKEN_DO) {
+        is_block_style = false;
+    } else if (token->type == TOKEN_LBRACE) {
+        is_block_style = true;
+    } else {
+        fprintf(stderr, "Syntax error: expected 'do' or '{' in for loop\n");
         parser->error = true;
         free_ast(for_node);
         free(for_node);
         return NULL;
     }
-    parser_skip(parser); // consume 'do'
 
-    // Skip newlines, semicolons, comments after 'do'
-    token = parser_peek(parser);
-    while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
-           token->type == TOKEN_COMMENT) {
-        parser_skip(parser);
-        token = parser_peek(parser);
-    }
-
-    // Parse the body commands until 'done'
     ASTNode *body = NULL;
-    while (true) {
-        token = parser_peek(parser);
-        if (token->type == TOKEN_DONE) {
-            break;
-        }
-        if (token->type == TOKEN_EOF) {
-            fprintf(stderr, "Syntax error: unexpected EOF in for loop\n");
+    if (is_block_style) {
+        parser_skip(parser); // consume '{'
+        body                 = ast_parse_sequence(parser, session);
+        LexerToken close_tok = parser_next(parser);
+        if (close_tok.type != TOKEN_RBRACE) {
+            fprintf(stderr, "Syntax error: expected '}' to close for loop\n");
             parser->error = true;
-            break;
+        }
+        free_lexer_token(&close_tok);
+    } else {
+        parser_skip(parser); // consume 'do'
+
+        // Skip newlines, semicolons, comments after 'do'
+        token = parser_peek(parser);
+        while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+               token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+            token = parser_peek(parser);
         }
 
-        ASTNode *cmd = ast_parse_conditional(parser, session);
-        if (!cmd) {
+        // Parse the body commands until 'done'
+        while (true) {
+            token = parser_peek(parser);
+            if (token->type == TOKEN_DONE) {
+                break;
+            }
+            if (token->type == TOKEN_EOF) {
+                fprintf(stderr, "Syntax error: unexpected EOF in for loop\n");
+                parser->error = true;
+                break;
+            }
+
+            ASTNode *cmd = ast_parse_conditional(parser, session);
+            if (!cmd) {
+                token = parser_peek(parser);
+                if (token->type == TOKEN_EOL ||
+                    token->type == TOKEN_SEMICOLON ||
+                    token->type == TOKEN_COMMENT) {
+                    parser_skip(parser);
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            if (!body) {
+                body = cmd;
+            } else {
+                ASTNode *seq = init_ast(NULL, NODE_SEQUENCE);
+                seq->left    = body;
+                seq->right   = cmd;
+                body         = seq;
+            }
+
             token = parser_peek(parser);
             if (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
                 token->type == TOKEN_COMMENT) {
                 parser_skip(parser);
-            } else {
-                break;
             }
-            continue;
         }
 
-        if (!body) {
-            body = cmd;
-        } else {
-            ASTNode *seq = init_ast(NULL, NODE_SEQUENCE);
-            seq->left    = body;
-            seq->right   = cmd;
-            body         = seq;
-        }
-
+        // Expect and consume 'done'
         token = parser_peek(parser);
-        if (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
-            token->type == TOKEN_COMMENT) {
+        if (token->type == TOKEN_DONE) {
             parser_skip(parser);
+        } else {
+            fprintf(stderr,
+                    "Syntax error: expected 'done' to close for loop\n");
+            parser->error = true;
         }
     }
 
-    // Expect and consume 'done'
-    token = parser_peek(parser);
-    if (token->type == TOKEN_DONE) {
-        parser_skip(parser);
-    } else {
-        fprintf(stderr, "Syntax error: expected 'done' to close for loop\n");
-        parser->error = true;
+    if (parser->error) {
+        if (body) {
+            free_ast(body);
+            free(body);
+        }
+        free_ast(for_node);
+        free(for_node);
+        return NULL;
     }
 
     for_node->left = body;
 
-    // Parse any redirections after 'done' (e.g. for ... done > out.txt)
+    // Parse any redirections after 'done' or '}' (e.g. for ... done > out.txt
+    // or for ... { ... } > out.txt)
     ast_parse_loop_redirects(parser, for_node, session);
 
     return for_node;
@@ -307,11 +360,15 @@ ASTNode *ast_parse_while_or_until(Parser *parser, Session *session,
 
     ASTNode *loop_node = init_ast(NULL, node_type);
 
-    // Parse the condition commands until 'do'
+    // Parse the condition commands until 'do' or '{' (when condition already
+    // started)
     ASTNode *condition = NULL;
     while (true) {
         token = parser_peek(parser);
         if (token->type == TOKEN_DO) {
+            break;
+        }
+        if (condition != NULL && token->type == TOKEN_LBRACE) {
             break;
         }
         if (token->type == TOKEN_EOF) {
@@ -358,20 +415,7 @@ ASTNode *ast_parse_while_or_until(Parser *parser, Session *session,
         return NULL;
     }
 
-    // Expect and consume 'do'
-    token = parser_peek(parser);
-    if (token->type != TOKEN_DO) {
-        fprintf(stderr, "Syntax error: expected 'do' in %s loop\n", name);
-        parser->error = true;
-        free_ast(condition);
-        free(condition);
-        free_ast(loop_node);
-        free(loop_node);
-        return NULL;
-    }
-    parser_skip(parser); // consume 'do'
-
-    // Skip newlines, semicolons, comments after 'do'
+    // Skip newlines, semicolons, comments before 'do' or '{'
     token = parser_peek(parser);
     while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
            token->type == TOKEN_COMMENT) {
@@ -379,61 +423,113 @@ ASTNode *ast_parse_while_or_until(Parser *parser, Session *session,
         token = parser_peek(parser);
     }
 
-    // Parse the body commands until 'done'
+    bool is_block_style = false;
+    if (token->type == TOKEN_DO) {
+        is_block_style = false;
+    } else if (token->type == TOKEN_LBRACE) {
+        is_block_style = true;
+    } else {
+        fprintf(stderr, "Syntax error: expected 'do' or '{' in %s loop\n",
+                name);
+        parser->error = true;
+        free_ast(condition);
+        free(condition);
+        free_ast(loop_node);
+        free(loop_node);
+        return NULL;
+    }
+
     ASTNode *body = NULL;
-    while (true) {
-        token = parser_peek(parser);
-        if (token->type == TOKEN_DONE) {
-            break;
-        }
-        if (token->type == TOKEN_EOF) {
-            fprintf(stderr, "Syntax error: unexpected EOF in %s loop\n", name);
+    if (is_block_style) {
+        parser_skip(parser); // consume '{'
+        body                 = ast_parse_sequence(parser, session);
+        LexerToken close_tok = parser_next(parser);
+        if (close_tok.type != TOKEN_RBRACE) {
+            fprintf(stderr, "Syntax error: expected '}' to close %s loop\n",
+                    name);
             parser->error = true;
-            break;
+        }
+        free_lexer_token(&close_tok);
+    } else {
+        parser_skip(parser); // consume 'do'
+
+        // Skip newlines, semicolons, comments after 'do'
+        token = parser_peek(parser);
+        while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+               token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+            token = parser_peek(parser);
         }
 
-        ASTNode *cmd = ast_parse_conditional(parser, session);
-        if (!cmd) {
+        // Parse the body commands until 'done'
+        while (true) {
+            token = parser_peek(parser);
+            if (token->type == TOKEN_DONE) {
+                break;
+            }
+            if (token->type == TOKEN_EOF) {
+                fprintf(stderr, "Syntax error: unexpected EOF in %s loop\n",
+                        name);
+                parser->error = true;
+                break;
+            }
+
+            ASTNode *cmd = ast_parse_conditional(parser, session);
+            if (!cmd) {
+                token = parser_peek(parser);
+                if (token->type == TOKEN_EOL ||
+                    token->type == TOKEN_SEMICOLON ||
+                    token->type == TOKEN_COMMENT) {
+                    parser_skip(parser);
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            if (!body) {
+                body = cmd;
+            } else {
+                ASTNode *seq = init_ast(NULL, NODE_SEQUENCE);
+                seq->left    = body;
+                seq->right   = cmd;
+                body         = seq;
+            }
+
             token = parser_peek(parser);
             if (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
                 token->type == TOKEN_COMMENT) {
                 parser_skip(parser);
-            } else {
-                break;
             }
-            continue;
         }
 
-        if (!body) {
-            body = cmd;
-        } else {
-            ASTNode *seq = init_ast(NULL, NODE_SEQUENCE);
-            seq->left    = body;
-            seq->right   = cmd;
-            body         = seq;
-        }
-
+        // Expect and consume 'done'
         token = parser_peek(parser);
-        if (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
-            token->type == TOKEN_COMMENT) {
+        if (token->type == TOKEN_DONE) {
             parser_skip(parser);
+        } else {
+            fprintf(stderr, "Syntax error: expected 'done' to close %s loop\n",
+                    name);
+            parser->error = true;
         }
     }
 
-    // Expect and consume 'done'
-    token = parser_peek(parser);
-    if (token->type == TOKEN_DONE) {
-        parser_skip(parser);
-    } else {
-        fprintf(stderr, "Syntax error: expected 'done' to close %s loop\n",
-                name);
-        parser->error = true;
+    if (parser->error) {
+        free_ast(condition);
+        free(condition);
+        if (body) {
+            free_ast(body);
+            free(body);
+        }
+        free_ast(loop_node);
+        free(loop_node);
+        return NULL;
     }
 
     loop_node->left  = condition;
     loop_node->right = body;
 
-    // Parse any redirections after 'done'
+    // Parse any redirections after 'done' or '}'
     ast_parse_loop_redirects(parser, loop_node, session);
 
     return loop_node;

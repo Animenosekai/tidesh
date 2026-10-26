@@ -925,4 +925,162 @@ describe(ast) {
         free_session(session);
         free(session);
     }
+
+    it("should parse block-style for loops") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // for x in a b c { echo $x; }
+        LexerInput *l1 = init_lexer_input(
+            NULL, "for x in a b c { echo $x; }", NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        assertneq(ast1, NULL);
+        asserteq(ast1->type, NODE_FOR);
+        assert(ast1->for_has_in);
+        asserteq(ast1->argc, 4);
+        asserteq_str(ast1->argv[0], "x");
+        asserteq_str(ast1->argv[1], "a");
+        asserteq_str(ast1->argv[2], "b");
+        asserteq_str(ast1->argv[3], "c");
+        assertneq(ast1->left, NULL);
+        free_ast(ast1);
+        free(ast1);
+        free_lexer_input(l1);
+        free(l1);
+
+        // for (x in a b c) { echo $x; }
+        LexerInput *l2 = init_lexer_input(
+            NULL, "for (x in a b c) { echo $x; }", NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+        assertneq(ast2, NULL);
+        asserteq(ast2->type, NODE_FOR);
+        assert(ast2->for_has_in);
+        asserteq(ast2->argc, 4);
+        asserteq_str(ast2->argv[0], "x");
+        assertneq(ast2->left, NULL);
+        free_ast(ast2);
+        free(ast2);
+        free_lexer_input(l2);
+        free(l2);
+
+        // for item { echo $item; }
+        LexerInput *l3 = init_lexer_input(
+            NULL, "for item { echo $item; }", NULL, session);
+        ASTNode *ast3 = parse(l3, session);
+        assertneq(ast3, NULL);
+        asserteq(ast3->type, NODE_FOR);
+        assert(!ast3->for_has_in);
+        asserteq(ast3->argc, 1);
+        asserteq_str(ast3->argv[0], "item");
+        assertneq(ast3->left, NULL);
+        free_ast(ast3);
+        free(ast3);
+        free_lexer_input(l3);
+        free(l3);
+
+        // Multi-line block-style for loop
+        LexerInput *l4 = init_lexer_input(
+            NULL,
+            "for x in 1 2 3 {\n"
+            "    echo $x\n"
+            "}\n",
+            NULL, session);
+        ASTNode *ast4 = parse(l4, session);
+        assertneq(ast4, NULL);
+        asserteq(ast4->type, NODE_FOR);
+        assertneq(ast4->left, NULL);
+        free_ast(ast4);
+        free(ast4);
+        free_lexer_input(l4);
+        free(l4);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should parse block-style while and until loops") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // while test $x -lt 5 { echo $x; }
+        LexerInput *l1 = init_lexer_input(
+            NULL, "while test $x -lt 5 { echo $x; }", NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        assertneq(ast1, NULL);
+        asserteq(ast1->type, NODE_WHILE);
+        assertneq(ast1->left, NULL);
+        assertneq(ast1->right, NULL);
+        free_ast(ast1);
+        free(ast1);
+        free_lexer_input(l1);
+        free(l1);
+
+        // while (test $x -lt 5) { echo $x; }
+        LexerInput *l2 = init_lexer_input(
+            NULL, "while (test $x -lt 5) { echo $x; }", NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+        assertneq(ast2, NULL);
+        asserteq(ast2->type, NODE_WHILE);
+        assertneq(ast2->left, NULL);
+        assertneq(ast2->right, NULL);
+        free_ast(ast2);
+        free(ast2);
+        free_lexer_input(l2);
+        free(l2);
+
+        // until test $x -ge 5 { echo $x; }
+        LexerInput *l3 = init_lexer_input(
+            NULL, "until test $x -ge 5 { echo $x; }", NULL, session);
+        ASTNode *ast3 = parse(l3, session);
+        assertneq(ast3, NULL);
+        asserteq(ast3->type, NODE_UNTIL);
+        assertneq(ast3->left, NULL);
+        assertneq(ast3->right, NULL);
+        free_ast(ast3);
+        free(ast3);
+        free_lexer_input(l3);
+        free(l3);
+
+        // until (test $x -ge 5) { echo $x; }
+        LexerInput *l4 = init_lexer_input(
+            NULL, "until (test $x -ge 5) { echo $x; }", NULL, session);
+        ASTNode *ast4 = parse(l4, session);
+        assertneq(ast4, NULL);
+        asserteq(ast4->type, NODE_UNTIL);
+        assertneq(ast4->left, NULL);
+        assertneq(ast4->right, NULL);
+        free_ast(ast4);
+        free(ast4);
+        free_lexer_input(l4);
+        free(l4);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should return NULL on syntax errors in block-style loops") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Missing closing } in for loop
+        LexerInput *l1 = init_lexer_input(NULL, "for x in a b { echo 1;", NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        asserteq(ast1, NULL);
+        free_lexer_input(l1);
+        free(l1);
+
+        // Missing closing } in while loop
+        LexerInput *l2 = init_lexer_input(NULL, "while test $x -lt 5 { echo 1;", NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+        asserteq(ast2, NULL);
+        free_lexer_input(l2);
+        free(l2);
+
+        // Missing closing } in until loop
+        LexerInput *l3 = init_lexer_input(NULL, "until test $x -ge 5 { echo 1;", NULL, session);
+        ASTNode *ast3 = parse(l3, session);
+        asserteq(ast3, NULL);
+        free_lexer_input(l3);
+        free(l3);
+
+        free_session(session);
+        free(session);
+    }
 }

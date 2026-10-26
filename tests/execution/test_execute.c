@@ -1740,4 +1740,229 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should execute block-style for loops") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Basic block-style for loop
+        int st = execute_string(
+            "ACC=\"\"; for x in a b c { ACC=\"${ACC}$x\"; }", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "abc");
+
+        // Parenthesized block-style for loop
+        st = execute_string(
+            "ACC=\"\"; for (x in d e f) { ACC=\"${ACC}$x\"; }", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "def");
+
+        // Multi-line block-style for loop
+        st = execute_string(
+            "ACC=\"\"\n"
+            "for item in 1 2 3 {\n"
+            "    ACC=\"${ACC}${item}\"\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "123");
+
+        // Break and continue in block-style for loop
+        st = execute_string(
+            "ACC=\"\"; for x in 1 2 3 4 5 { if test \"$x\" = \"3\" { break; } ACC=\"${ACC}$x\"; }",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "12");
+
+        st = execute_string(
+            "ACC=\"\"; for x in 1 2 3 4 5 { if test \"$x\" = \"3\" { continue; } ACC=\"${ACC}$x\"; }",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "1245");
+
+        // Redirection on block-style for loop
+        const char *outfile = "/tmp/test_for_block_redir.txt";
+        unlink(outfile);
+        st = execute_string(
+            "for i in x y z { echo \"item_$i\"; } > /tmp/test_for_block_redir.txt",
+            session);
+        asserteq(st, 0);
+        FILE *f = fopen(outfile, "r");
+        assertneq(f, NULL);
+        char buf[128] = {0};
+        size_t bytes = fread(buf, 1, sizeof(buf) - 1, f);
+        fclose(f);
+        unlink(outfile);
+        assert(bytes > 0);
+        asserteq_str(buf, "item_x\nitem_y\nitem_z\n");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should execute block-style while and until loops") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Basic while loop
+        int st = execute_string(
+            "ACC=\"\"; I=\"\"; while test \"$I\" != \"aaa\" { I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
+            session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "aaaaaa");
+
+        // Parenthesized while loop
+        st = execute_string(
+            "ACC=\"\"; I=\"\"; while (test \"$I\" != \"aaa\") { I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "aaaaaa");
+
+        // Multi-line while loop
+        st = execute_string(
+            "ACC=\"\"\n"
+            "I=\"\"\n"
+            "while test \"$I\" != \"aa\" {\n"
+            "    I=\"${I}a\"\n"
+            "    ACC=\"${ACC}$I\"\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "aaa");
+
+        // Break and continue in while loop
+        st = execute_string(
+            "ACC=\"\"; I=\"\"; while test \"$I\" != \"aaaaa\" {\n"
+            "    I=\"${I}a\"\n"
+            "    if test \"$I\" = \"aa\" { continue; }\n"
+            "    if test \"$I\" = \"aaaa\" { break; }\n"
+            "    ACC=\"${ACC}$I\"\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "aaaa");
+
+        // Basic until loop
+        st = execute_string(
+            "ACC=\"\"; I=\"\"; until test \"$I\" = \"aaa\" { I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "aaaaaa");
+
+        // Parenthesized until loop
+        st = execute_string(
+            "ACC=\"\"; I=\"\"; until (test \"$I\" = \"aaa\") { I=\"${I}a\"; ACC=\"${ACC}$I\"; }",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "aaaaaa");
+
+        // Redirection on block-style while loop
+        const char *outfile = "/tmp/test_while_block_redir.txt";
+        unlink(outfile);
+        st = execute_string(
+            "I=\"\"; while test \"$I\" != \"aaa\" { I=\"${I}a\"; echo \"run_$I\"; } > /tmp/test_while_block_redir.txt",
+            session);
+        asserteq(st, 0);
+        FILE *f = fopen(outfile, "r");
+        assertneq(f, NULL);
+        char buf[128] = {0};
+        size_t bytes = fread(buf, 1, sizeof(buf) - 1, f);
+        fclose(f);
+        unlink(outfile);
+        assert(bytes > 0);
+        asserteq_str(buf, "run_a\nrun_aa\nrun_aaa\n");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should maintain full backward compatibility with POSIX loops and nested mixed loops") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Standard POSIX for loop
+        int st = execute_string(
+            "ACC=\"\"; for x in a b c; do ACC=\"${ACC}$x\"; done", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "abc");
+
+        // POSIX for loop with brace block in body
+        st = execute_string(
+            "ACC=\"\"; for x in 1 2; do { ACC=\"${ACC}$x\"; }; done", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "12");
+
+        // POSIX while loop with condition as a block: while { ...; }; do ... done
+        st = execute_string(
+            "ACC=\"\"; I=\"\"; while { test \"$I\" != \"aa\"; }; do I=\"${I}a\"; ACC=\"${ACC}$I\"; done",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "aaa");
+
+        // POSIX until loop with condition as a block: until { ...; }; do ... done
+        st = execute_string(
+            "ACC=\"\"; I=\"\"; until { test \"$I\" = \"aa\"; }; do I=\"${I}a\"; ACC=\"${ACC}$I\"; done",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "aaa");
+
+        // Mixed nesting: block-style outer loop with POSIX inner loop and block-style conditional
+        st = execute_string(
+            "ACC=\"\"; for x in 1 2 {\n"
+            "    for y in a b; do\n"
+            "        if test \"$y\" = \"b\" { continue; }\n"
+            "        ACC=\"${ACC}${x}${y}\"\n"
+            "    done\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "1a2a");
+
+        // Mixed nesting: POSIX outer loop with block-style inner loop and POSIX conditional
+        st = execute_string(
+            "ACC=\"\"; for x in 1 2; do\n"
+            "    for y in a b {\n"
+            "        if test \"$y\" = \"a\"; then\n"
+            "            ACC=\"${ACC}${x}${y}\"\n"
+            "        fi\n"
+            "    }\n"
+            "done\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "1a2a");
+
+        free_session(session);
+        free(session);
+    }
 }

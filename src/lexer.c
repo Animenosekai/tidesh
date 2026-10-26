@@ -401,7 +401,7 @@ LexerToken lexer_next_token(LexerInput *input) {
                 char next = peek_next(input);
                 if (next == ' ' || next == '\t' || next == '\n' ||
                     next == '\r' || next == '\0' || next == ';' ||
-                    next == '&' || next == '|' ||
+                    next == '&' || next == '|' || next == '>' || next == '<' ||
                     strncmp(input->data + input->pos, "}else", 5) == 0 ||
                     strncmp(input->data + input->pos, "}elif", 5) == 0) {
                     advance(input);
