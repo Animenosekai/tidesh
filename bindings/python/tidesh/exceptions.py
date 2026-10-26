@@ -7,6 +7,8 @@ organized by category for better exception handling and debugging.
 
 from __future__ import annotations
 
+import builtins
+
 
 class TideshError(Exception):
     """
@@ -296,3 +298,163 @@ class DirectoryStackError(TideshError):
         super().__init__(message, cause=cause)
         self.directory = directory
         """The directory involved in the operation, if available."""
+
+
+class TimeoutError(TideshError, builtins.TimeoutError):
+    """Raised when a command or block exceeds its execution timeout limit."""
+
+    def __init__(
+        self,
+        message: str = "Command execution timed out",
+        *,
+        duration: float | int | str | None = None,
+        exit_code: int = 124,
+        command: str | None = None,
+        cause: BaseException | None = None,
+    ) -> None:
+        """
+        Initialize the exception with timeout details.
+
+        Parameters
+        ----------
+        message : str
+            A descriptive error message.
+        duration : float | int | str | None, optional
+            The configured timeout duration that was exceeded.
+        exit_code : int
+            The exit code associated with the timeout (default: 124).
+        command : str | None, optional
+            The command that timed out, if available.
+        cause : BaseException | None, optional
+            The underlying cause of this error.
+        """
+        super().__init__(message, cause=cause)
+        self.duration = duration
+        self.exit_code = exit_code
+        self.command = command
+
+    def __str__(self) -> str:
+        msg = self.args[0] if self.args else "Command execution timed out"
+        if self.duration is not None:
+            msg += f" (duration: {self.duration})"
+        if self.command:
+            msg += f"\nCommand: {self.command}"
+        return msg
+
+    def __repr__(self) -> str:
+        return f"TimeoutError({self.args[0]!r}, duration={self.duration!r})"
+
+
+class ResourceLimitError(TideshError):
+    """
+    Raised when a command or block exceeds a system resource limit
+    (CPU time, memory, process/fork count).
+    """
+
+    def __init__(
+        self,
+        message: str = "Resource limit exceeded",
+        *,
+        resource: str | None = None,
+        exit_code: int | None = None,
+        command: str | None = None,
+        cause: BaseException | None = None,
+    ) -> None:
+        """
+        Initialize the exception with resource limit details.
+
+        Parameters
+        ----------
+        message : str
+            A descriptive error message.
+        resource : str | None, optional
+            The name of the resource limit exceeded ('cpu', 'memory', 'processes').
+        exit_code : int | None, optional
+            The exit code or termination signal status.
+        command : str | None, optional
+            The command that triggered the limit violation.
+        cause : BaseException | None, optional
+            The underlying cause of this error.
+        """
+        super().__init__(message, cause=cause)
+        self.resource = resource
+        self.exit_code = exit_code
+        self.command = command
+
+    def __str__(self) -> str:
+        msg = self.args[0] if self.args else "Resource limit exceeded"
+        if self.resource:
+            msg += f" (resource: {self.resource})"
+        if self.exit_code is not None:
+            msg += f" [exit code: {self.exit_code}]"
+        if self.command:
+            msg += f"\nCommand: {self.command}"
+        return msg
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}({self.args[0]!r}, resource={self.resource!r})"
+        )
+
+
+class CPULimitError(ResourceLimitError):
+    """Raised when CPU time limit (RLIMIT_CPU / SIGXCPU) is exceeded."""
+
+    def __init__(
+        self,
+        message: str = "CPU time limit exceeded",
+        *,
+        exit_code: int | None = None,
+        command: str | None = None,
+        cause: BaseException | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            resource="cpu",
+            exit_code=exit_code,
+            command=command,
+            cause=cause,
+        )
+
+
+class MemoryLimitError(ResourceLimitError):
+    """Raised when maximum RAM or virtual memory limit is exceeded."""
+
+    def __init__(
+        self,
+        message: str = "Memory limit exceeded",
+        *,
+        exit_code: int | None = None,
+        command: str | None = None,
+        cause: BaseException | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            resource="memory",
+            exit_code=exit_code,
+            command=command,
+            cause=cause,
+        )
+
+
+class ProcessLimitError(ResourceLimitError):
+    """
+    Raised when the maximum simultaneous process count is reached,
+    preventing further forks (fork-bomb protection).
+    """
+
+    def __init__(
+        self,
+        message: str = "Process limit reached (fork blocked)",
+        *,
+        exit_code: int | None = 126,
+        command: str | None = None,
+        cause: BaseException | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            resource="processes",
+            exit_code=exit_code,
+            command=command,
+            cause=cause,
+        )

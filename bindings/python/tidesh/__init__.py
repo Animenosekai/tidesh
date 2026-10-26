@@ -95,13 +95,18 @@ from .constants import Hook
 from .exceptions import (
     AliasError,
     CommandNotFoundError,
+    CPULimitError,
     DirectoryStackError,
     EnvironmentVariableError,
     ExecutionError,
     LexerError,
+    MemoryLimitError,
     ParseError,
+    ProcessLimitError,
+    ResourceLimitError,
     SessionError,
     TideshError,
+    TimeoutError,
 )
 from .lexer import Lexer, LexResult
 from .session import (

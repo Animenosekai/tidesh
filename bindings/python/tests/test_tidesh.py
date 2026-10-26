@@ -2,6 +2,8 @@ import json
 import os
 from pathlib import Path
 
+import pytest
+
 import tidesh
 
 
@@ -310,36 +312,33 @@ def test_redirection_syntax() -> None:
     assert ast_res.root.redirects[0].type == tidesh.TokenType.REDIRECT_OUT_ERR
 
     # Execution with &>
-    tmp_file = "/tmp/test_py_redir.txt"
-    if os.path.exists(tmp_file):
-        os.remove(tmp_file)
+    tmp_file = Path("/tmp/test_py_redir.txt")
+    if tmp_file.exists():
+        tmp_file.unlink()
 
     session.execute(f"echo py_redir &> {tmp_file}")
-    with open(tmp_file) as f:
-        content = f.read()
+    content = tmp_file.read_text()
     assert "py_redir" in content
 
     # Execution with &>>
     session.execute(f"echo py_append &>> {tmp_file}")
-    with open(tmp_file) as f:
-        content = f.read()
+    content = tmp_file.read_text()
     assert "py_redir" in content
     assert "py_append" in content
 
     # Execution with 2>&1
-    tmp_dup = "/tmp/test_py_dup.txt"
-    if os.path.exists(tmp_dup):
-        os.remove(tmp_dup)
+    tmp_dup = Path("/tmp/test_py_dup.txt")
+    if tmp_dup.exists():
+        tmp_dup.unlink()
 
     session.execute(f"ls /nonexistent_py_dir > {tmp_dup} 2>&1")
-    with open(tmp_dup) as f:
-        dup_content = f.read()
+    dup_content = tmp_dup.read_text()
     assert "nonexistent_py_dir" in dup_content
 
-    if os.path.exists(tmp_file):
-        os.remove(tmp_file)
-    if os.path.exists(tmp_dup):
-        os.remove(tmp_dup)
+    if tmp_file.exists():
+        tmp_file.unlink()
+    if tmp_dup.exists():
+        tmp_dup.unlink()
 
 
 def test_for_loop() -> None:
@@ -677,66 +676,68 @@ def test_filesystem_sandboxing_context_managers() -> None:
     created_tmp = None
     with session.tempdir(var="MY_SANDBOX") as tmp:
         created_tmp = tmp
-        assert os.path.isdir(tmp)
-        assert session.environ.get("MY_SANDBOX") == tmp
-        assert session.environ.get("TMPDIR") == tmp
+        assert isinstance(tmp, Path)
+        assert tmp.is_dir()
+        assert session.environ.get("MY_SANDBOX") == str(tmp)
+        assert session.environ.get("TMPDIR") == str(tmp)
         # CWD should be inside tempdir
-        assert os.path.samefile(session.cwd, tmp)
+        assert Path(session.cwd).samefile(tmp)
         # Should be able to create files inside tempdir
         ret = session.execute("echo 'inner' > file.txt")
         assert ret == 0
-        assert os.path.isfile(os.path.join(tmp, "file.txt"))
+        assert (tmp / "file.txt").is_file()
 
     # After exiting tempdir:
     assert session.cwd == orig_cwd
     assert "MY_SANDBOX" not in session.environ
-    assert not os.path.exists(created_tmp)
+    assert not created_tmp.exists()
 
     # 2. test sandbox with readonly mode
     # Writing to /tmp in normal mode
-    session.execute("echo 'normal' > /tmp/py_tidesh_test.txt")
+    normal_file = Path("/tmp/py_tidesh_test.txt")
+    fail_file = Path("/tmp/py_tidesh_fail.txt")
+    allowed_file = Path("/tmp/py_tidesh_allowed.txt")
+
+    session.execute(f"echo 'normal' > {normal_file}")
     with session.sandbox(readonly=True):
         # Write should be blocked
-        ret = session.execute("echo 'fail' > /tmp/py_tidesh_fail.txt")
+        ret = session.execute(f"echo 'fail' > {fail_file}")
         assert ret != 0
-        assert not os.path.exists("/tmp/py_tidesh_fail.txt")
+        assert not fail_file.exists()
 
     # With writable exception
     with session.sandbox(readonly=True, rw="/tmp"):
-        ret = session.execute("echo 'allowed' > /tmp/py_tidesh_allowed.txt")
+        ret = session.execute(f"echo 'allowed' > {allowed_file}")
         assert ret == 0
-        assert os.path.exists("/tmp/py_tidesh_allowed.txt")
+        assert allowed_file.exists()
 
-    if os.path.exists("/tmp/py_tidesh_test.txt"):
-        os.unlink("/tmp/py_tidesh_test.txt")
-    if os.path.exists("/tmp/py_tidesh_allowed.txt"):
-        os.unlink("/tmp/py_tidesh_allowed.txt")
+    normal_file.unlink(missing_ok=True)
+    allowed_file.unlink(missing_ok=True)
 
     # 3. test sandbox with rw and deny
+    sb_file = Path("/tmp/py_tidesh_sb.txt")
     with session.sandbox(rw=["/tmp"], deny=["/private_forbidden"]):
-        ret = session.execute("echo 'sb' > /tmp/py_tidesh_sb.txt")
+        ret = session.execute(f"echo 'sb' > {sb_file}")
         assert ret == 0
 
-    if os.path.exists("/tmp/py_tidesh_sb.txt"):
-        os.unlink("/tmp/py_tidesh_sb.txt")
+    sb_file.unlink(missing_ok=True)
 
     # 4. test chroot with read and write access inside jail
     import tempfile
 
-    jail = tempfile.mkdtemp(prefix="py_jail_")
+    jail = Path(tempfile.mkdtemp(prefix="py_jail_"))
     with session.chroot(jail):
-        assert os.path.samefile(session.cwd, jail)
+        assert Path(session.cwd).samefile(jail)
         # Verify read and write inside jail
         ret = session.execute("echo 'inside jail' > jail_file.txt")
         assert ret == 0
-        assert os.path.isfile(os.path.join(jail, "jail_file.txt"))
+        assert (jail / "jail_file.txt").is_file()
         ret = session.execute("cat jail_file.txt")
         assert ret == 0
 
     assert session.cwd == orig_cwd
-    if os.path.exists(os.path.join(jail, "jail_file.txt")):
-        os.unlink(os.path.join(jail, "jail_file.txt"))
-    os.rmdir(jail)
+    (jail / "jail_file.txt").unlink(missing_ok=True)
+    jail.rmdir()
 
 
 def test_network_sandboxing() -> None:
@@ -802,13 +803,74 @@ def test_network_sandboxing() -> None:
         # Write fails
         ret = session.execute("echo 'fail' > /tmp/py_unified_fail.txt")
         assert ret != 0
-        assert not os.path.exists("/tmp/py_unified_fail.txt")
+        assert not Path("/tmp/py_unified_fail.txt").exists()
 
         # Network fails
         ret = session.execute(
             "python3 -c 'import socket; s = socket.socket(); s.connect((\"1.1.1.1\", 80))'",
         )
         assert ret != 0
+
+
+def test_resource_limits_and_timeouts() -> None:
+    """Test execution timeouts, CPU limits, process limits, and fork bomb protection."""
+    session = tidesh.Session()
+
+    # 1. Timeout context manager: normal command completes before timeout
+    with session.timeout("2s"):
+        ret = session.execute("echo 'quick'")
+        assert ret == 0
+
+    # 2. Timeout context manager: long running command raises TimeoutError
+    with pytest.raises(tidesh.TimeoutError) as exc_info:
+        with session.timeout("200ms"):
+            session.execute("sleep 2")
+    assert exc_info.value.exit_code == 124
+
+    # 3. Timeout context manager with raise_on_timeout=False returns exit code 124
+    with session.timeout("200ms", raise_on_timeout=False):
+        ret = session.execute("sleep 2")
+        assert ret == 124
+
+    # 4. Process limits / fork-bomb protection (pids / procs) raises ProcessLimitError
+    with pytest.raises(tidesh.ProcessLimitError):
+        with session.pids(1):
+            session.execute("sleep 1 & sleep 1 &")
+
+    # 5. Process limits with raise_on_limit=False returns error status without raising
+    with session.pids(1, raise_on_limit=False):
+        ret = session.execute("sleep 1 & sleep 1 &")
+        assert ret != 0
+
+    # 6. Limits context manager with CPU limit raises CPULimitError (or ResourceLimitError)
+    with pytest.raises(tidesh.ResourceLimitError):
+        with session.limits(cpu="1s"):
+            session.execute("python3 -c 'while True: pass'")
+
+    # 7. Limits context manager with raise_on_limit=False returns non-zero without raising
+    with session.limits(cpu="1s", raise_on_limit=False):
+        ret = session.execute("python3 -c 'while True: pass'")
+        assert ret != 0
+
+    # 8. Unified sandbox with timeout raises TimeoutError
+    with pytest.raises(tidesh.TimeoutError) as exc_info:
+        with session.sandbox(timeout="200ms"):
+            session.execute("sleep 2")
+    assert exc_info.value.exit_code == 124
+
+    # 9. Unified sandbox with timeout and raise_on_timeout=False
+    with session.sandbox(timeout="200ms", raise_on_timeout=False):
+        ret = session.execute("sleep 2")
+        assert ret == 124
+
+    # 10. Unified sandbox with process limit raises ProcessLimitError
+    with pytest.raises(tidesh.ProcessLimitError):
+        with session.sandbox(procs=1):
+            session.execute("sleep 1 & sleep 1 &")
+
+    # 11. Shell-level with timeout statement in script returns exit code 124
+    ret = session.execute("with timeout('150ms') { sleep 2 }")
+    assert ret == 124
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import typing
 from collections.abc import Iterator, Mapping, MutableMapping, Sequence
+from pathlib import Path
 
 import typing_extensions
 
@@ -942,13 +943,13 @@ class DirectoryStack(Sequence[str]):
         """
         return list(self)
 
-    def push(self, path: str | os.PathLike[str]) -> bool:
+    def push(self, path: str | Path | os.PathLike[str]) -> bool:
         """
         Push the current directory onto the stack and change to the given path.
 
         Parameters
         ----------
-        path : str | os.PathLike[str]
+        path : str | Path | os.PathLike[str]
             The directory path to change to.
 
         Returns

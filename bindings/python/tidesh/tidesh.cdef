@@ -16,6 +16,9 @@ typedef struct Jobs Jobs;
 typedef struct Job Job;
 typedef struct Features Features;
 typedef struct ConditionalBranch ConditionalBranch;
+typedef struct FSSandbox FSSandbox;
+typedef struct NetSandbox NetSandbox;
+typedef struct LimitSandbox LimitSandbox;
 
 typedef enum CommandType {
     COMMAND_NOT_FOUND,
@@ -113,6 +116,9 @@ struct Session {
     ShellOptions options;
     bool         exit_requested;
     bool         hooks_disabled;
+    FSSandbox    *fs_sandbox;
+    NetSandbox   *net_sandbox;
+    LimitSandbox *limit_sandbox;
     ...;
 };
 
@@ -405,6 +411,33 @@ void net_sandbox_add_port(NetSandbox *sb, int port, bool allow);
 void net_sandbox_parse_ports(NetSandbox *sb, const char *port_list, bool allow);
 void net_sandbox_parse_domains(NetSandbox *sb, const char *domain_list);
 void net_sandbox_add_ip(NetSandbox *sb, const char *ip);
+
+// Resource Limits & Timeout Sandbox
+typedef struct LimitSandbox LimitSandbox;
+struct LimitSandbox {
+    bool is_active;
+    double timeout_seconds;
+    int timeout_signal;
+    bool timed_out;
+    uint64_t max_cpu_seconds;
+    int max_cpu_cores;
+    uint64_t max_memory_bytes;
+    int max_processes;
+    ...;
+};
+LimitSandbox *limit_sandbox_create(void);
+void limit_sandbox_free(LimitSandbox *sb);
+void limit_sandbox_push(Session *session, LimitSandbox *sb);
+LimitSandbox *limit_sandbox_pop(Session *session);
+uint64_t limit_sandbox_parse_bytes(const char *str);
+double limit_sandbox_parse_duration(const char *str);
+int limit_sandbox_parse_signal(const char *str);
+void limit_sandbox_start_timer(Session *session, LimitSandbox *sb);
+void limit_sandbox_stop_timer(Session *session, LimitSandbox *sb);
+bool limit_sandbox_is_timed_out(Session *session);
+bool limit_sandbox_is_limit_exceeded(Session *session);
+int limit_sandbox_get_exceeded_resource(Session *session);
+void limit_sandbox_clear_limit(Session *session);
 
 // General free
 void free(void *ptr);

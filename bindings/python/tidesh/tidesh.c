@@ -37,6 +37,7 @@
 #include "jobs.h"
 #include "lexer.h"
 #include "prompt/terminal.h"
+#include "sandbox.h"
 #include "session.h"
 
 const char *tidesh_compiler = __VERSION__;

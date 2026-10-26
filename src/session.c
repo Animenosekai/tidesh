@@ -112,6 +112,8 @@ Session *init_session(Session *session, char *history_path) {
     session->allowed_exit_codes = NULL;
     session->fs_sandbox         = NULL;
     session->net_sandbox        = NULL;
+    session->limit_sandbox      = NULL;
+    session->active_child_count = 0;
     session->try_depth          = 0;
     session->try_caught         = false;
     session->try_exit_code      = 0;
@@ -217,6 +219,13 @@ void free_session(Session *session) {
         NetSandbox *popped = net_sandbox_pop(session);
         if (popped) {
             net_sandbox_free(popped);
+        }
+    }
+
+    while (session->limit_sandbox) {
+        LimitSandbox *popped = limit_sandbox_pop(session);
+        if (popped) {
+            limit_sandbox_free(popped);
         }
     }
 }

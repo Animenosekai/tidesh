@@ -99,11 +99,13 @@ typedef struct Session {
     struct ContextFrame *context_stack;    // Active context unwind stack
 #endif
     struct AllowedExitCodes *allowed_exit_codes; // Active allowed exit codes
-    struct FSSandbox        *fs_sandbox;    // Active filesystem sandbox stack
-    struct NetSandbox       *net_sandbox;   // Active network sandbox stack
-    int                      try_depth;     // Nesting depth of try blocks
-    bool                     try_caught;    // Flag indicating exception raised
-    int                      try_exit_code; // Caught exit code
+    struct FSSandbox        *fs_sandbox;  // Active filesystem sandbox stack
+    struct NetSandbox       *net_sandbox; // Active network sandbox stack
+    struct LimitSandbox *limit_sandbox;   // Active resource limit sandbox stack
+    int  active_child_count; // Number of currently active child processes
+    int  try_depth;          // Nesting depth of try blocks
+    bool try_caught;         // Flag indicating exception raised
+    int  try_exit_code;      // Caught exit code
 } Session;
 
 /* Stack of configured allowed exit codes (e.g. via with

@@ -1137,10 +1137,13 @@ The shell includes built-in context managers for session manipulation and filesy
 | `session` | Snapshot the entire session state (working directory, environment variables, aliases, functions, shell options, umask, traps, and custom context managers) and revert all changes on exit. | `with session { ... }` |
 | `umask(mode)` | Temporarily change file creation mask, restoring previous mask on exit. | `with umask("077") { ... }` |
 | `tempdir(var=..., cd=..., cleanup=...)` | Create an isolated temporary workspace directory, export it to `$TMPDIR` / `$SANDBOX_DIR` (and optional custom variable), change into it, and recursively clean it up on exit. | `with tempdir(var="TMP") { ... }` |
-| `sandbox(ro=..., rw=..., deny=..., readonly=..., chroot=..., airgap=..., domains=..., ports=...)` | Unified filesystem and network sandbox. Supports fine-grained filesystem rules (read-only, read-write, deny), chroot jails, and network restrictions (airgap, allowed domains, port rules). | `with sandbox(readonly=true, airgap=true) { ... }` |
+| `sandbox(ro=..., rw=..., deny=..., readonly=..., chroot=..., airgap=..., domains=..., ports=..., timeout=..., memory=..., cpu=..., procs=...)` | Unified filesystem, network, and resource sandbox. Supports fine-grained filesystem rules (read-only, read-write, deny), chroot jails, network restrictions (airgap, allowed domains, port rules), execution timeouts, and resource caps. | `with sandbox(readonly=true, airgap=true, timeout=30) { ... }` |
 | `chroot(path, rw=..., ro=..., readonly=...)` | Jail filesystem access and directory navigation within the specified root directory, with read & write access enabled inside the jail by default. | `with chroot("/var/jail") { ... }` |
 | `airgap(loopback=...)` | Complete network air-gapping: disables all outbound/inbound network interfaces and connections, with optional loopback (`localhost`) support. | `with airgap { ... }` or `with airgap(loopback=true) { ... }` |
 | `network(domains=..., ports=..., deny_ports=..., offline=..., loopback=...)` | Fine-grained network restrictions: domain allowlists (e.g. github.com, npmjs.org), port whitelists/blacklists, and airgap controls. | `with network(domains="github.com:registry.npmjs.org", ports="443") { ... }` |
+| `timeout(duration...)` | Hard execution time limit on commands and blocks (e.g. `timeout(30)`, `timeout("5s")`), terminating commands and loops upon expiration (exit code 124). | `with timeout("10s") { ... }` |
+| `limits(cpu=..., memory=..., procs=..., cores=...)` | Resource caps: restrict CPU time (`RLIMIT_CPU`), CPU cores, memory/RAM (`RLIMIT_AS`), and process counts. | `with limits(memory="2GB", cpu="30s") { ... }` |
+| `pids(max)` | Limit maximum simultaneous child processes that the shell can spawn, preventing fork bombs. Aliases: `procs`, `nproc`. | `with procs(10) { ... }` |
 
 Multiple context managers can be combined in a single `with` statement:
 
@@ -1203,6 +1206,41 @@ with tempdir() {
     ls -l
 }
 ```
+
+###### Resource Limits, Timeouts & Fork-Bomb Protection
+
+`tidesh` provides kernel-level and shell-level sandboxing contexts to safeguard system resources:
+
+- **Execution Timeouts (`timeout`)**: Automatically terminates commands or in-process loops if they exceed the duration (exiting with standard code `124`):
+  ```sh
+  # Automatically killed after 5 seconds to prevent infinite loops:
+  with timeout("5s") {
+      python3 long_running_script.py
+  }
+  ```
+
+- **CPU & Memory Caps (`limits`)**: Enforces hard caps on CPU time (`RLIMIT_CPU`), CPU cores, and virtual memory/RAM:
+  ```sh
+  # Restrict CPU consumption and cap memory to 2GB:
+  with limits(memory="2GB", cpu="30s") {
+      ./untrusted_worker
+  }
+  ```
+
+- **Process Limits & Fork-Bomb Prevention (`pids` / `procs`)**: Caps the maximum simultaneous child processes that the shell can fork, preventing fork-bombs (`:(){ :|:& };:`) from freezing the machine:
+  ```sh
+  # Block spawning more than 5 processes simultaneously:
+  with procs(5) {
+      make -j20  # Additional forks are safely denied with 'Resource temporarily unavailable'
+  }
+  ```
+
+- **Unified Sandbox (`sandbox`)**: All filesystem, network, timeout, and resource rules can be combined in a single `sandbox(...)` block:
+  ```sh
+  with sandbox(readonly=true, airgap=true, timeout="10s", memory="1GB", procs=5) {
+      ./test_runner
+  }
+  ```
 
 ##### Execution Guarantees and Unwinding
 
@@ -1310,6 +1348,35 @@ with Session() as session:
 
     with session.network(domains=["github.com", "registry.npmjs.org"], allow_ports=[443]):
         session.execute("npm install express")  # Only allowed domains & ports
+
+    # Execution timeouts (raises tidesh.TimeoutError by default)
+    try:
+        with session.timeout("5s"):
+            session.execute("python3 worker.py")
+    except tidesh.TimeoutError as e:
+        print(f"Command timed out after {e.duration}: {e}")
+
+    # Pass raise_on_timeout=False to check exit code 124 manually instead of raising
+    with session.timeout("5s", raise_on_timeout=False):
+        if session.execute("python3 worker.py") == 124:
+            print("Timed out!")
+
+    # CPU, memory, and process limits (raises tidesh.ResourceLimitError by default)
+    try:
+        with session.limits(memory="2GB", cpu="10s"):
+            session.execute("./untrusted_task")
+    except tidesh.ResourceLimitError as e:
+        print(f"Resource cap reached: {e}")
+
+    try:
+        with session.pids(10):  # Fork-bomb protection
+            session.execute("make -j20")
+    except tidesh.ProcessLimitError as e:
+        print(f"Process limit hit: {e}")
+
+    # Unified sandbox combining filesystem, network, timeout, and resource caps
+    with session.sandbox(readonly=True, airgap=True, timeout="30s", memory="1GB"):
+        session.execute("./test_runner")
 ```
 
 ### Development

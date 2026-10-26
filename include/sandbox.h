@@ -9,6 +9,7 @@
 #define SANDBOX_H
 
 #include "sandbox/fs.h"
+#include "sandbox/limits.h"
 #include "sandbox/net.h"
 
 /**

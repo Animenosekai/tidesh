@@ -669,6 +669,21 @@ int execute_command(ASTNode *node, Session *session) {
         run_cwd_hook_with_vars(session, HOOK_BEFORE_EXEC, exec_vars, 2);
     }
 
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    if (!limit_sandbox_can_fork(session)) {
+        limit_sandbox_set_limit_exceeded(session, LIMIT_RESOURCE_PROCS);
+        fprintf(stderr,
+                "tidesh: fork: Resource temporarily unavailable (process limit "
+                "reached)\n");
+        free_expanded_args(argc, argv, arg_keys, arg_is_sub);
+        if (cmd_name_trimmed)
+            free(cmd_name_trimmed);
+        free(resolved_path);
+        environ_set_exit_status(session->environ, 126);
+        return 126;
+    }
+#endif
+
     pid_t pid = fork();
 
     if (pid == 0) {
@@ -849,6 +864,9 @@ int execute_command(ASTNode *node, Session *session) {
     }
 
     /* Parent Process */
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    limit_sandbox_child_started(session, pid);
+#endif
     char *cmd_str    = build_command_string(argv, argc);
     char *argv0_copy = argv && argv[0] ? strdup(argv[0]) : NULL;
     free_expanded_args(argc, argv, arg_keys, arg_is_sub);
@@ -910,11 +928,24 @@ int execute_command(ASTNode *node, Session *session) {
         int status = 0;
         while (waitpid(pid, &status, WUNTRACED) == -1) {
             if (errno == EINTR) {
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+                if (limit_sandbox_is_timed_out(session)) {
+                    kill(pid, limit_sandbox_get_timeout_signal(session));
+                    while (waitpid(pid, &status, WNOHANG) == 0) {
+                        usleep(1000);
+                        kill(pid, SIGKILL);
+                    }
+                    break;
+                }
+#endif
                 check_pending_traps(session);
                 continue;
             }
             break;
         }
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+        limit_sandbox_child_ended(session, pid);
+#endif
         check_pending_traps(session);
 
         if (session->terminal && isatty(STDIN_FILENO)) {
@@ -923,7 +954,13 @@ int execute_command(ASTNode *node, Session *session) {
         }
 
         int exit_status = 0;
-        if (WIFSTOPPED(status)) {
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+        if (limit_sandbox_is_timed_out(session)) {
+            session->exit_requested = false;
+            exit_status             = 124;
+        } else
+#endif
+            if (WIFSTOPPED(status)) {
 #ifndef TIDESH_DISABLE_JOB_CONTROL
             if (session->features.job_control) {
                 int job_id =
@@ -942,6 +979,11 @@ int execute_command(ASTNode *node, Session *session) {
 #endif
         } else if (WIFSIGNALED(status)) {
             exit_status = 128 + WTERMSIG(status);
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+            if (WTERMSIG(status) == SIGXCPU) {
+                limit_sandbox_set_limit_exceeded(session, LIMIT_RESOURCE_CPU);
+            }
+#endif
             char sig_buf[16];
             snprintf(sig_buf, sizeof(sig_buf), "%d", WTERMSIG(status));
             HookEnvVar sig_vars[] = {{"TIDE_SIGNAL", sig_buf}};

@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -397,12 +398,77 @@ struct hostent *tidesh_net_gethostbyname(const char *name) {
 #endif
 }
 
+/* -------------------------------------------------------------------------
+ * Memory Limit Interception
+ * ------------------------------------------------------------------------- */
+
+static inline uint64_t get_max_memory_limit(void) {
+    const char *mem_str = getenv("TIDESH_LIMIT_MAX_MEMORY");
+    if (!mem_str || mem_str[0] == '\0')
+        return 0;
+    return (uint64_t)strtoull(mem_str, NULL, 10);
+}
+
+static size_t g_mmap_allocated = 0;
+
+static void *tidesh_limit_mmap(void *addr, size_t length, int prot, int flags,
+                               int fd, off_t offset) {
+    uint64_t max_mem = get_max_memory_limit();
+    if (max_mem > 0) {
+#if defined(MAP_ANON)
+        bool is_anon = (flags & MAP_ANON) != 0;
+#elif defined(MAP_ANONYMOUS)
+        bool is_anon = (flags & MAP_ANONYMOUS) != 0;
+#else
+        bool is_anon = (fd == -1);
+#endif
+        if (is_anon) {
+            if (length > max_mem || g_mmap_allocated + length > max_mem) {
+                errno = ENOMEM;
+                return MAP_FAILED;
+            }
+            g_mmap_allocated += length;
+        }
+    }
+#if defined(__APPLE__)
+    return mmap(addr, length, prot, flags, fd, offset);
+#else
+    typedef void *(*real_mmap_t)(void *, size_t, int, int, int, off_t);
+    real_mmap_t real_fn = (real_mmap_t)dlsym(RTLD_NEXT, "mmap");
+    if (!real_fn) {
+        errno = ENOSYS;
+        return MAP_FAILED;
+    }
+    return real_fn(addr, length, prot, flags, fd, offset);
+#endif
+}
+
+static int tidesh_limit_munmap(void *addr, size_t length) {
+    uint64_t max_mem = get_max_memory_limit();
+    if (max_mem > 0 && g_mmap_allocated >= length) {
+        g_mmap_allocated -= length;
+    }
+#if defined(__APPLE__)
+    return munmap(addr, length);
+#else
+    typedef int (*real_munmap_t)(void *, size_t);
+    real_munmap_t real_fn = (real_munmap_t)dlsym(RTLD_NEXT, "munmap");
+    if (!real_fn) {
+        errno = ENOSYS;
+        return -1;
+    }
+    return real_fn(addr, length);
+#endif
+}
+
 #if defined(__APPLE__)
 DYLD_INTERPOSE(tidesh_net_socket, socket)
 DYLD_INTERPOSE(tidesh_net_connect, connect)
 DYLD_INTERPOSE(tidesh_net_bind, bind)
 DYLD_INTERPOSE(tidesh_net_getaddrinfo, getaddrinfo)
 DYLD_INTERPOSE(tidesh_net_gethostbyname, gethostbyname)
+DYLD_INTERPOSE(tidesh_limit_mmap, mmap)
+DYLD_INTERPOSE(tidesh_limit_munmap, munmap)
 #else
 int socket(int domain, int type, int protocol) {
     return tidesh_net_socket(domain, type, protocol);
@@ -419,5 +485,12 @@ int getaddrinfo(const char *node, const char *service,
 }
 struct hostent *gethostbyname(const char *name) {
     return tidesh_net_gethostbyname(name);
+}
+void *mmap(void *addr, size_t length, int prot, int flags, int fd,
+           off_t offset) {
+    return tidesh_limit_mmap(addr, length, prot, flags, fd, offset);
+}
+int munmap(void *addr, size_t length) {
+    return tidesh_limit_munmap(addr, length);
 }
 #endif

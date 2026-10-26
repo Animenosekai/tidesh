@@ -51,7 +51,13 @@ static int list_context_managers(Session *session) {
         "  airgap(loopback=...) Full air-gapping: disable all network "
         "connectivity\n"
         "  network(args...)     Network sandboxing (domains=..., ports=..., "
-        "offline=...)\n");
+        "offline=...)\n"
+        "  timeout(duration...) Hard execution time limit on commands and "
+        "blocks\n"
+        "  limits(args...)      CPU, memory, and process limits (cpu=..., "
+        "mem=...)\n"
+        "  pids(max)            Limit simultaneous spawned processes "
+        "(fork-bomb prevention)\n");
 
     if (session && session->context_managers) {
         printf("\nCustom context managers:\n");

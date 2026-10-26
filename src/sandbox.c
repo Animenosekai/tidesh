@@ -14,6 +14,7 @@ void sandbox_apply_child(Session *session) {
 
     fs_sandbox_apply_child(session);
     net_sandbox_apply_child(session);
+    limit_sandbox_apply_child(session);
 }
 
 bool sandbox_is_active(const Session *session) {
@@ -23,6 +24,8 @@ bool sandbox_is_active(const Session *session) {
     if (session->fs_sandbox && session->fs_sandbox->is_active)
         return true;
     if (session->net_sandbox && session->net_sandbox->is_active)
+        return true;
+    if (session->limit_sandbox && session->limit_sandbox->is_active)
         return true;
 
     return false;
@@ -39,5 +42,9 @@ void sandbox_free_all(Session *session) {
     if (session->net_sandbox) {
         net_sandbox_free_stack(session->net_sandbox);
         session->net_sandbox = NULL;
+    }
+    if (session->limit_sandbox) {
+        limit_sandbox_free_stack(session->limit_sandbox);
+        session->limit_sandbox = NULL;
     }
 }

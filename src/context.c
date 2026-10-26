@@ -14,6 +14,9 @@
 #include "ast.h"
 #include "context.h"
 #include "contexts/allowed_exit_codes.h"
+#include "contexts/limits.h"
+#include "contexts/pids.h"
+#include "contexts/timeout.h"
 #include "data/array.h"
 #include "data/dynamic.h"
 #include "data/trie.h"
@@ -224,7 +227,10 @@ bool is_builtin_context_manager(const char *name) {
             strcmp(name, "allowed_status") == 0 ||
             strcmp(name, "sandbox") == 0 || strcmp(name, "tempdir") == 0 ||
             strcmp(name, "chroot") == 0 || strcmp(name, "airgap") == 0 ||
-            strcmp(name, "network") == 0);
+            strcmp(name, "network") == 0 || strcmp(name, "timeout") == 0 ||
+            strcmp(name, "limits") == 0 || strcmp(name, "limit") == 0 ||
+            strcmp(name, "rlimit") == 0 || strcmp(name, "pids") == 0 ||
+            strcmp(name, "procs") == 0 || strcmp(name, "nproc") == 0);
 }
 
 /* -------------------------------------------------------------------------
@@ -368,6 +374,16 @@ static void unwind_active_context(Session *session, ActiveContext *act,
             context_exit_airgap(session, exit_status, act->builtin_state);
         } else if (strcmp(act->name, "network") == 0) {
             context_exit_network(session, exit_status, act->builtin_state);
+        } else if (strcmp(act->name, "timeout") == 0) {
+            context_exit_timeout(session, exit_status, act->builtin_state);
+        } else if (strcmp(act->name, "limits") == 0 ||
+                   strcmp(act->name, "limit") == 0 ||
+                   strcmp(act->name, "rlimit") == 0) {
+            context_exit_limits(session, exit_status, act->builtin_state);
+        } else if (strcmp(act->name, "pids") == 0 ||
+                   strcmp(act->name, "procs") == 0 ||
+                   strcmp(act->name, "nproc") == 0) {
+            context_exit_pids(session, exit_status, act->builtin_state);
         }
     } else if (act->custom_mgr && act->custom_mgr->exit_cmd &&
                act->custom_mgr->exit_cmd[0] != '\0') {
@@ -540,6 +556,22 @@ int execute_with_block(Session *session, ContextInvocation *invocations,
                 enter_status =
                     context_enter_network(session, expanded_args,
                                           inv->arg_count, &act->builtin_state);
+            } else if (strcmp(inv->name, "timeout") == 0) {
+                enter_status =
+                    context_enter_timeout(session, expanded_args,
+                                          inv->arg_count, &act->builtin_state);
+            } else if (strcmp(inv->name, "limits") == 0 ||
+                       strcmp(inv->name, "limit") == 0 ||
+                       strcmp(inv->name, "rlimit") == 0) {
+                enter_status =
+                    context_enter_limits(session, expanded_args, inv->arg_count,
+                                         &act->builtin_state);
+            } else if (strcmp(inv->name, "pids") == 0 ||
+                       strcmp(inv->name, "procs") == 0 ||
+                       strcmp(inv->name, "nproc") == 0) {
+                enter_status =
+                    context_enter_pids(session, expanded_args, inv->arg_count,
+                                       &act->builtin_state);
             }
         } else {
             CustomContextManager *custom =
@@ -635,6 +667,11 @@ int execute_with_block(Session *session, ContextInvocation *invocations,
     int body_status = 0;
     if (body) {
         body_status = execute(body, session);
+    }
+
+    if (limit_sandbox_is_timed_out(session)) {
+        session->exit_requested = false;
+        body_status             = 124;
     }
 
     // Unwind all active managers in LIFO order

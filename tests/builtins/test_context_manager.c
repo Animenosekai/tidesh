@@ -616,4 +616,78 @@ describe(context_manager) {
         free_session(session);
         free(session);
     }
+
+    it("should handle timeout context manager terminating long-running "
+       "commands") {
+        Session *session = init_session(NULL, NULL);
+
+        // Normal command completes within timeout
+        int st = execute_string("with timeout(seconds=2) {\n"
+                                "    echo 'quick'\n"
+                                "}\n",
+                                session);
+        asserteq(st, 0);
+
+        // Long running command exceeds timeout and gets killed (exit code 124)
+        st = execute_string("with timeout(duration=\"200ms\") {\n"
+                            "    sleep 3\n"
+                            "}\n",
+                            session);
+        asserteq(st, 124);
+
+        // In-process shell loop terminates on timeout without hanging
+        st = execute_string("with timeout(\"150ms\") {\n"
+                            "    while true; do\n"
+                            "        :\n"
+                            "    done\n"
+                            "}\n",
+                            session);
+        asserteq(st, 124);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should handle pids context manager preventing fork bombs") {
+        Session *session = init_session(NULL, NULL);
+
+        // Allow 1 process: first succeeds in background, second fails due to
+        // limit
+        int st = execute_string("with procs(1) {\n"
+                                "    sleep 1 &\n"
+                                "    sleep 1 &\n"
+                                "}\n",
+                                session);
+        assertneq(st, 0);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should handle limits context manager with CPU and resource limits") {
+        Session *session = init_session(NULL, NULL);
+
+        // CPU limit should kill process consuming excessive CPU time (SIGXCPU)
+        int st = execute_string("with limits(cpu=\"1s\") {\n"
+                                "    python3 -c 'while True: pass'\n"
+                                "}\n",
+                                session);
+        assertneq(st, 0);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should handle unified sandbox with timeout and process limits") {
+        Session *session = init_session(NULL, NULL);
+
+        int st = execute_string("with sandbox(timeout=\"200ms\") {\n"
+                                "    sleep 2\n"
+                                "}\n",
+                                session);
+        asserteq(st, 124);
+
+        free_session(session);
+        free(session);
+    }
 }

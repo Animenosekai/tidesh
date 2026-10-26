@@ -11,6 +11,7 @@
 #include "execute.h"
 #include "execute/pipeline.h"
 #include "hooks.h"
+#include "sandbox.h"
 #include "session.h"
 
 int execute_pipe(ASTNode *node, Session *session) {
@@ -22,26 +23,62 @@ int execute_pipe(ASTNode *node, Session *session) {
     int fds[2];
     if (pipe(fds) < 0)
         return 1;
+
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    if (!limit_sandbox_can_fork(session)) {
+        limit_sandbox_set_limit_exceeded(session, LIMIT_RESOURCE_PROCS);
+        close(fds[0]);
+        close(fds[1]);
+        fprintf(stderr, "tidesh: fork: Resource temporarily unavailable "
+                        "(process limit reached)\n");
+        return 126;
+    }
+#endif
+
     pid_t left = fork();
     if (left == 0) {
         traps_reset_for_subshell(session);
         signal(SIGINT, SIG_DFL);
         signal(SIGQUIT, SIG_DFL);
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+        sandbox_apply_child(session);
+#endif
         close(fds[0]);
         dup2(fds[1], STDOUT_FILENO);
         close(fds[1]);
         exit(execute(node->left, session));
     }
+
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    limit_sandbox_child_started(session, left);
+    if (!limit_sandbox_can_fork(session)) {
+        limit_sandbox_set_limit_exceeded(session, LIMIT_RESOURCE_PROCS);
+        close(fds[0]);
+        close(fds[1]);
+        kill(left, SIGKILL);
+        limit_sandbox_child_ended(session, left);
+        fprintf(stderr, "tidesh: fork: Resource temporarily unavailable "
+                        "(process limit reached)\n");
+        return 126;
+    }
+#endif
+
     pid_t right = fork();
     if (right == 0) {
         traps_reset_for_subshell(session);
         signal(SIGINT, SIG_DFL);
         signal(SIGQUIT, SIG_DFL);
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+        sandbox_apply_child(session);
+#endif
         close(fds[1]);
         dup2(fds[0], STDIN_FILENO);
         close(fds[0]);
         exit(execute(node->right, session));
     }
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    limit_sandbox_child_started(session, right);
+#endif
     close(fds[0]);
     close(fds[1]);
     int left_st  = 0;
@@ -50,6 +87,10 @@ int execute_pipe(ASTNode *node, Session *session) {
         ;
     while (waitpid(right, &right_st, 0) == -1 && errno == EINTR)
         ;
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    limit_sandbox_child_ended(session, left);
+    limit_sandbox_child_ended(session, right);
+#endif
     int exit_status = WEXITSTATUS(right_st);
     if (session->options.pipefail) {
         int right_code = WEXITSTATUS(right_st);
@@ -179,19 +220,35 @@ int execute_subshell(ASTNode *node, Session *session) {
         fprintf(stderr, "tidesh: subshells are disabled\n");
         return 127;
     }
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    if (!limit_sandbox_can_fork(session)) {
+        fprintf(stderr, "tidesh: fork: Resource temporarily unavailable "
+                        "(process limit reached)\n");
+        return 126;
+    }
+#endif
     run_cwd_hook(session, HOOK_ENTER_SUBSHELL);
     pid_t pid = fork();
     if (pid == 0) {
         traps_reset_for_subshell(session);
         signal(SIGINT, SIG_DFL);
         signal(SIGQUIT, SIG_DFL);
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+        sandbox_apply_child(session);
+#endif
         int ret = execute(node->left, session);
         session_run_exit_trap(session);
         exit(ret);
     }
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    limit_sandbox_child_started(session, pid);
+#endif
     int st = 0;
     while (waitpid(pid, &st, 0) == -1 && errno == EINTR)
         ;
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    limit_sandbox_child_ended(session, pid);
+#endif
     int exit_status = 0;
     if (WIFSIGNALED(st)) {
         exit_status = 128 + WTERMSIG(st);
