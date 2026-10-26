@@ -403,7 +403,9 @@ LexerToken lexer_next_token(LexerInput *input) {
                     next == '\r' || next == '\0' || next == ';' ||
                     next == '&' || next == '|' || next == '>' || next == '<' ||
                     strncmp(input->data + input->pos, "}else", 5) == 0 ||
-                    strncmp(input->data + input->pos, "}elif", 5) == 0) {
+                    strncmp(input->data + input->pos, "}elif", 5) == 0 ||
+                    strncmp(input->data + input->pos, "}catch", 6) == 0 ||
+                    strncmp(input->data + input->pos, "}finally", 8) == 0) {
                     advance(input);
                     token.type = TOKEN_RBRACE;
                     break;

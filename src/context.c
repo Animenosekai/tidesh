@@ -13,6 +13,7 @@
 
 #include "ast.h"
 #include "context.h"
+#include "contexts/allowed_exit_codes.h"
 #include "data/array.h"
 #include "data/dynamic.h"
 #include "data/trie.h"
@@ -190,7 +191,14 @@ bool is_builtin_context_manager(const char *name) {
         return false;
     return (strcmp(name, "cwd") == 0 || strcmp(name, "cd") == 0 ||
             strcmp(name, "env") == 0 || strcmp(name, "options") == 0 ||
-            strcmp(name, "umask") == 0 || strcmp(name, "session") == 0);
+            strcmp(name, "umask") == 0 || strcmp(name, "session") == 0 ||
+            strcmp(name, "allowed_exit_codes") == 0 ||
+            strcmp(name, "allow_exit_codes") == 0 ||
+            strcmp(name, "allowed_exit_code") == 0 ||
+            strcmp(name, "allow_exit_code") == 0 ||
+            strcmp(name, "allowed_codes") == 0 ||
+            strcmp(name, "allow_codes") == 0 ||
+            strcmp(name, "allowed_status") == 0);
 }
 
 /* -------------------------------------------------------------------------
@@ -315,6 +323,15 @@ static void unwind_active_context(Session *session, ActiveContext *act,
             context_exit_umask(session, exit_status, act->builtin_state);
         } else if (strcmp(act->name, "session") == 0) {
             context_exit_session(session, exit_status, act->builtin_state);
+        } else if (strcmp(act->name, "allowed_exit_codes") == 0 ||
+                   strcmp(act->name, "allow_exit_codes") == 0 ||
+                   strcmp(act->name, "allowed_exit_code") == 0 ||
+                   strcmp(act->name, "allow_exit_code") == 0 ||
+                   strcmp(act->name, "allowed_codes") == 0 ||
+                   strcmp(act->name, "allow_codes") == 0 ||
+                   strcmp(act->name, "allowed_status") == 0) {
+            context_exit_allowed_exit_codes(session, exit_status,
+                                            act->builtin_state);
         }
     } else if (act->custom_mgr && act->custom_mgr->exit_cmd &&
                act->custom_mgr->exit_cmd[0] != '\0') {
@@ -457,6 +474,16 @@ int execute_with_block(Session *session, ContextInvocation *invocations,
                 enter_status =
                     context_enter_session(session, expanded_args,
                                           inv->arg_count, &act->builtin_state);
+            } else if (strcmp(inv->name, "allowed_exit_codes") == 0 ||
+                       strcmp(inv->name, "allow_exit_codes") == 0 ||
+                       strcmp(inv->name, "allowed_exit_code") == 0 ||
+                       strcmp(inv->name, "allow_exit_code") == 0 ||
+                       strcmp(inv->name, "allowed_codes") == 0 ||
+                       strcmp(inv->name, "allow_codes") == 0 ||
+                       strcmp(inv->name, "allowed_status") == 0) {
+                enter_status = context_enter_allowed_exit_codes(
+                    session, expanded_args, inv->arg_count,
+                    &act->builtin_state);
             }
         } else {
             CustomContextManager *custom =

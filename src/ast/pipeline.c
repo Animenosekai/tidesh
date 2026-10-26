@@ -88,18 +88,26 @@ ASTNode *ast_parse_sequence(Parser *parser, Session *session) {
                 token->type == TOKEN_COMMENT) {
                 continue;
             }
-        } else if (left &&
-                   (left->type == NODE_CONDITIONAL || left->type == NODE_FOR ||
-                    left->type == NODE_WHILE || left->type == NODE_UNTIL ||
-                    left->type == NODE_BLOCK || left->type == NODE_WITH)) {
-            if (token->type == TOKEN_EOF || token->type == TOKEN_RPAREN ||
+        } else if (left) {
+            ASTNode *last = left;
+            while (last && last->type == NODE_SEQUENCE && last->right) {
+                last = last->right;
+            }
+            if (last && (last->type == NODE_CONDITIONAL ||
+                         last->type == NODE_FOR || last->type == NODE_WHILE ||
+                         last->type == NODE_UNTIL || last->type == NODE_BLOCK ||
+                         last->type == NODE_WITH || last->type == NODE_TRY)) {
+                if (token->type == TOKEN_EOF || token->type == TOKEN_RPAREN ||
 #ifndef TIDESH_DISABLE_BLOCKS
-                token->type == TOKEN_RBRACE ||
+                    token->type == TOKEN_RBRACE ||
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
-                token->type == TOKEN_DONE ||
+                    token->type == TOKEN_DONE ||
 #endif
-                token->type == TOKEN_COMMENT) {
+                    token->type == TOKEN_COMMENT) {
+                    break;
+                }
+            } else {
                 break;
             }
         } else

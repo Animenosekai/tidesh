@@ -1965,4 +1965,315 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should execute basic try-catch statements") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Success path: catch does not run
+        int st = execute_string(
+            "RES=init; try { RES=ok; } catch { RES=err; }", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "ok");
+
+        // Failure path: command failure stops try block and jumps to catch
+        st = execute_string(
+            "RES=init; CODE=init;\n"
+            "try {\n"
+            "    (exit 1)\n"
+            "    RES=unreachable\n"
+            "} catch {\n"
+            "    CODE=$?\n"
+            "    RES=caught\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "caught");
+        val = environ_get(session->environ, "CODE");
+        assertneq(val, NULL);
+        asserteq_str(val, "1");
+
+        // TIDE_TRY_STATUS environment variable
+        st = execute_string(
+            "STATUS=init;\n"
+            "try {\n"
+            "    (exit 42)\n"
+            "} catch {\n"
+            "    STATUS=$TIDE_TRY_STATUS\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "STATUS");
+        assertneq(val, NULL);
+        asserteq_str(val, "42");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support targeted catch blocks by exit code") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Targeted catch 1 matches exit code 1
+        int st = execute_string(
+            "RES=init;\n"
+            "try {\n"
+            "    (exit 1)\n"
+            "} catch 1 {\n"
+            "    RES=caught_one\n"
+            "} catch {\n"
+            "    RES=caught_other\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "caught_one");
+
+        // Exit code 2 falls back to catch-all
+        st = execute_string(
+            "RES=init;\n"
+            "try {\n"
+            "    (exit 2)\n"
+            "} catch 1 {\n"
+            "    RES=caught_one\n"
+            "} catch {\n"
+            "    RES=caught_other\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "caught_other");
+
+        // Multiple target codes in parentheses: catch (1, 2)
+        st = execute_string(
+            "RES=init;\n"
+            "try {\n"
+            "    (exit 2)\n"
+            "} catch (1, 2) {\n"
+            "    RES=caught_one_or_two\n"
+            "} catch {\n"
+            "    RES=caught_other\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "caught_one_or_two");
+
+        // Uncaught error code propagates exit status
+        st = execute_string(
+            "RES=init;\n"
+            "try {\n"
+            "    (exit 3)\n"
+            "} catch 1 {\n"
+            "    RES=caught_one\n"
+            "}\n",
+            session);
+        asserteq(st, 3);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "init");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should execute finally block on both success and error") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Success: try and finally run
+        int st = execute_string(
+            "RES=\"\"; try { RES=\"${RES}try;\"; } catch { RES=\"${RES}catch;\"; } finally { RES=\"${RES}finally;\"; }",
+            session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "try;finally;");
+
+        // Error: catch and finally run
+        st = execute_string(
+            "RES=\"\";\n"
+            "try {\n"
+            "    (exit 1)\n"
+            "    RES=\"${RES}unreachable;\"\n"
+            "} catch {\n"
+            "    RES=\"${RES}catch;\"\n"
+            "} finally {\n"
+            "    RES=\"${RES}finally;\"\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "catch;finally;");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should configure allowed exit codes using with allowed_exit_codes") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Default behavior: exit code 1 is caught
+        int st = execute_string(
+            "RES=init;\n"
+            "try {\n"
+            "    (exit 1)\n"
+            "    RES=ok\n"
+            "} catch {\n"
+            "    RES=caught_one\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "caught_one");
+
+        // With allowed_exit_codes(1): exit code 1 is allowed and does NOT trigger catch,
+        // while exit code 2 is not allowed and DOES trigger catch!
+        st = execute_string(
+            "RES=init;\n"
+            "with allowed_exit_codes(1) {\n"
+            "    try {\n"
+            "        (exit 1)\n"
+            "        RES=allowed_one_ran\n"
+            "        (exit 2)\n"
+            "        RES=unreachable\n"
+            "    } catch 2 {\n"
+            "        RES=\"${RES}_caught_two\"\n"
+            "    } catch {\n"
+            "        RES=caught_other\n"
+            "    }\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "allowed_one_ran_caught_two");
+
+        // with allowed_exit_codes(1, 2): both 1 and 2 are allowed
+        st = execute_string(
+            "RES=init;\n"
+            "with allowed_exit_codes(1, 2) {\n"
+            "    try {\n"
+            "        (exit 1)\n"
+            "        (exit 2)\n"
+            "        RES=both_allowed\n"
+            "    } catch {\n"
+            "        RES=caught_unexpected\n"
+            "    }\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "both_allowed");
+
+        // Nesting with allowed_exit_codes inside try
+        st = execute_string(
+            "RES=init;\n"
+            "try {\n"
+            "    with allowed_exit_codes(1) {\n"
+            "        (exit 1)\n"
+            "        RES=inside_with_ok\n"
+            "    }\n"
+            "    (exit 1)\n"
+            "    RES=after_with_unreachable\n"
+            "} catch {\n"
+            "    RES=\"${RES}_caught_outside\"\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "inside_with_ok_caught_outside");
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should handle nested try blocks and loops") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Inner try catches error, outer execution continues
+        int st = execute_string(
+            "RES=\"\";\n"
+            "try {\n"
+            "    RES=\"${RES}outer_start;\"\n"
+            "    try {\n"
+            "        (exit 1)\n"
+            "    } catch 1 {\n"
+            "        RES=\"${RES}inner_caught;\"\n"
+            "    }\n"
+            "    RES=\"${RES}outer_end;\"\n"
+            "} catch {\n"
+            "    RES=\"${RES}outer_caught;\"\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "outer_start;inner_caught;outer_end;");
+
+        // Inner try does not catch error, outer catches it
+        st = execute_string(
+            "RES=\"\";\n"
+            "try {\n"
+            "    try {\n"
+            "        (exit 2)\n"
+            "    } catch 1 {\n"
+            "        RES=\"${RES}inner_caught;\"\n"
+            "    }\n"
+            "    RES=\"${RES}inner_after;\"\n"
+            "} catch 2 {\n"
+            "    RES=\"${RES}outer_caught_2;\"\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "outer_caught_2;");
+
+        // Loop inside try breaks immediately on error
+        st = execute_string(
+            "ACC=\"\";\n"
+            "try {\n"
+            "    for x in 1 2 3 4 {\n"
+            "        if test \"$x\" = \"3\" { (exit 1); }\n"
+            "        ACC=\"${ACC}$x\"\n"
+            "    }\n"
+            "    ACC=\"${ACC}after_loop\"\n"
+            "} catch {\n"
+            "    ACC=\"${ACC}_caught\"\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "ACC");
+        assertneq(val, NULL);
+        asserteq_str(val, "12_caught");
+
+        // Redirection on try statement
+        const char *outfile = "/tmp/test_try_redir.txt";
+        unlink(outfile);
+        st = execute_string(
+            "try { echo \"try_out\"; (exit 1); } catch { echo \"catch_out\"; } > /tmp/test_try_redir.txt",
+            session);
+        asserteq(st, 0);
+        FILE *f = fopen(outfile, "r");
+        assertneq(f, NULL);
+        char buf[128] = {0};
+        size_t bytes = fread(buf, 1, sizeof(buf) - 1, f);
+        fclose(f);
+        unlink(outfile);
+        assert(bytes > 0);
+        asserteq_str(buf, "try_out\ncatch_out\n");
+
+        free_session(session);
+        free(session);
+    }
 }

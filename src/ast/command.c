@@ -9,6 +9,7 @@
 #include "ast/node.h"
 #include "ast/parser.h"
 #include "ast/pipeline.h"
+#include "ast/try.h"
 #include "ast/with.h"
 #include "data/dynamic.h"
 #include "expand.h"
@@ -156,6 +157,24 @@ ASTNode *ast_parse_command(Parser *parser, Session *session) {
     }
 #endif
 
+    if (peek->type == TOKEN_TRY) {
+        size_t      lookahead = 1;
+        LexerToken *next      = parser_peek_nth(parser, lookahead);
+        while (next &&
+               (next->type == TOKEN_EOL || next->type == TOKEN_COMMENT)) {
+            lookahead++;
+            next = parser_peek_nth(parser, lookahead);
+        }
+        if (next && (next->type == TOKEN_LBRACE || next->type == TOKEN_DO)) {
+            return ast_parse_try(parser, session);
+        }
+        peek->type = TOKEN_WORD;
+    }
+
+    if (peek->type == TOKEN_CATCH || peek->type == TOKEN_FINALLY) {
+        peek->type = TOKEN_WORD;
+    }
+
     ASTNode *cmd        = init_ast(NULL, NODE_COMMAND);
     bool     first_word = true;
 
@@ -186,6 +205,11 @@ ASTNode *ast_parse_command(Parser *parser, Session *session) {
             token->type = TOKEN_WORD;
         }
 #endif
+        if (!first_word &&
+            (token->type == TOKEN_TRY || token->type == TOKEN_CATCH ||
+             token->type == TOKEN_FINALLY)) {
+            token->type = TOKEN_WORD;
+        }
 
 #ifndef TIDESH_DISABLE_REDIRECTIONS
         int fd = -1;

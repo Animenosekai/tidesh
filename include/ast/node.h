@@ -51,6 +51,8 @@ typedef enum NodeType {
     ,
     NODE_WITH
 #endif
+    ,
+    NODE_TRY
 } NodeType;
 
 /* Describes an I/O redirection */
@@ -95,6 +97,20 @@ typedef struct CaseItem {
 } CaseItem;
 #endif
 
+/* Describes a catch clause in a try statement */
+typedef struct CatchClause {
+    /* Array of targeted exit codes */
+    int *exit_codes;
+    /* Number of targeted exit codes */
+    size_t code_count;
+    /* Whether this is a catch-all (default) clause */
+    bool is_catch_all;
+    /* Commands to execute when this catch matches */
+    struct ASTNode *body;
+    /* Next catch clause */
+    struct CatchClause *next;
+} CatchClause;
+
 /* Describes an AST node */
 typedef struct ASTNode {
     /* The type of the node */
@@ -133,6 +149,9 @@ typedef struct ASTNode {
     /* For with context manager nodes */
     ContextInvocation *with_contexts;
 #endif
+    /* For try-catch nodes */
+    CatchClause    *catch_clauses;
+    struct ASTNode *finally_body;
 } ASTNode;
 
 /* Check if string contains only digits */
@@ -153,6 +172,9 @@ ConditionalBranch *copy_conditional_branches(const ConditionalBranch *branch);
 void               free_case_items(CaseItem *item);
 CaseItem          *copy_case_items(const CaseItem *item);
 #endif
+
+void         free_catch_clauses(CatchClause *clause);
+CatchClause *copy_catch_clauses(const CatchClause *clause);
 
 /* Free an AST */
 void free_ast(ASTNode *node);

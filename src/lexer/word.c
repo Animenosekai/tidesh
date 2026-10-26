@@ -405,6 +405,18 @@ TokenType check_context_keyword(const char *word) {
 }
 #endif
 
+/* Check if a word is a try-catch keyword */
+TokenType check_try_keyword(const char *word) {
+    if (strcmp(word, "try") == 0) {
+        return TOKEN_TRY;
+    } else if (strcmp(word, "catch") == 0) {
+        return TOKEN_CATCH;
+    } else if (strcmp(word, "finally") == 0) {
+        return TOKEN_FINALLY;
+    }
+    return TOKEN_WORD;
+}
+
 LexerToken read_word_token(LexerInput *input) {
     LexerToken token;
     token.type  = TOKEN_WORD;
@@ -540,5 +552,9 @@ LexerToken read_word_token(LexerInput *input) {
         token.type = check_context_keyword(token.value);
     }
 #endif
+    // Check if the word is a try-catch keyword
+    if (!has_quotes && token.type == TOKEN_WORD) {
+        token.type = check_try_keyword(token.value);
+    }
     return token;
 }

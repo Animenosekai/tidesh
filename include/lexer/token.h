@@ -99,6 +99,10 @@ typedef enum TokenType {
     TOKEN_WITH, // with
 #endif
 
+    TOKEN_TRY,     // try
+    TOKEN_CATCH,   // catch
+    TOKEN_FINALLY, // finally
+
     TOKEN_EOL, // end of command (real newline)
     TOKEN_EOF  // end of file
 } TokenType;

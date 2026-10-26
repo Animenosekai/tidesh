@@ -188,6 +188,12 @@ int execute_command(ASTNode *node, Session *session) {
             if (!expansion) {
                 free_expanded_args(argc, argv, arg_keys, arg_is_sub);
                 environ_set_exit_status(session->environ, 1);
+                if (session->try_depth > 0 && session->ignore_errexit == 0 &&
+                    !session_is_exit_code_allowed(session, 1)) {
+                    session->try_caught    = true;
+                    session->try_exit_code = 1;
+                    return 1;
+                }
                 if (session->options.errexit && session->ignore_errexit == 0) {
                     session->exit_requested = true;
                 }
@@ -360,6 +366,12 @@ int execute_command(ASTNode *node, Session *session) {
         if (cmd_name_trimmed)
             free(cmd_name_trimmed);
         environ_set_exit_status(session->environ, st);
+        if (session->try_depth > 0 && session->ignore_errexit == 0 &&
+            !session_is_exit_code_allowed(session, st)) {
+            session->try_caught    = true;
+            session->try_exit_code = st;
+            return st;
+        }
         if (session->options.errexit && st != 0 &&
             session->ignore_errexit == 0) {
             session->exit_requested = true;
@@ -603,6 +615,12 @@ int execute_command(ASTNode *node, Session *session) {
             if (cmd_name_trimmed)
                 free(cmd_name_trimmed);
             environ_set_exit_status(session->environ, st);
+            if (session->try_depth > 0 && session->ignore_errexit == 0 &&
+                !session_is_exit_code_allowed(session, st)) {
+                session->try_caught    = true;
+                session->try_exit_code = st;
+                return st;
+            }
             if (session->options.errexit && st != 0 &&
                 session->ignore_errexit == 0) {
                 session->exit_requested = true;
@@ -916,6 +934,20 @@ int execute_command(ASTNode *node, Session *session) {
             free(cmd_str);
         }
         environ_set_exit_status(session->environ, exit_status);
+        if (session->try_depth > 0 && session->ignore_errexit == 0 &&
+            !session_is_exit_code_allowed(session, exit_status)) {
+            session->try_caught    = true;
+            session->try_exit_code = exit_status;
+            if (is_external) {
+                HookEnvVar exec_vars[] = {
+                    {"TIDE_EXEC", resolved_path ? resolved_path : ""},
+                    {"TIDE_ARGV0", argv0_copy ? argv0_copy : ""}};
+                run_cwd_hook_with_vars(session, HOOK_AFTER_EXEC, exec_vars, 2);
+            }
+            free(argv0_copy);
+            free(resolved_path);
+            return exit_status;
+        }
         if (session->options.errexit && exit_status != 0 &&
             session->ignore_errexit == 0) {
             session->exit_requested = true;

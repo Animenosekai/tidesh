@@ -124,6 +124,12 @@ const char *token_type_to_string(TokenType type) {
         case TOKEN_WITH:
             return "TOKEN_WITH";
 #endif
+        case TOKEN_TRY:
+            return "TOKEN_TRY";
+        case TOKEN_CATCH:
+            return "TOKEN_CATCH";
+        case TOKEN_FINALLY:
+            return "TOKEN_FINALLY";
         case TOKEN_EOL:
             return "TOKEN_EOL";
         case TOKEN_EOF:

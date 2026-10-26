@@ -157,6 +157,42 @@ CaseItem *copy_case_items(const CaseItem *item) {
 }
 #endif
 
+void free_catch_clauses(CatchClause *clause) {
+    while (clause) {
+        CatchClause *next = clause->next;
+        if (clause->exit_codes) {
+            free(clause->exit_codes);
+        }
+        if (clause->body) {
+            free_ast(clause->body);
+            free(clause->body);
+        }
+        free(clause);
+        clause = next;
+    }
+}
+
+CatchClause *copy_catch_clauses(const CatchClause *clause) {
+    if (!clause)
+        return NULL;
+    CatchClause *cp = calloc(1, sizeof(CatchClause));
+    if (!cp)
+        return NULL;
+    cp->code_count   = clause->code_count;
+    cp->is_catch_all = clause->is_catch_all;
+    if (clause->code_count > 0 && clause->exit_codes) {
+        cp->exit_codes = calloc(clause->code_count, sizeof(int));
+        if (cp->exit_codes) {
+            for (size_t i = 0; i < clause->code_count; i++) {
+                cp->exit_codes[i] = clause->exit_codes[i];
+            }
+        }
+    }
+    cp->body = copy_ast(clause->body);
+    cp->next = copy_catch_clauses(clause->next);
+    return cp;
+}
+
 void free_ast(ASTNode *node) {
     if (!node)
         return;
@@ -226,6 +262,15 @@ void free_ast(ASTNode *node) {
         node->with_contexts = NULL;
     }
 #endif
+    if (node->catch_clauses) {
+        free_catch_clauses(node->catch_clauses);
+        node->catch_clauses = NULL;
+    }
+    if (node->finally_body) {
+        free_ast(node->finally_body);
+        free(node->finally_body);
+        node->finally_body = NULL;
+    }
 }
 
 ASTNode *copy_ast(const ASTNode *node) {
@@ -296,6 +341,13 @@ ASTNode *copy_ast(const ASTNode *node) {
     }
 #endif
 
+    if (node->catch_clauses) {
+        cp->catch_clauses = copy_catch_clauses(node->catch_clauses);
+    }
+    if (node->finally_body) {
+        cp->finally_body = copy_ast(node->finally_body);
+    }
+
     return cp;
 }
 
@@ -345,6 +397,8 @@ const char *node_type_to_string(NodeType type) {
         case NODE_WITH:
             return "NODE_WITH";
 #endif
+        case NODE_TRY:
+            return "NODE_TRY";
         default:
             return "NODE_UNKNOWN";
     }

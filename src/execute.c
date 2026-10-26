@@ -12,6 +12,7 @@
 #include "builtins/trap.h"
 #include "environ.h"
 #include "execute.h"
+#include "execute/try.h"
 #include "history.h"
 #include "hooks.h"
 #include "lexer.h"
@@ -31,6 +32,9 @@ int execute(ASTNode *node, Session *session) {
 
     if (session->return_requested)
         return session->return_status;
+
+    if (session->try_caught)
+        return session->try_exit_code;
 
 #ifndef TIDESH_DISABLE_PIPES
     if (node->type == NODE_PIPE) {
@@ -91,6 +95,10 @@ int execute(ASTNode *node, Session *session) {
         return execute_while_until(node, session);
     }
 #endif
+
+    if (node->type == NODE_TRY) {
+        return execute_try(node, session);
+    }
 
     if (node->type == NODE_COMMAND) {
         return execute_command(node, session);

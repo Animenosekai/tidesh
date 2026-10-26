@@ -105,9 +105,13 @@ Session *init_session(Session *session, char *history_path) {
     // Initialize feature flags (all enabled by default)
     init_features(&session->features);
 
-    session->options.monitor = session->features.job_control;
-    session->options.noglob  = !session->features.filename_expansion;
-    session->ignore_errexit  = 0;
+    session->options.monitor    = session->features.job_control;
+    session->options.noglob     = !session->features.filename_expansion;
+    session->ignore_errexit     = 0;
+    session->allowed_exit_codes = NULL;
+    session->try_depth          = 0;
+    session->try_caught         = false;
+    session->try_exit_code      = 0;
 
     // Initialize working directories
     update_working_dir(session);
@@ -194,6 +198,64 @@ void free_session(Session *session) {
 #ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
     free_session_context_managers(session);
 #endif
+
+    while (session->allowed_exit_codes) {
+        session_pop_allowed_exit_codes(session);
+    }
+}
+
+bool session_is_exit_code_allowed(Session *session, int status) {
+    if (!session)
+        return (status == 0);
+    if (!session->allowed_exit_codes) {
+        // By default, just 0 is allowed
+        return (status == 0);
+    }
+    if (session->allowed_exit_codes->allow_all) {
+        return true;
+    }
+    for (size_t i = 0; i < session->allowed_exit_codes->count; i++) {
+        if (session->allowed_exit_codes->codes[i] == status) {
+            return true;
+        }
+    }
+    // 0 is always allowed by default
+    if (status == 0) {
+        return true;
+    }
+    return false;
+}
+
+void session_push_allowed_exit_codes(Session *session, const int *codes,
+                                     size_t count, bool allow_all) {
+    if (!session)
+        return;
+    AllowedExitCodes *node = calloc(1, sizeof(AllowedExitCodes));
+    if (!node)
+        return;
+    node->allow_all = allow_all;
+    node->count     = count;
+    if (count > 0 && codes) {
+        node->codes = calloc(count, sizeof(int));
+        if (node->codes) {
+            for (size_t i = 0; i < count; i++) {
+                node->codes[i] = codes[i];
+            }
+        }
+    }
+    node->prev                  = session->allowed_exit_codes;
+    session->allowed_exit_codes = node;
+}
+
+void session_pop_allowed_exit_codes(Session *session) {
+    if (!session || !session->allowed_exit_codes)
+        return;
+    AllowedExitCodes *top       = session->allowed_exit_codes;
+    session->allowed_exit_codes = top->prev;
+    if (top->codes) {
+        free(top->codes);
+    }
+    free(top);
 }
 
 static void init_previous_working_dir(Session *session) {

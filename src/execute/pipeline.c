@@ -61,6 +61,12 @@ int execute_pipe(ASTNode *node, Session *session) {
         }
     }
     environ_set_exit_status(session->environ, exit_status);
+    if (session->try_depth > 0 && session->ignore_errexit == 0 &&
+        !session_is_exit_code_allowed(session, exit_status)) {
+        session->try_caught    = true;
+        session->try_exit_code = exit_status;
+        return exit_status;
+    }
     if (session->options.errexit && exit_status != 0 &&
         session->ignore_errexit == 0) {
         session->exit_requested = true;
@@ -82,8 +88,16 @@ int execute_sequence(ASTNode *node, Session *session) {
     int st = execute(node->left, session);
     check_pending_traps(session);
     if (session->loop_break > 0 || session->loop_continue > 0 ||
-        session->exit_requested || session->return_requested) {
+        session->exit_requested || session->return_requested ||
+        session->try_caught) {
         return st;
+    }
+    if (session->try_depth > 0 && session->ignore_errexit == 0) {
+        if (!session_is_exit_code_allowed(session, st)) {
+            session->try_caught    = true;
+            session->try_exit_code = st;
+            return st;
+        }
     }
     if (session->options.errexit && st != 0 && session->ignore_errexit == 0) {
         session->exit_requested = true;
@@ -107,9 +121,16 @@ int execute_and(ASTNode *node, Session *session) {
     int st = execute(node->left, session);
     session->ignore_errexit--;
     if (st == 0 && !session->loop_break && !session->loop_continue &&
-        !session->exit_requested && !session->return_requested)
+        !session->exit_requested && !session->return_requested &&
+        !session->try_caught)
         return execute(node->right, session);
     environ_set_exit_status(session->environ, st);
+    if (session->try_depth > 0 && session->ignore_errexit == 0 &&
+        !session_is_exit_code_allowed(session, st)) {
+        session->try_caught    = true;
+        session->try_exit_code = st;
+        return st;
+    }
     if (session->options.errexit && st != 0 && session->ignore_errexit == 0) {
         session->exit_requested = true;
     }
@@ -131,9 +152,16 @@ int execute_or(ASTNode *node, Session *session) {
     int st = execute(node->left, session);
     session->ignore_errexit--;
     if (st != 0 && !session->loop_break && !session->loop_continue &&
-        !session->exit_requested && !session->return_requested)
+        !session->exit_requested && !session->return_requested &&
+        !session->try_caught)
         return execute(node->right, session);
     environ_set_exit_status(session->environ, st);
+    if (session->try_depth > 0 && session->ignore_errexit == 0 &&
+        !session_is_exit_code_allowed(session, st)) {
+        session->try_caught    = true;
+        session->try_exit_code = st;
+        return st;
+    }
     if (session->options.errexit && st != 0 && session->ignore_errexit == 0) {
         session->exit_requested = true;
     }

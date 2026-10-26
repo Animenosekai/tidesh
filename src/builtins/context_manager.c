@@ -40,7 +40,9 @@ static int list_context_managers(Session *session) {
         "  session              Snapshot entire session state and revert all "
         "changes on exit\n"
         "  umask(mask)          Temporarily change file mode creation mask "
-        "(restores on exit)\n");
+        "(restores on exit)\n"
+        "  allowed_exit_codes(codes...) Configure allowed exit codes for "
+        "try...catch (default: 0)\n");
 
     if (session && session->context_managers) {
         printf("\nCustom context managers:\n");

@@ -98,7 +98,25 @@ typedef struct Session {
                         *context_managers; // Custom registered context managers
     struct ContextFrame *context_stack;    // Active context unwind stack
 #endif
+    struct AllowedExitCodes *allowed_exit_codes; // Active allowed exit codes
+    int                      try_depth;          // Nesting depth of try blocks
+    bool                     try_caught;    // Flag indicating exception raised
+    int                      try_exit_code; // Caught exit code
 } Session;
+
+/* Stack of configured allowed exit codes (e.g. via with
+ * allowed_exit_codes(...)) */
+typedef struct AllowedExitCodes {
+    int                     *codes;
+    size_t                   count;
+    bool                     allow_all;
+    struct AllowedExitCodes *prev;
+} AllowedExitCodes;
+
+bool session_is_exit_code_allowed(Session *session, int status);
+void session_push_allowed_exit_codes(Session *session, const int *codes,
+                                     size_t count, bool allow_all);
+void session_pop_allowed_exit_codes(Session *session);
 
 /**
  * Initialize a session with the given history file path

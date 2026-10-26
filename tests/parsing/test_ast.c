@@ -1083,4 +1083,114 @@ describe(ast) {
         free_session(session);
         free(session);
     }
+
+    it("should parse try-catch statements with targeted and catch-all blocks") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // try { do_something; } catch 1 { echo 1; } catch { echo any; }
+        LexerInput *l1 = init_lexer_input(
+            NULL,
+            "try {\n"
+            "    do_something\n"
+            "} catch 1 {\n"
+            "    echo 1\n"
+            "} catch {\n"
+            "    echo any\n"
+            "}\n",
+            NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        assertneq(ast1, NULL);
+        asserteq(ast1->type, NODE_TRY);
+        assertneq(ast1->left, NULL);
+
+        CatchClause *c1 = ast1->catch_clauses;
+        assertneq(c1, NULL);
+        assert(!c1->is_catch_all);
+        asserteq(c1->code_count, 1);
+        asserteq(c1->exit_codes[0], 1);
+        assertneq(c1->body, NULL);
+
+        CatchClause *c2 = c1->next;
+        assertneq(c2, NULL);
+        assert(c2->is_catch_all);
+        assertneq(c2->body, NULL);
+        asserteq(c2->next, NULL);
+        asserteq(ast1->finally_body, NULL);
+
+        free_ast(ast1);
+        free(ast1);
+        free_lexer_input(l1);
+        free(l1);
+
+        // try { cmd; } catch (1, 2) { echo err; } finally { echo done; }
+        LexerInput *l2 = init_lexer_input(
+            NULL,
+            "try { cmd; } catch (1, 2) { echo err; } finally { echo done; }",
+            NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+        assertneq(ast2, NULL);
+        asserteq(ast2->type, NODE_TRY);
+        assertneq(ast2->catch_clauses, NULL);
+        asserteq(ast2->catch_clauses->code_count, 2);
+        asserteq(ast2->catch_clauses->exit_codes[0], 1);
+        asserteq(ast2->catch_clauses->exit_codes[1], 2);
+        assertneq(ast2->finally_body, NULL);
+
+        free_ast(ast2);
+        free(ast2);
+        free_lexer_input(l2);
+        free(l2);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should parse try as a regular command when not followed by brace") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        LexerInput *l1 = init_lexer_input(NULL, "try arg1 arg2", NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        assertneq(ast1, NULL);
+        asserteq(ast1->type, NODE_COMMAND);
+        asserteq(ast1->argc, 3);
+        asserteq_str(ast1->argv[0], "try");
+        asserteq_str(ast1->argv[1], "arg1");
+        asserteq_str(ast1->argv[2], "arg2");
+
+        free_ast(ast1);
+        free(ast1);
+        free_lexer_input(l1);
+        free(l1);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should return NULL on syntax errors in try statements") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Missing catch or finally
+        LexerInput *l1 = init_lexer_input(NULL, "try { echo 1; }", NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        asserteq(ast1, NULL);
+        free_lexer_input(l1);
+        free(l1);
+
+        // Unclosed try body
+        LexerInput *l2 = init_lexer_input(NULL, "try { echo 1; catch { echo 2; }", NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+        asserteq(ast2, NULL);
+        free_lexer_input(l2);
+        free(l2);
+
+        // Missing { after catch
+        LexerInput *l3 = init_lexer_input(NULL, "try { echo 1; } catch echo 2;", NULL, session);
+        ASTNode *ast3 = parse(l3, session);
+        asserteq(ast3, NULL);
+        free_lexer_input(l3);
+        free(l3);
+
+        free_session(session);
+        free(session);
+    }
 }

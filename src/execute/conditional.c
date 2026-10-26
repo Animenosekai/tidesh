@@ -38,6 +38,12 @@ int execute_conditional(ASTNode *node, Session *session) {
             }
             restore_in_process_redirections(&redir_state);
             environ_set_exit_status(session->environ, exit_status);
+            if (session->try_depth > 0 && session->ignore_errexit == 0 &&
+                !session_is_exit_code_allowed(session, exit_status)) {
+                session->try_caught    = true;
+                session->try_exit_code = exit_status;
+                return exit_status;
+            }
             if (session->options.errexit && exit_status != 0 &&
                 session->ignore_errexit == 0) {
                 session->exit_requested = true;
@@ -61,6 +67,12 @@ int execute_conditional(ASTNode *node, Session *session) {
                 }
                 restore_in_process_redirections(&redir_state);
                 environ_set_exit_status(session->environ, exit_status);
+                if (session->try_depth > 0 && session->ignore_errexit == 0 &&
+                    !session_is_exit_code_allowed(session, exit_status)) {
+                    session->try_caught    = true;
+                    session->try_exit_code = exit_status;
+                    return exit_status;
+                }
                 if (session->options.errexit && exit_status != 0 &&
                     session->ignore_errexit == 0) {
                     session->exit_requested = true;

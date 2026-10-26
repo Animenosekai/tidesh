@@ -82,7 +82,8 @@ int execute_for(ASTNode *node, Session *session) {
             break;
         }
 
-        if (session->exit_requested || session->return_requested) {
+        if (session->exit_requested || session->return_requested ||
+            session->try_caught) {
             break;
         }
     }
@@ -156,7 +157,8 @@ int execute_while_until(ASTNode *node, Session *session) {
             break;
         }
 
-        if (session->exit_requested || session->return_requested) {
+        if (session->exit_requested || session->return_requested ||
+            session->try_caught) {
             break;
         }
     }
