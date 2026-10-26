@@ -1,7 +1,9 @@
 #include "session.h"
 #include "snow/snow.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 describe(session) {
@@ -135,5 +137,110 @@ describe(session) {
             free_session(session);
             free(session);
         }
+    }
+
+    it("should not re-execute enter/exit hooks when moving between "
+       "subdirectories of a hooked directory") {
+        char *orig_cwd = getcwd(NULL, 0);
+        mkdir("/tmp/tidesh_test_hooks", 0755);
+        mkdir("/tmp/tidesh_test_hooks/.tidesh-hooks", 0755);
+        mkdir("/tmp/tidesh_test_hooks/sub1", 0755);
+        mkdir("/tmp/tidesh_test_hooks/sub2", 0755);
+
+        FILE *f = fopen("/tmp/tidesh_test_hooks/.tidesh-hooks/enter.sh", "w");
+        assertneq_ptr(f, NULL);
+        fprintf(f, "echo enter >> /tmp/tidesh_test_hooks/log.txt\n");
+        fclose(f);
+
+        f = fopen("/tmp/tidesh_test_hooks/.tidesh-hooks/exit.sh", "w");
+        assertneq_ptr(f, NULL);
+        fprintf(f, "echo exit >> /tmp/tidesh_test_hooks/log.txt\n");
+        fclose(f);
+
+        // Start session in sub1
+        chdir("/tmp/tidesh_test_hooks/sub1");
+        Session *session = init_session(NULL, "/tmp/test_history");
+        run_initial_parent_hooks(session);
+
+        // Clear the log from initial startup enter
+        f = fopen("/tmp/tidesh_test_hooks/log.txt", "w");
+        if (f)
+            fclose(f);
+
+        // Change directory from sub1 to sub2
+        chdir("/tmp/tidesh_test_hooks/sub2");
+        update_working_dir(session);
+
+        // Log should be empty (no enter or exit on tidesh_test_hooks)
+        f               = fopen("/tmp/tidesh_test_hooks/log.txt", "r");
+        char   buf[256] = {0};
+        size_t bytes    = 0;
+        if (f) {
+            bytes = fread(buf, 1, sizeof(buf) - 1, f);
+            fclose(f);
+        }
+        asserteq(bytes, 0);
+
+        // Now move out of the hooked directory
+        chdir("/tmp");
+        update_working_dir(session);
+
+        // Log should now have "exit\n"
+        f = fopen("/tmp/tidesh_test_hooks/log.txt", "r");
+        assertneq_ptr(f, NULL);
+        bytes      = fread(buf, 1, sizeof(buf) - 1, f);
+        buf[bytes] = '\0';
+        fclose(f);
+        asserteq_str(buf, "exit\n");
+
+        free_session(session);
+        free(session);
+
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
+
+        unlink("/tmp/tidesh_test_hooks/log.txt");
+        unlink("/tmp/tidesh_test_hooks/.tidesh-hooks/enter.sh");
+        unlink("/tmp/tidesh_test_hooks/.tidesh-hooks/exit.sh");
+        rmdir("/tmp/tidesh_test_hooks/.tidesh-hooks");
+        rmdir("/tmp/tidesh_test_hooks/sub1");
+        rmdir("/tmp/tidesh_test_hooks/sub2");
+        rmdir("/tmp/tidesh_test_hooks");
+    }
+
+    it("should respect hooks_disabled flag") {
+        char *orig_cwd = getcwd(NULL, 0);
+        mkdir("/tmp/tidesh_test_hooks_dis", 0755);
+        mkdir("/tmp/tidesh_test_hooks_dis/.tidesh-hooks", 0755);
+
+        FILE *f =
+            fopen("/tmp/tidesh_test_hooks_dis/.tidesh-hooks/enter.sh", "w");
+        assertneq_ptr(f, NULL);
+        fprintf(f, "echo enter >> /tmp/tidesh_test_hooks_dis/log.txt\n");
+        fclose(f);
+
+        chdir("/tmp/tidesh_test_hooks_dis");
+        Session *session        = init_session(NULL, "/tmp/test_history");
+        session->hooks_disabled = true;
+
+        run_initial_parent_hooks(session);
+
+        // Log should not exist or be empty
+        f = fopen("/tmp/tidesh_test_hooks_dis/log.txt", "r");
+        asserteq_ptr(f, NULL);
+
+        free_session(session);
+        free(session);
+
+        if (orig_cwd) {
+            chdir(orig_cwd);
+            free(orig_cwd);
+        }
+
+        unlink("/tmp/tidesh_test_hooks_dis/.tidesh-hooks/enter.sh");
+        rmdir("/tmp/tidesh_test_hooks_dis/.tidesh-hooks");
+        rmdir("/tmp/tidesh_test_hooks_dis");
     }
 }

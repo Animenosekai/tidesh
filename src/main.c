@@ -136,6 +136,8 @@ static void print_usage(const char *prog_name, bool colors) {
            "Disable terminal colors");
     printf("  %s%-20s%s %s\n", option_clr, "--disable-history", reset,
            "Disable command history");
+    printf("  %s%-20s%s %s\n", option_clr, "--disable-hooks", reset,
+           "Disable hook execution");
 }
 
 #ifndef TESTING
@@ -159,6 +161,7 @@ int main(int argc, char **argv) {
     bool  enable_colors    = false;
     bool  disable_colors   = false;
     bool  disable_history  = false;
+    bool  disable_hooks    = false;
 
     Array *script_args = init_array(NULL);
     if (!script_args) {
@@ -195,6 +198,8 @@ int main(int argc, char **argv) {
             disable_colors = true;
         } else if (strcmp(argv[i], "--disable-history") == 0) {
             disable_history = true;
+        } else if (strcmp(argv[i], "--disable-hooks") == 0) {
+            disable_hooks = true;
         } else if (script_path == NULL) {
             script_path = argv[i];
         } else if (script_path != NULL) {
@@ -239,6 +244,10 @@ int main(int argc, char **argv) {
         free_array(script_args);
         free(script_args);
         return 1;
+    }
+
+    if (disable_hooks) {
+        session->hooks_disabled = true;
     }
 
     if (argc > 0)
@@ -328,6 +337,10 @@ int main(int argc, char **argv) {
             fprintf(stderr, "tidesh: could not open rc file: %s\n",
                     custom_rc_path);
         }
+    }
+
+    if (disable_hooks) {
+        session->hooks_disabled = true;
     }
 
     // Run initial parent enter hooks after environment is set up from .tideshrc

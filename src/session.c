@@ -234,6 +234,51 @@ static bool is_descendant_path(const char *parent, const char *child) {
     return child[parent_len] == '/';
 }
 
+static char *get_lowest_common_ancestor(const char *path_a,
+                                        const char *path_b) {
+    if (!path_a || !path_b || path_a[0] != '/' || path_b[0] != '/') {
+        return NULL;
+    }
+
+    size_t len_a = trim_trailing_slash_len(path_a, strlen(path_a));
+    size_t len_b = trim_trailing_slash_len(path_b, strlen(path_b));
+
+    if (len_a == 1 && path_a[0] == '/') {
+        return strdup("/");
+    }
+    if (len_b == 1 && path_b[0] == '/') {
+        return strdup("/");
+    }
+
+    size_t  i          = 0;
+    ssize_t last_slash = -1;
+    while (i < len_a && i < len_b && path_a[i] == path_b[i]) {
+        if (path_a[i] == '/') {
+            last_slash = (ssize_t)i;
+        }
+        i++;
+    }
+
+    if (i == len_a && i == len_b) {
+        return strndup(path_a, len_a);
+    }
+    if (i == len_a && path_b[i] == '/') {
+        return strndup(path_a, len_a);
+    }
+    if (i == len_b && path_a[i] == '/') {
+        return strndup(path_b, len_b);
+    }
+
+    if (last_slash == 0) {
+        return strdup("/");
+    }
+    if (last_slash > 0) {
+        return strndup(path_a, (size_t)last_slash);
+    }
+
+    return NULL;
+}
+
 static void run_parent_enter_hooks(Session *session, const char *path) {
     if (!session || !path || path[0] == '\0')
         return;
@@ -402,7 +447,8 @@ static void run_descendant_enter_hooks(Session *session, const char *from,
     }
 
     free(from_normalized);
-    free(new_dirs); // Don't free the strings, they're owned by to_parents
+    free_array(new_dirs);
+    free(new_dirs);
     free_array(to_parents);
     free(to_parents);
 }
@@ -489,7 +535,8 @@ static void run_ancestor_exit_hooks(Session *session, const char *from,
     }
 
     free(to_normalized);
-    free(exiting_dirs); // Don't free the strings, they're owned by from_parents
+    free_array(exiting_dirs);
+    free(exiting_dirs);
     free_array(from_parents);
     free(from_parents);
 }
@@ -606,9 +653,18 @@ void update_working_dir(Session *session) {
             run_dir_hook_with_vars(session, session->current_working_dir,
                                    HOOK_EXIT_CHILD, exit_child_vars, 1);
         } else {
-            // Unrelated paths: exit all from old, enter all for new
-            run_parent_exit_hooks(session, current_value);
-            run_parent_enter_hooks(session, session->current_working_dir);
+            // Paths in different branches: exit up to LCA, enter down from LCA
+            char *lca = get_lowest_common_ancestor(
+                current_value, session->current_working_dir);
+            if (lca) {
+                run_ancestor_exit_hooks(session, current_value, lca);
+                run_descendant_enter_hooks(session, lca,
+                                           session->current_working_dir);
+                free(lca);
+            } else {
+                run_parent_exit_hooks(session, current_value);
+                run_parent_enter_hooks(session, session->current_working_dir);
+            }
         }
 
         run_cwd_hook_with_vars(session, HOOK_CD, cd_with_parent, 4);

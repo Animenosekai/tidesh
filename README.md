@@ -149,6 +149,7 @@ or by using arguments when running tidesh.
 | `--enable-colors` | Force enable terminal colors |
 | `--disable-colors` | Disable terminal colors |
 | `--disable-history` | Disable command history |
+| `--disable-hooks` | Disable hook execution |
 
 ### Configuration
 
