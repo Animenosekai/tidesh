@@ -8,35 +8,36 @@
 #include "builtins/alias.h"   /* builtin_alias */
 #include "builtins/unalias.h" /* builtin_unalias */
 #endif
-#include "builtins/ast.h"      /* builtin_ast */
-#include "builtins/break.h"    /* builtin_break */
-#include "builtins/clear.h"    /* builtin_clear */
-#include "builtins/colon.h"    /* builtin_colon */
-#include "builtins/command.h"  /* builtin_command */
-#include "builtins/continue.h" /* builtin_continue */
-#include "builtins/eval.h"     /* builtin_eval */
-#include "builtins/exec.h"     /* builtin_exec */
-#include "builtins/exit.h"     /* builtin_exit */
-#include "builtins/export.h"   /* builtin_export */
-#include "builtins/features.h" /* builtin_features */
-#include "builtins/help.h"     /* builtin_help */
-#include "builtins/hooks.h"    /* builtin_hooks */
-#include "builtins/info.h"     /* builtin_info */
-#include "builtins/lexer.h"    /* builtin_lexer */
-#include "builtins/not.h"      /* builtin_not */
-#include "builtins/printenv.h" /* builtin_printenv */
-#include "builtins/pwd.h"      /* builtin_pwd */
-#include "builtins/read.h"     /* builtin_read */
-#include "builtins/return.h"   /* builtin_return */
-#include "builtins/set.h"      /* builtin_set */
-#include "builtins/shift.h"    /* builtin_shift */
-#include "builtins/source.h"   /* builtin_source */
-#include "builtins/terminal.h" /* builtin_terminal */
-#include "builtins/test.h"     /* builtin_test */
-#include "builtins/trap.h"     /* builtin_trap */
-#include "builtins/type.h"     /* builtin_type */
-#include "builtins/unset.h"    /* builtin_unset */
-#include "builtins/which.h"    /* builtin_which */
+#include "builtins/ast.h"             /* builtin_ast */
+#include "builtins/break.h"           /* builtin_break */
+#include "builtins/clear.h"           /* builtin_clear */
+#include "builtins/colon.h"           /* builtin_colon */
+#include "builtins/command.h"         /* builtin_command */
+#include "builtins/context_manager.h" /* builtin_context_manager */
+#include "builtins/continue.h"        /* builtin_continue */
+#include "builtins/eval.h"            /* builtin_eval */
+#include "builtins/exec.h"            /* builtin_exec */
+#include "builtins/exit.h"            /* builtin_exit */
+#include "builtins/export.h"          /* builtin_export */
+#include "builtins/features.h"        /* builtin_features */
+#include "builtins/help.h"            /* builtin_help */
+#include "builtins/hooks.h"           /* builtin_hooks */
+#include "builtins/info.h"            /* builtin_info */
+#include "builtins/lexer.h"           /* builtin_lexer */
+#include "builtins/not.h"             /* builtin_not */
+#include "builtins/printenv.h"        /* builtin_printenv */
+#include "builtins/pwd.h"             /* builtin_pwd */
+#include "builtins/read.h"            /* builtin_read */
+#include "builtins/return.h"          /* builtin_return */
+#include "builtins/set.h"             /* builtin_set */
+#include "builtins/shift.h"           /* builtin_shift */
+#include "builtins/source.h"          /* builtin_source */
+#include "builtins/terminal.h"        /* builtin_terminal */
+#include "builtins/test.h"            /* builtin_test */
+#include "builtins/trap.h"            /* builtin_trap */
+#include "builtins/type.h"            /* builtin_type */
+#include "builtins/unset.h"           /* builtin_unset */
+#include "builtins/which.h"           /* builtin_which */
 
 #ifndef TIDESH_DISABLE_HISTORY
 #include "builtins/history.h" /* builtin_history */
@@ -55,23 +56,54 @@
 #endif
 #include "session.h" /* Session */
 
-const char *builtins[] = {"exit",    "pwd",      "clear", "help",    "printenv",
-                          "which",   "export",   "unset", "eval",    "terminal",
-                          "info",    "source",   "type",  "test",    "[",
-                          "hooks",   "features", "not",   "lexer",   "ast",
-                          "break",   "continue", "set",   "shift",   ":",
-                          "return",  "exec",     "trap",  "command", "read",
+const char *builtins[] = {"exit",
+                          "pwd",
+                          "clear",
+                          "help",
+                          "printenv",
+                          "which",
+                          "export",
+                          "unset",
+                          "eval",
+                          "terminal",
+                          "info",
+                          "source",
+                          "type",
+                          "test",
+                          "[",
+                          "hooks",
+                          "features",
+                          "not",
+                          "lexer",
+                          "ast",
+                          "break",
+                          "continue",
+                          "set",
+                          "shift",
+                          ":",
+                          "return",
+                          "exec",
+                          "trap",
+                          "command",
+                          "read",
+                          "context-manager",
+                          "context",
 #ifndef TIDESH_DISABLE_ALIASES
-                          "alias",   "unalias",
+                          "alias",
+                          "unalias",
 #endif
 #ifndef TIDESH_DISABLE_HISTORY
                           "history",
 #endif
 #ifndef TIDESH_DISABLE_DIRSTACK
-                          "cd",      "pushd",    "popd",
+                          "cd",
+                          "pushd",
+                          "popd",
 #endif
 #ifndef TIDESH_DISABLE_JOB_CONTROL
-                          "jobs",    "fg",       "bg",
+                          "jobs",
+                          "fg",
+                          "bg",
 #endif
                           NULL};
 
@@ -160,6 +192,8 @@ int (*get_builtin(const char *name))(int argc, char **argv, Session *session) {
         return builtin_command;
     if (strcmp(name, "read") == 0)
         return builtin_read;
+    if (strcmp(name, "context-manager") == 0 || strcmp(name, "context") == 0)
+        return builtin_context_manager;
 #ifndef TIDESH_DISABLE_JOB_CONTROL
     if (strcmp(name, "jobs") == 0)
         return builtin_jobs;
@@ -186,7 +220,8 @@ bool is_special_builtin(const char *name) {
         strcmp(name, "shift") == 0 || strcmp(name, ":") == 0 ||
         strcmp(name, "return") == 0 || strcmp(name, "exec") == 0 ||
         strcmp(name, "trap") == 0 || strcmp(name, "command") == 0 ||
-        strcmp(name, "read") == 0) {
+        strcmp(name, "read") == 0 || strcmp(name, "context-manager") == 0 ||
+        strcmp(name, "context") == 0) {
         return true;
     }
 #ifndef TIDESH_DISABLE_ALIASES

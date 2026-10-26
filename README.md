@@ -75,6 +75,13 @@
       - [Clause Terminators (`;;`, `;&`, `;;&`)](#clause-terminators---)
       - [Redirections and Pipelines](#redirections-and-pipelines-2)
       - [Notes](#notes-3)
+    - [Context Managers](#context-managers)
+      - [Basic Syntax](#basic-syntax-4)
+      - [Builtin Context Managers](#builtin-context-managers)
+      - [Custom Context Managers (`context-manager`)](#custom-context-managers-context-manager)
+      - [Execution Guarantees and Unwinding](#execution-guarantees-and-unwinding)
+      - [Redirections and Pipelines](#redirections-and-pipelines-3)
+      - [Notes](#notes-4)
 - [Python Bindings](#python-bindings)
   - [Installation](#installation-1)
   - [Usage](#usage)
@@ -174,6 +181,7 @@ info
 | `cd` | Change the current directory |
 | `clear` | Clear the terminal screen |
 | `command` | Execute a simple command bypassing functions or display command info |
+| `context-manager` | Register, unregister, or list custom context managers (alias: `context`) |
 | `eval` | Execute arguments as a command |
 | `exec` | Replace the shell process image or modify file descriptor redirections |
 | `exit` | Exit the shell |
@@ -563,6 +571,7 @@ Runtime features can be toggled on/off per session using the `features` builtin.
 - `command_substitution` - Command substitution (`$(...)`, `<(...)`)
 - `assignments` - Variable assignments (`VAR=value`)
 - `functions` - Shell functions
+- `context_managers` - Context manager blocks (`with ... { }` / `with ... do ... done`)
 
 **Future Features** (not yet implemented):
 
@@ -626,6 +635,7 @@ Available compile-time flags:
 | `TIDESH_DISABLE_ASSIGNMENTS` | Disable `VAR=value` assignments |
 | `TIDESH_DISABLE_CONDITIONALS` | Disable `if/then/elif/else/fi` and `case/in/esac` statements |
 | `TIDESH_DISABLE_LOOPS` | Disable `for` and `while` loops |
+| `TIDESH_DISABLE_CONTEXT_MANAGERS` | Disable `with` context manager statements and `context-manager` builtin |
 
 Build with compile-time flags:
 
@@ -1094,6 +1104,125 @@ esac | sort | uniq
 - If no patterns match, the case statement exits with status 0. If a pattern matches, the exit status is that of the last command executed in the clause body.
 - Case statement redirections execute in-process so variable assignments and state changes persist.
 
+#### Context Managers
+
+`tidesh` introduces Python-inspired context managers with the `with` statement. Context managers allow temporarily altering the shell session state (e.g., current directory, environment variables, options, umask) or custom resources, with a guarantee that all changes will be cleaned up and restored in reverse order (LIFO) upon leaving the block—even if a command fails or an error occurs.
+
+##### Basic Syntax
+
+Both brace `{ ... }` syntax and `do ... done` syntax are supported. Multiple context managers can be chained separated by commas:
+
+```sh
+# Using brace syntax
+with env(API_KEY="secret", DEBUG=1), cwd("/tmp") {
+    echo "Running in $(pwd) with key $API_KEY"
+}
+
+# Using do ... done syntax
+with cwd("~/projects/my-app") do
+    pwd
+done
+```
+
+##### Builtin Context Managers
+
+The shell includes five built-in context managers:
+
+| Context Manager | Description | Example |
+| :--- | :--- | :--- |
+| `cwd(path)` | Temporarily change the working directory, restoring the previous directory on exit. | `with cwd("/tmp") { ... }` |
+| `env(KEY=VAL, ...)` | Temporarily set or overwrite environment variables, restoring original values (or unsetting if non-existent before) on exit. | `with env(NODE_ENV="production", PORT=8080) { ... }` |
+| `options(flags...)` | Temporarily toggle shell options (using standard `set` flags like `-e`, `+x`), restoring previous option values on exit. | `with options("-e", "-x") { ... }` |
+| `session` | Snapshot the entire session state (working directory, environment variables, aliases, functions, shell options, umask, traps, and custom context managers) and revert all changes on exit. | `with session { ... }` |
+| `umask(mode)` | Temporarily change file creation mask, restoring previous mask on exit. | `with umask("077") { ... }` |
+
+Multiple context managers can be combined in a single `with` statement:
+
+```sh
+with env(ENV="staging"), cwd("/var/log"), umask("027") {
+    echo "Writing logs with custom umask and env..."
+}
+```
+
+###### The `session` Context Manager
+
+The `session` context manager provides full session isolation in-process: inside the block, any command, function, script, or subcommand can modify the session without restriction (e.g. `cd`, `export`, `alias`, `set`, defining functions). When the block exits, the entire session reverts back to its exact prior snapshot:
+
+```sh
+with session {
+    cd /tmp
+    export API_KEY="temporary_key"
+    alias ll="ls -la"
+    set -x
+    helper() { echo "running helper"; }
+    helper
+}
+# Directory, API_KEY, alias 'll', -x flag, and 'helper' function are all reverted!
+```
+
+##### Custom Context Managers (`context-manager`)
+
+You can register user-defined, extensible context managers using the `context-manager` (or `context`) builtin command:
+
+```sh
+# Register a custom context manager
+context-manager register <name> --enter <enter_cmd> --exit <exit_cmd>
+
+# Unregister a context manager
+context-manager unregister <name>
+
+# List registered context managers
+context-manager list
+```
+
+###### Context Variables and State Preservation
+
+During execution, custom context manager commands have access to:
+- `$1`, `$2`, ...: Positional arguments passed to the context manager call (e.g. `with my_ctx("arg1", "arg2")`).
+- `TIDE_CONTEXT_NAME`: The name of the context manager being invoked.
+- `TIDE_CONTEXT_STATE`: Inside the `--exit` hook, contains the captured standard output of the `--enter` command. This enables passing state tokens or saved values from entry to exit cleanly.
+- `TIDE_CONTEXT_STATUS`: Inside the `--exit` hook, contains the exit status of the block body.
+
+###### Example: Temporary Directory Context Manager
+
+```sh
+# Register a tempdir context manager
+context-manager register tempdir \
+    --enter 'DIR=$(mktemp -d); cd "$DIR" && pwd' \
+    --exit 'cd "$OLDPWD"; rm -rf "$TIDE_CONTEXT_STATE"'
+
+# Use the tempdir context manager
+with tempdir() {
+    touch test.txt
+    ls -l
+}
+```
+
+##### Execution Guarantees and Unwinding
+
+- **In-process execution**: Unlike subshells `( ... )`, context managers execute inside the main shell session, allowing controlled mutations of session state while ensuring deterministic restoration.
+- **LIFO Unwinding**: When exiting a `with` block, context manager exit handlers run in reverse order of entry.
+- **Fail-safe Entry**: If any context manager fails during `--enter` (returns a non-zero status), the block body is aborted, and all context managers that had already entered are immediately unwound in reverse order.
+
+##### Redirections and Pipelines
+
+Like loops and conditional blocks, `with` statements can be redirected or piped:
+
+```sh
+with env(DEBUG=1), cwd("/tmp") {
+    echo "Log output"
+} > output.log
+
+with cwd("/var/log") {
+    cat syslog
+} | grep -i "error"
+```
+
+##### Notes
+
+- Context managers can be toggled at runtime using `features disable context_managers` / `features enable context_managers` or `set -o context_managers` / `set +o context_managers`.
+- Context managers can be completely compiled out with `TIDESH_DISABLE_CONTEXT_MANAGERS`.
+
 ## Python Bindings
 
 `tidesh` provides Python bindings to interact with the shell programmatically.
@@ -1138,6 +1267,20 @@ with Session() as session:
 
     if isinstance(echo, ExternalCommandInfo):
         print(f"Path to echo: {echo.path}")
+
+    # Temporary context managers
+    with session.session():
+        # Any changes (cd, env, aliases, functions) revert when exiting this block
+        session.execute("cd /tmp && export MY_FLAG=1")
+
+    with session.env(MY_FLAG="1", ENV="testing"):
+        session.execute("echo $MY_FLAG")
+
+    with session.temp_cwd("/tmp"):
+        session.execute("pwd")
+
+    with session.scope(cwd="/tmp", env={"BUILD": "true"}, options=["-e"]):
+        session.execute("echo $BUILD")
 ```
 
 ### Development

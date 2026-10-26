@@ -536,6 +536,16 @@ static TokenType check_loop_keyword(const char *word) {
 }
 #endif
 
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+/* Check if a word is a context manager keyword */
+static TokenType check_context_keyword(const char *word) {
+    if (strcmp(word, "with") == 0) {
+        return TOKEN_WITH;
+    }
+    return TOKEN_WORD;
+}
+#endif
+
 static LexerToken read_word_token(LexerInput *input) {
     LexerToken token;
     token.type  = TOKEN_WORD;
@@ -663,6 +673,12 @@ static LexerToken read_word_token(LexerInput *input) {
     // Check if the word is a loop keyword
     if (!has_quotes && token.type == TOKEN_WORD) {
         token.type = check_loop_keyword(token.value);
+    }
+#endif
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    // Check if the word is a context manager keyword
+    if (!has_quotes && token.type == TOKEN_WORD) {
+        token.type = check_context_keyword(token.value);
     }
 #endif
     return token;
@@ -1226,6 +1242,10 @@ const char *token_type_to_string(TokenType type) {
             return "TOKEN_DO";
         case TOKEN_DONE:
             return "TOKEN_DONE";
+#endif
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+        case TOKEN_WITH:
+            return "TOKEN_WITH";
 #endif
         case TOKEN_EOL:
             return "TOKEN_EOL";

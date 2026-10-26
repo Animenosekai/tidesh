@@ -38,6 +38,7 @@ Features *init_features(Features *features) {
     features->command_substitution = true;
     features->assignments          = true;
     features->functions            = true;
+    features->context_managers     = true;
 
     features_apply_compile_time_disables(features);
 
@@ -75,6 +76,7 @@ Features *init_features_minimal(Features *features) {
     features->command_substitution = false;
     features->assignments          = false;
     features->functions            = false;
+    features->context_managers     = false;
 
     return features;
 }
@@ -153,5 +155,8 @@ void features_apply_compile_time_disables(Features *features) {
 #endif
 #ifdef TIDESH_DISABLE_FUNCTIONS
     features->functions = false;
+#endif
+#ifdef TIDESH_DISABLE_CONTEXT_MANAGERS
+    features->context_managers = false;
 #endif
 }

@@ -3,6 +3,7 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportPrivateUsage=false
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import os
 import typing
@@ -587,6 +588,123 @@ class Session:
     def previous_cwd(self) -> str:
         """The previous working directory."""
         return ffi.string(self._session.previous_working_dir).decode()
+
+    @contextlib.contextmanager
+    def env(self, **kwargs: str) -> typing.Iterator[dict[str, str]]:
+        """
+        Temporarily set environment variables within a context.
+
+        Parameters
+        ----------
+        **kwargs : str
+            Key-value pairs to set in the environment.
+
+        Yields
+        ------
+        dict[str, str]
+            Dictionary of the temporarily set environment variables.
+        """
+        saved: dict[str, str | None] = {}
+        for k, v in kwargs.items():
+            saved[k] = self.environ.get(k)
+            self.environ[k] = str(v)
+        try:
+            yield kwargs
+        finally:
+            for k, old_val in saved.items():
+                if old_val is None:
+                    self.environ.pop(k, None)
+                else:
+                    self.environ[k] = old_val
+
+    @contextlib.contextmanager
+    def temp_cwd(self, path: str | os.PathLike[str]) -> typing.Iterator[str]:
+        """
+        Temporarily change the working directory within a context.
+
+        Parameters
+        ----------
+        path : str | os.PathLike[str]
+            Target directory to change to.
+
+        Yields
+        ------
+        str
+            The new working directory path.
+        """
+        old_dir = self.cwd
+        self.cd(path)
+        try:
+            yield self.cwd
+        finally:
+            self.cd(old_dir)
+
+    @contextlib.contextmanager
+    def scope(
+        self,
+        *,
+        cwd: str | os.PathLike[str] | None = None,
+        env: dict[str, str] | None = None,
+        **kwargs: str,
+    ) -> typing.Iterator[Session]:
+        """
+        Temporarily change working directory and/or environment variables within a scope.
+
+        Parameters
+        ----------
+        cwd : str | os.PathLike[str] | None
+            Optional directory to switch to.
+        env : dict[str, str] | None
+            Optional environment variables dictionary.
+        **kwargs : str
+            Additional environment variables.
+
+        Yields
+        ------
+        Session
+            The current session within the scope.
+        """
+        env_vars = {**(env or {}), **kwargs}
+        old_dir = self.cwd if cwd is not None else None
+        saved_env: dict[str, str | None] = {}
+        for k, v in env_vars.items():
+            saved_env[k] = self.environ.get(k)
+            self.environ[k] = str(v)
+        if cwd is not None:
+            self.cd(cwd)
+        try:
+            yield self
+        finally:
+            if old_dir is not None:
+                self.cd(old_dir)
+            for k, old_val in saved_env.items():
+                if old_val is None:
+                    self.environ.pop(k, None)
+                else:
+                    self.environ[k] = old_val
+
+    @contextlib.contextmanager
+    def session(self) -> typing.Iterator[Session]:
+        """
+        Snapshot the current session state and revert all changes upon exiting.
+
+        Any modifications made within this context (working directory, environment
+        variables, aliases, functions, shell options, umask, etc.) are reverted
+        when the block exits.
+
+        Yields
+        ------
+        Session
+            The current session within the scoped snapshot.
+        """
+        snapshot = lib.session_snapshot_create(self._session)
+        if snapshot == ffi.NULL:
+            raise SessionError("Failed to create session snapshot")
+        try:
+            yield self
+        finally:
+            lib.session_snapshot_restore(self._session, snapshot)
+            lib.session_snapshot_free(snapshot)
 
     def __del__(self) -> None:
         """Ensure resources are cleaned up when the session is garbage collected."""

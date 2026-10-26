@@ -26,6 +26,8 @@ class NodeType(IntEnum):
     FUNCTION_DEF = lib.NODE_FUNCTION_DEF
     FOR = lib.NODE_FOR
     WHILE = lib.NODE_WHILE
+    UNTIL = lib.NODE_UNTIL
+    WITH = lib.NODE_WITH
 
 
 class Redirection:
@@ -701,6 +703,26 @@ class CaseNode(HasRedirectsMixin, ASTNode):
         return f"<CaseNode word={self.word!r} items={len(self.items)}>"
 
 
+class WithNode(ASTNode):
+    """
+    Represents a with context manager node in the AST.
+
+    Attributes
+    ----------
+    body : ASTNode | None
+        The commands executed inside the with block.
+    """
+
+    def __init__(self, c_node: typing.Any) -> None:
+        super().__init__(c_node)
+        self.body: ASTNode | None = (
+            create_ast_node(c_node.left) if c_node.left != ffi.NULL else None
+        )
+
+    def __repr__(self) -> str:
+        return f"<WithNode body={self.body!r}>"
+
+
 _NODE_CLASS_MAP: dict[NodeType, type[ASTNode]] = {
     NodeType.COMMAND: CommandNode,
     NodeType.PIPE: PipeNode,
@@ -714,6 +736,7 @@ _NODE_CLASS_MAP: dict[NodeType, type[ASTNode]] = {
     NodeType.FUNCTION_DEF: FunctionDefNode,
     NodeType.FOR: ForNode,
     NodeType.WHILE: WhileNode,
+    NodeType.WITH: WithNode,
 }
 
 

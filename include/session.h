@@ -93,6 +93,11 @@ typedef struct Session {
     bool trap_exit_local; // Whether EXIT trap was set within this subshell
     ShellOptions options; // Shell options (set builtin)
     int ignore_errexit;   // Ignore errexit in conditions and and/or lists
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    struct CustomContextManager
+                        *context_managers; // Custom registered context managers
+    struct ContextFrame *context_stack;    // Active context unwind stack
+#endif
 } Session;
 
 /**

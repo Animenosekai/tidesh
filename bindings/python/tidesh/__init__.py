@@ -88,6 +88,7 @@ from .ast import (
     SequenceNode,
     SubshellNode,
     WhileNode,
+    WithNode,
     create_ast_node,
 )
 from .constants import Hook
@@ -249,6 +250,7 @@ __all__ = [
     "TokenType",
     "ValuedToken",
     "WhileNode",
+    "WithNode",
     "WordToken",
     "ast",
     "capture",

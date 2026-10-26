@@ -96,6 +96,12 @@
 #define FEATURE_DISABLED_FUNCTIONS false
 #endif
 
+#ifdef TIDESH_DISABLE_CONTEXT_MANAGERS
+#define FEATURE_DISABLED_CONTEXT_MANAGERS true
+#else
+#define FEATURE_DISABLED_CONTEXT_MANAGERS false
+#endif
+
 typedef struct FeatureDef {
     const char *name;
     const char *description;
@@ -143,6 +149,8 @@ static const FeatureDef feature_defs[] = {
      FEATURE_DISABLED_ASSIGNMENTS},
     {"functions", "shell functions", offsetof(Features, functions),
      FEATURE_DISABLED_FUNCTIONS},
+    {"context_managers", "with statement and context managers",
+     offsetof(Features, context_managers), FEATURE_DISABLED_CONTEXT_MANAGERS},
 };
 
 static size_t feature_defs_count(void) {

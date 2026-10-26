@@ -9,6 +9,9 @@
 #include "expansions/aliases.h" /* alias_expansion */
 #include "lexer.h" /* LexerInput, LexerToken, lexer_next_token, free_lexer_token, TOKEN_* */
 #include "session.h" /* Session */
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+#include "context.h" /* copy_context_invocations */
+#endif
 
 static bool is_all_digits(const char *str) {
     if (!str || !*str)
@@ -55,6 +58,22 @@ void free_redirects(Redirection *redirect) {
         free(redirect->next);
         redirect->next = NULL;
     }
+}
+
+Redirection *copy_redirects(const Redirection *redirect) {
+    if (!redirect)
+        return NULL;
+
+    Redirection *cp = calloc(1, sizeof(Redirection));
+    if (!cp)
+        return NULL;
+
+    cp->fd     = redirect->fd;
+    cp->type   = redirect->type;
+    cp->target = redirect->target ? strdup(redirect->target) : NULL;
+    cp->is_process_substitution = redirect->is_process_substitution;
+    cp->next                    = copy_redirects(redirect->next);
+    return cp;
 }
 
 #ifndef TIDESH_DISABLE_CONDITIONALS
@@ -104,6 +123,39 @@ static void free_case_items(CaseItem *item) {
         free(item);
         item = next;
     }
+}
+
+static ConditionalBranch *
+copy_conditional_branches(const ConditionalBranch *branch) {
+    if (!branch)
+        return NULL;
+    ConditionalBranch *cp = calloc(1, sizeof(ConditionalBranch));
+    if (!cp)
+        return NULL;
+    cp->condition = copy_ast(branch->condition);
+    cp->body      = copy_ast(branch->body);
+    cp->next      = copy_conditional_branches(branch->next);
+    return cp;
+}
+
+static CaseItem *copy_case_items(const CaseItem *item) {
+    if (!item)
+        return NULL;
+    CaseItem *cp = calloc(1, sizeof(CaseItem));
+    if (!cp)
+        return NULL;
+    cp->terminator    = item->terminator;
+    cp->pattern_count = item->pattern_count;
+    if (item->pattern_count > 0 && item->patterns) {
+        cp->patterns = calloc(item->pattern_count, sizeof(char *));
+        for (int i = 0; i < item->pattern_count; i++) {
+            cp->patterns[i] =
+                item->patterns[i] ? strdup(item->patterns[i]) : NULL;
+        }
+    }
+    cp->body = copy_ast(item->body);
+    cp->next = copy_case_items(item->next);
+    return cp;
 }
 #endif
 
@@ -160,6 +212,73 @@ void free_ast(ASTNode *node) {
         node->case_items = NULL;
     }
 #endif
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    if (node->with_contexts) {
+        free_context_invocations(node->with_contexts);
+        node->with_contexts = NULL;
+    }
+#endif
+}
+
+ASTNode *copy_ast(const ASTNode *node) {
+    if (!node)
+        return NULL;
+
+    ASTNode *cp = calloc(1, sizeof(ASTNode));
+    if (!cp)
+        return NULL;
+
+    cp->type       = node->type;
+    cp->background = node->background;
+    cp->argc       = node->argc;
+
+    if (node->argc > 0 && node->argv) {
+        cp->argv = calloc(node->argc + 1, sizeof(char *));
+        if (cp->argv) {
+            for (int i = 0; i < node->argc; i++) {
+                cp->argv[i] = node->argv[i] ? strdup(node->argv[i]) : NULL;
+            }
+        }
+    }
+
+    if (node->argc > 0 && node->arg_is_sub) {
+        cp->arg_is_sub = calloc(node->argc, sizeof(int));
+        if (cp->arg_is_sub) {
+            memcpy(cp->arg_is_sub, node->arg_is_sub, node->argc * sizeof(int));
+        }
+    }
+
+    if (node->assignments) {
+        cp->assignments = array_copy(node->assignments, NULL);
+    }
+
+    if (node->redirects) {
+        cp->redirects = copy_redirects(node->redirects);
+    }
+
+    cp->left  = copy_ast(node->left);
+    cp->right = copy_ast(node->right);
+
+#ifndef TIDESH_DISABLE_CONDITIONALS
+    if (node->branches) {
+        cp->branches = copy_conditional_branches(node->branches);
+    }
+    if (node->case_items) {
+        cp->case_items = copy_case_items(node->case_items);
+    }
+#endif
+
+#ifndef TIDESH_DISABLE_LOOPS
+    cp->for_has_in = node->for_has_in;
+#endif
+
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    if (node->with_contexts) {
+        cp->with_contexts = copy_context_invocations(node->with_contexts);
+    }
+#endif
+
+    return cp;
 }
 
 /* A command parser */
@@ -208,9 +327,13 @@ static ASTNode *parse_command(Parser *parser, Session *session);
 static ASTNode *parse_conditional(Parser *parser, Session *session);
 static ASTNode *parse_case(Parser *parser, Session *session);
 #endif
-#if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS)
+#if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS) || \
+    !defined(TIDESH_DISABLE_CONTEXT_MANAGERS)
 static void parse_loop_redirects(Parser *parser, ASTNode *node,
                                  Session *session);
+#endif
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+static ASTNode *parse_with(Parser *parser, Session *session);
 #endif
 #ifndef TIDESH_DISABLE_LOOPS
 static ASTNode *parse_for(Parser *parser, Session *session);
@@ -913,7 +1036,8 @@ static void add_argument(ASTNode *node, char *arg, int sub_type) {
     node->argv[node->argc]           = NULL;
 }
 
-#if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS)
+#if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS) || \
+    !defined(TIDESH_DISABLE_CONTEXT_MANAGERS)
 static void parse_loop_redirects(Parser *parser, ASTNode *node,
                                  Session *session) {
     while (true) {
@@ -1347,6 +1471,281 @@ static ASTNode *parse_until(Parser *parser, Session *session) {
 }
 #endif
 
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+static ASTNode *parse_with(Parser *parser, Session *session) {
+    LexerToken *token = parser_peek(parser);
+    if (token->type != TOKEN_WITH) {
+        return NULL;
+    }
+
+    // Consume 'with'
+    parser_skip(parser);
+
+    ContextInvocation *first_inv = NULL;
+    ContextInvocation *last_inv  = NULL;
+
+    // Parse one or more context manager invocations
+    while (true) {
+        // Skip newlines, comments
+        token = parser_peek(parser);
+        while (token->type == TOKEN_EOL || token->type == TOKEN_COMMENT) {
+            parser_skip(parser);
+            token = parser_peek(parser);
+        }
+
+        // Check if we hit the block opener
+        if (token->type == TOKEN_LBRACE || token->type == TOKEN_DO ||
+            token->type == TOKEN_EOF) {
+            break;
+        }
+
+        // Optional comma separator between invocations
+        if (token->type == TOKEN_WORD && strcmp(token->value, ",") == 0) {
+            parser_skip(parser);
+            continue;
+        }
+
+        // We expect an identifier for the context manager name
+        if (token->type != TOKEN_WORD) {
+            fprintf(stderr, "Syntax error: expected context manager name in "
+                            "'with' statement\n");
+            parser->error = true;
+            break;
+        }
+
+        LexerToken name_tok = parser_next(parser);
+        char *mgr_name = name_tok.value ? strdup(name_tok.value) : strdup("");
+        free_lexer_token(&name_tok);
+
+        // Strip any trailing comma or '(' from manager name if present
+        size_t nlen               = strlen(mgr_name);
+        bool   has_attached_paren = false;
+        if (nlen > 0 && mgr_name[nlen - 1] == '(') {
+            mgr_name[nlen - 1] = '\0';
+            has_attached_paren = true;
+        } else if (nlen > 0 && mgr_name[nlen - 1] == ',') {
+            mgr_name[nlen - 1] = '\0';
+        }
+
+        ContextInvocation *inv = init_context_invocation(mgr_name);
+        free(mgr_name);
+
+        if (!first_inv) {
+            first_inv = inv;
+            last_inv  = inv;
+        } else {
+            last_inv->next = inv;
+            last_inv       = inv;
+        }
+
+        // Check if arguments follow in parentheses: '('
+        token = parser_peek(parser);
+        if (has_attached_paren || token->type == TOKEN_LPAREN) {
+            if (!has_attached_paren) {
+                parser_skip(parser); // consume '('
+            }
+
+            // Parse arguments until ')'
+            while (true) {
+                token = parser_peek(parser);
+                while (token->type == TOKEN_EOL ||
+                       token->type == TOKEN_COMMENT) {
+                    parser_skip(parser);
+                    token = parser_peek(parser);
+                }
+
+                if (token->type == TOKEN_EOF || parser->error) {
+                    fprintf(stderr, "Syntax error: unexpected EOF in context "
+                                    "manager arguments\n");
+                    parser->error = true;
+                    break;
+                }
+
+                if (token->type == TOKEN_RPAREN) {
+                    parser_skip(parser); // consume ')'
+                    break;
+                }
+
+                // If comma, skip it
+                if (token->type == TOKEN_WORD &&
+                    strcmp(token->value, ",") == 0) {
+                    parser_skip(parser);
+                    continue;
+                }
+
+                // Could be TOKEN_ASSIGNMENT: KEY=VAL
+                if (token->type == TOKEN_ASSIGNMENT) {
+                    LexerToken assign_tok = parser_next(parser);
+                    char      *val = assign_tok.extra ? assign_tok.extra : "";
+                    char      *val_copy = strdup(val);
+                    size_t     vlen     = strlen(val_copy);
+                    if (vlen > 0 && val_copy[vlen - 1] == ',') {
+                        val_copy[vlen - 1] = '\0';
+                    }
+                    context_invocation_add_arg(inv, assign_tok.value, val_copy);
+                    free(val_copy);
+                    free_lexer_token(&assign_tok);
+                    continue;
+                }
+
+                // Could be TOKEN_WORD
+                if (token->type == TOKEN_WORD) {
+                    LexerToken w_tok = parser_next(parser);
+                    char *w = w_tok.value ? strdup(w_tok.value) : strdup("");
+                    free_lexer_token(&w_tok);
+
+                    // Check if followed by '=': KEY = VAL
+                    LexerToken *next_tok = parser_peek(parser);
+                    if (next_tok->type == TOKEN_WORD &&
+                        strcmp(next_tok->value, "=") == 0) {
+                        parser_skip(parser); // consume '='
+                        token = parser_peek(parser);
+                        while (token->type == TOKEN_EOL ||
+                               token->type == TOKEN_COMMENT) {
+                            parser_skip(parser);
+                            token = parser_peek(parser);
+                        }
+
+                        char *val_str       = "";
+                        char *val_allocated = NULL;
+                        if (token->type == TOKEN_WORD ||
+                            token->type == TOKEN_ASSIGNMENT) {
+                            LexerToken v_tok = parser_next(parser);
+                            val_allocated =
+                                v_tok.value ? strdup(v_tok.value) : strdup("");
+                            free_lexer_token(&v_tok);
+                            size_t vlen = strlen(val_allocated);
+                            if (vlen > 0 && val_allocated[vlen - 1] == ',') {
+                                val_allocated[vlen - 1] = '\0';
+                            }
+                            val_str = val_allocated;
+                        }
+
+                        context_invocation_add_arg(inv, w, val_str);
+                        free(val_allocated);
+                        free(w);
+                        continue;
+                    }
+
+                    // Check if w contains '=': KEY=VAL
+                    char *eq = strchr(w, '=');
+                    if (eq) {
+                        size_t klen   = (size_t)(eq - w);
+                        char  *k      = strndup(w, klen);
+                        char  *v      = eq + 1;
+                        char  *v_copy = strdup(v);
+                        size_t vlen   = strlen(v_copy);
+                        if (vlen > 0 && v_copy[vlen - 1] == ',') {
+                            v_copy[vlen - 1] = '\0';
+                        }
+                        context_invocation_add_arg(inv, k, v_copy);
+                        free(k);
+                        free(v_copy);
+                        free(w);
+                        continue;
+                    }
+
+                    // Positional argument
+                    size_t wlen = strlen(w);
+                    if (wlen > 0 && w[wlen - 1] == ',') {
+                        w[wlen - 1] = '\0';
+                    }
+                    context_invocation_add_arg(inv, NULL, w);
+                    free(w);
+                    continue;
+                }
+
+                // Any other token inside ()
+                LexerToken other_tok = parser_next(parser);
+                if (other_tok.value) {
+                    char  *w    = strdup(other_tok.value);
+                    size_t wlen = strlen(w);
+                    if (wlen > 0 && w[wlen - 1] == ',') {
+                        w[wlen - 1] = '\0';
+                    }
+                    context_invocation_add_arg(inv, NULL, w);
+                    free(w);
+                }
+                free_lexer_token(&other_tok);
+            }
+        }
+
+        // Optional trailing comma after manager invocation
+        token = parser_peek(parser);
+        if (token->type == TOKEN_WORD && strcmp(token->value, ",") == 0) {
+            parser_skip(parser);
+        }
+    }
+
+    if (parser->error || !first_inv) {
+        if (!first_inv) {
+            fprintf(
+                stderr,
+                "Syntax error: expected context manager in 'with' statement\n");
+            parser->error = true;
+        }
+        if (first_inv) {
+            free_context_invocations(first_inv);
+        }
+        return NULL;
+    }
+
+    // Skip newlines or semicolons before body
+    token = parser_peek(parser);
+    while (token->type == TOKEN_EOL || token->type == TOKEN_SEMICOLON ||
+           token->type == TOKEN_COMMENT) {
+        parser_skip(parser);
+        token = parser_peek(parser);
+    }
+
+    // Expect '{' or 'do'
+    ASTNode *body = NULL;
+    if (token->type == TOKEN_LBRACE) {
+        parser_skip(parser); // consume '{'
+        body                 = parse_sequence(parser, session);
+        LexerToken close_tok = parser_next(parser);
+        if (close_tok.type != TOKEN_RBRACE) {
+            fprintf(stderr,
+                    "Syntax error: expected '}' to close 'with' block\n");
+            parser->error = true;
+        }
+        free_lexer_token(&close_tok);
+    } else if (token->type == TOKEN_DO) {
+        parser_skip(parser); // consume 'do'
+        body                 = parse_sequence(parser, session);
+        LexerToken close_tok = parser_next(parser);
+        if (close_tok.type != TOKEN_DONE) {
+            fprintf(stderr,
+                    "Syntax error: expected 'done' to close 'with' block\n");
+            parser->error = true;
+        }
+        free_lexer_token(&close_tok);
+    } else {
+        fprintf(stderr, "Syntax error: expected '{' or 'do' after context "
+                        "managers in 'with'\n");
+        parser->error = true;
+    }
+
+    if (parser->error) {
+        free_context_invocations(first_inv);
+        if (body) {
+            free_ast(body);
+            free(body);
+        }
+        return NULL;
+    }
+
+    ASTNode *with_node       = init_ast(NULL, NODE_WITH);
+    with_node->with_contexts = first_inv;
+    with_node->left          = body;
+
+    // Parse any redirections after the block
+    parse_loop_redirects(parser, with_node, session);
+
+    return with_node;
+}
+#endif
+
 /* Parse a single command (with possible redirections and assignments) */
 static ASTNode *parse_command(Parser *parser, Session *session) {
     LexerToken *peek = parser_peek(parser);
@@ -1404,6 +1803,12 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
     }
 #endif
 
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    if (peek->type == TOKEN_WITH) {
+        return parse_with(parser, session);
+    }
+#endif
+
     ASTNode *cmd        = init_ast(NULL, NODE_COMMAND);
     bool     first_word = true;
 
@@ -1426,6 +1831,11 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
 #ifndef TIDESH_DISABLE_CONDITIONALS
         if (!first_word &&
             (token->type == TOKEN_CASE || token->type == TOKEN_ESAC)) {
+            token->type = TOKEN_WORD;
+        }
+#endif
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+        if (!first_word && token->type == TOKEN_WITH) {
             token->type = TOKEN_WORD;
         }
 #endif
@@ -1670,6 +2080,10 @@ const char *node_type_to_string(NodeType type) {
             return "NODE_WHILE";
         case NODE_UNTIL:
             return "NODE_UNTIL";
+#endif
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+        case NODE_WITH:
+            return "NODE_WITH";
 #endif
         default:
             return "NODE_UNKNOWN";

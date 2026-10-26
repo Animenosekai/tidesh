@@ -131,6 +131,9 @@ typedef enum TokenType {
     TOKEN_DO,   // do
     TOKEN_DONE, // done
 #endif
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    TOKEN_WITH, // with
+#endif
 
     TOKEN_EOL, // end of command (real newline)
     TOKEN_EOF  // end of file

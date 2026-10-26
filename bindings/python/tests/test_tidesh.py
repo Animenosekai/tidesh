@@ -521,10 +521,7 @@ def test_exec_builtin() -> None:
         tmp_path.unlink()
     try:
         assert (
-            session.execute(
-                f"( exec > {tmp_path}; echo 'py exec subshell test' )"
-            )
-            == 0
+            session.execute(f"( exec > {tmp_path}; echo 'py exec subshell test' )") == 0
         )
         assert tmp_path.read_text().strip() == "py exec subshell test"
     finally:
@@ -563,7 +560,7 @@ def test_trap_builtin() -> None:
     try:
         assert (
             session.execute(
-                f"( trap 'echo trap_fired >> {tmp_path}' EXIT; echo inside >> {tmp_path} )"
+                f"( trap 'echo trap_fired >> {tmp_path}' EXIT; echo inside >> {tmp_path} )",
             )
             == 0
         )
@@ -613,6 +610,63 @@ def test_terminal_test_builtin() -> None:
     # invalid integer returns error status 2
     assert session.execute("test -t abc") == 2
     assert session.execute("[ -t notanumber ]") == 2
+
+
+def test_with_statement_ast() -> None:
+    session = tidesh.Session()
+    ast_res = session.ast('with env(FOO = "bar"), cwd("/tmp") {\n    echo $FOO\n}')
+    assert ast_res.type == tidesh.NodeType.WITH
+    assert isinstance(ast_res.root, tidesh.WithNode)
+
+
+def test_session_python_context_managers() -> None:
+    session = tidesh.Session()
+    orig_cwd = session.cwd
+
+    # test session.env
+    with session.env(TEMP_VAR="hello_python"):
+        assert session.environ.get("TEMP_VAR") == "hello_python"
+    assert "TEMP_VAR" not in session.environ
+
+    # test session.temp_cwd
+    with session.temp_cwd("/tmp"):
+        assert session.cwd in ("/tmp", "/private/tmp")
+    assert session.cwd == orig_cwd
+
+    # test session.scope
+    with session.scope(cwd="/tmp", env={"SCOPED_A": "1"}, SCOPED_B="2"):
+        assert session.cwd in ("/tmp", "/private/tmp")
+        assert session.environ.get("SCOPED_A") == "1"
+        assert session.environ.get("SCOPED_B") == "2"
+    assert session.cwd == orig_cwd
+    assert "SCOPED_A" not in session.environ
+    assert "SCOPED_B" not in session.environ
+
+    # test session.session() snapshot context manager
+    session.environ["BASE_VAR"] = "base"
+    with session.session():
+        session.cd("/tmp")
+        session.environ["BASE_VAR"] = "changed_in_snapshot"
+        session.environ["INNER_NEW"] = "added_in_snapshot"
+        session.execute("alias py_test_alias='echo 42'")
+        session.execute("py_test_fn() { echo 100; }")
+        assert session.cwd in ("/tmp", "/private/tmp")
+        assert session.environ.get("BASE_VAR") == "changed_in_snapshot"
+        assert session.environ.get("INNER_NEW") == "added_in_snapshot"
+        assert session.aliases.get("py_test_alias") == "echo 42"
+        assert "py_test_fn" in session.functions
+
+    # After exiting session snapshot context:
+    assert session.cwd == orig_cwd
+    assert session.environ.get("BASE_VAR") == "base"
+    assert "INNER_NEW" not in session.environ
+    assert "py_test_alias" not in session.aliases
+    assert "py_test_fn" not in session.functions
+
+    # test with session in tidesh shell syntax
+    session.execute("with session {\n    cd /tmp\n    export SHELL_TEST_VAR='123'\n}")
+    assert session.cwd == orig_cwd
+    assert "SHELL_TEST_VAR" not in session.environ
 
 
 if __name__ == "__main__":

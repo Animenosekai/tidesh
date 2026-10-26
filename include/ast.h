@@ -7,6 +7,7 @@
 #ifndef AST_H
 #define AST_H
 
+#include "context.h"
 #include "data/array.h"
 #include "lexer.h"
 #include "session.h"
@@ -43,6 +44,10 @@ typedef enum NodeType {
     NODE_FOR,
     NODE_WHILE,
     NODE_UNTIL
+#endif
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    ,
+    NODE_WITH
 #endif
 } NodeType;
 
@@ -119,13 +124,23 @@ typedef struct ASTNode {
     /* For for loop nodes */
     bool for_has_in;
 #endif
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    /* For with context manager nodes */
+    ContextInvocation *with_contexts;
+#endif
 } ASTNode;
 
 /* Free all redirections */
 void free_redirects(Redirection *r);
 
+/* Copy all redirections */
+Redirection *copy_redirects(const Redirection *r);
+
 /* Free an AST */
 void free_ast(ASTNode *node);
+
+/* Deep copy an AST */
+ASTNode *copy_ast(const ASTNode *node);
 
 /**
  * The main parse function.

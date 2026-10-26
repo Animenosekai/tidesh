@@ -97,4 +97,25 @@ int execute_string(const char *cmd, Session *session);
  */
 char *execute_string_stdout(const char *cmd, Session *session);
 
+#ifndef TIDESH_DISABLE_FUNCTIONS
+/**
+ * Load the AST body of a function by name from the functions trie.
+ *
+ * @param functions The functions trie
+ * @param name The function name
+ * @return Pointer to function ASTNode body, or NULL if not found
+ */
+ASTNode *load_function_body(Trie *functions, const char *name);
+
+/**
+ * Store a function AST body into the functions trie.
+ *
+ * @param functions The functions trie
+ * @param name The function name
+ * @param body The ASTNode body
+ * @return true on success, false on failure
+ */
+bool store_function_body(Trie *functions, char *name, ASTNode *body);
+#endif
+
 #endif /* EXECUTE_H */

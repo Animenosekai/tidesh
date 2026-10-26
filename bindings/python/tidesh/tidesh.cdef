@@ -79,6 +79,7 @@ struct Features {
     bool command_substitution;
     bool assignments;
     bool functions;
+    bool context_managers;
     ...;
 };
 
@@ -253,7 +254,9 @@ typedef enum NodeType {
     NODE_CASE,
     NODE_FUNCTION_DEF,
     NODE_FOR,
-    NODE_WHILE
+    NODE_WHILE,
+    NODE_UNTIL,
+    NODE_WITH
 } NodeType;
 
 struct ConditionalBranch {
@@ -359,6 +362,12 @@ typedef struct HookEnvVar {
 void run_cwd_hook(Session *session, const char *hook_name);
 void run_cwd_hook_with_vars(Session *session, const char *hook_name,
                             const HookEnvVar *vars, size_t var_count);
+
+// Session Snapshot
+typedef struct SessionSnapshot SessionSnapshot;
+SessionSnapshot *session_snapshot_create(Session *session);
+void session_snapshot_restore(Session *session, SessionSnapshot *snapshot);
+void session_snapshot_free(SessionSnapshot *snapshot);
 
 // General free
 void free(void *ptr);

@@ -236,6 +236,10 @@ static bool set_option_by_name(Session *session, const char *name,
         session->features.functions = enable;
         return true;
     }
+    if (strcmp(name, "context_managers") == 0) {
+        session->features.context_managers = enable;
+        return true;
+    }
     if (strcmp(name, "variable_expansion") == 0) {
         session->features.variable_expansion = enable;
         return true;

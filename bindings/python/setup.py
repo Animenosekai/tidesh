@@ -97,6 +97,7 @@ Or ensure sources are staged in bindings/python/src before building.
 sources = [
     "ast.c",
     "builtin.c",
+    "context.c",
     "dirstack.c",
     "environ.c",
     "execute.c",
@@ -158,10 +159,17 @@ sources = [
     "builtins/set.c",
     "builtins/shift.c",
     "builtins/colon.c",
+    "builtins/context_manager.c",
     "builtins/return.c",
     "builtins/exec.c",
     "builtins/trap.c",
     "builtins/command.c",
+    "builtins/read.c",
+    "contexts/cwd.c",
+    "contexts/env.c",
+    "contexts/options.c",
+    "contexts/session.c",
+    "contexts/umask.c",
 ]
 
 # Convert to relative paths for setup

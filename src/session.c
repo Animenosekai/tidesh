@@ -7,8 +7,9 @@
 #include <string.h>  /* strdup, strcmp */
 #include <unistd.h>  /* getcwd */
 
-#include "ast.h"             /* free_ast */
-#include "builtins/trap.h"   /* session_run_exit_trap */
+#include "ast.h"           /* free_ast */
+#include "builtins/trap.h" /* session_run_exit_trap */
+#include "context.h" /* init_session_context_managers, free_session_context_managers */
 #include "data/array.h"      /* array_add, free_array */
 #include "environ.h"         /* environ_get, environ_set, environ_get_default */
 #include "feature-flags.h"   /* Features */
@@ -81,6 +82,10 @@ Session *init_session(Session *session, char *history_path) {
         free(session);
         return NULL;
     }
+
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    init_session_context_managers(session);
+#endif
 
 #ifndef TIDESH_DISABLE_JOB_CONTROL
     session->jobs = init_jobs();
@@ -184,6 +189,10 @@ void free_session(Session *session) {
         free_jobs(session->jobs);
         free(session->jobs);
     }
+#endif
+
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    free_session_context_managers(session);
 #endif
 }
 

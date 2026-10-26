@@ -35,6 +35,8 @@
  * statements
  *  - TIDESH_DISABLE_LOOPS: Disable for, while, and until loops (for ...; do ...
  * done, while ...; do ... done, until ...; do ... done)
+ *  - TIDESH_DISABLE_CONTEXT_MANAGERS: Disable with statement and context
+ * managers
  */
 
 /**
@@ -68,6 +70,7 @@ typedef struct Features {
     bool command_substitution; // Command substitution $(...) and <(...)
     bool assignments;          // Variable assignments VAR=VAL in commands
     bool functions;            // Shell functions
+    bool context_managers;     // With statements and context managers
 } Features;
 
 /**
