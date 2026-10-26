@@ -228,7 +228,7 @@ lint/tests:
 .PHONY: format format/tests
 format:
 	@echo "$(BOLD)✨ Formatting the code...$(SGR0)"
-	$(SILENT)clang-format -i $(SRC) $(INCLUDES_DIR)/*.h || true
+	$(SILENT)clang-format -i $(SRC) $(INCLUDES_DIR)/*.h $(INCLUDES_DIR)/*/*.h || true
 
 format/tests:
 	@echo "$(BOLD)🧪 Formatting the tests...$(SGR0)"

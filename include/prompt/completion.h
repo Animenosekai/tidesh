@@ -1,9 +1,9 @@
 #ifndef PROMPT_COMPLETION_H
 #define PROMPT_COMPLETION_H
 
-#include <stddef.h>
-#include "session.h"
 #include "prompt/cursor.h"
+#include "session.h"
+#include <stddef.h>
 
 /**
  * Perform tab completion at the current cursor position.

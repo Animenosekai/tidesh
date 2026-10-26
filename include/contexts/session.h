@@ -1,6 +1,7 @@
 /** session.h
  *
- * Declarations for the 'session' built-in context manager and session snapshots.
+ * Declarations for the 'session' built-in context manager and session
+ * snapshots.
  */
 
 #ifndef CONTEXTS_SESSION_H
@@ -8,7 +9,7 @@
 
 #include <stddef.h>
 
-typedef struct Session Session;
+typedef struct Session    Session;
 typedef struct ContextArg ContextArg;
 
 /**

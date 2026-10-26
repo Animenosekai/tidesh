@@ -1,8 +1,9 @@
 /** execute.h
  *
  * Definitions for executing commands represented as an Abstract Syntax Tree
- * (AST). Includes functions for finding commands in the PATH and executing AST
- * nodes.
+ * (AST). Aggregate header including command lookup, redirection, functions,
+ * pipelines, conditionals, loops, context managers, command execution, and
+ * string execution.
  */
 
 #ifndef EXECUTE_H
@@ -14,61 +15,15 @@
 #include "lexer.h"
 #include "session.h"
 
-/**
- * The type of a command.
- */
-typedef enum CommandType {
-    COMMAND_NOT_FOUND,
-    COMMAND_ALIAS,
-    COMMAND_BUILTIN,
-    COMMAND_SPECIAL_BUILTIN,
-    COMMAND_EXTERNAL,
-    COMMAND_FUNCTION
-} CommandType;
-
-/**
- * Detailed information about a command.
- */
-typedef struct CommandInfo {
-    CommandType type;
-    char       *path;
-} CommandInfo;
-
-/**
- * Get detailed information about a command.
- *
- * @param cmd The command name to lookup
- * @param session The session context
- * @return A CommandInfo struct containing the command type and path/expansion
- */
-CommandInfo get_command_info(const char *cmd, Session *session);
-
-/**
- * Check if a file has a shebang line.
- *
- * @param path The path to the file to check
- * @return true if the file starts with #!, false otherwise
- */
-bool has_shebang(const char *path);
-
-/**
- * Parse a shebang line from a script file.
- *
- * @param path Path to script file
- * @param interp_argc Pointer to store interpreter argument count
- * @param interp_argv Pointer to store interpreter argument array
- * @return true if shebang was found and parsed, false otherwise
- */
-bool parse_shebang(const char *path, int *interp_argc, char ***interp_argv);
-
-/**
- * Find the full path of a command by searching the PATH environment variable.
- *
- * @param cmd The command name to find
- * @param session The session context containing environment variables
- * @return The full path to the command if found, NULL otherwise
- */
-char *find_in_path(const char *cmd, Session *session);
+// Execute submodules
+#include "execute/command.h"
+#include "execute/conditional.h"
+#include "execute/function.h"
+#include "execute/lookup.h"
+#include "execute/loop.h"
+#include "execute/pipeline.h"
+#include "execute/redirection.h"
+#include "execute/with.h"
 
 /**
  * Execute the given AST node in the context of the given session.
@@ -96,26 +51,5 @@ int execute_string(const char *cmd, Session *session);
  * @return The captured standard output of the command
  */
 char *execute_string_stdout(const char *cmd, Session *session);
-
-#ifndef TIDESH_DISABLE_FUNCTIONS
-/**
- * Load the AST body of a function by name from the functions trie.
- *
- * @param functions The functions trie
- * @param name The function name
- * @return Pointer to function ASTNode body, or NULL if not found
- */
-ASTNode *load_function_body(Trie *functions, const char *name);
-
-/**
- * Store a function AST body into the functions trie.
- *
- * @param functions The functions trie
- * @param name The function name
- * @param body The ASTNode body
- * @return true on success, false on failure
- */
-bool store_function_body(Trie *functions, char *name, ASTNode *body);
-#endif
 
 #endif /* EXECUTE_H */

@@ -8,7 +8,7 @@
 
 #include <stddef.h>
 
-typedef struct Session Session;
+typedef struct Session    Session;
 typedef struct ContextArg ContextArg;
 
 /**

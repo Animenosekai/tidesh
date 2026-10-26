@@ -6,13 +6,13 @@
 #ifndef PROMPT_CURSOR_H
 #define PROMPT_CURSOR_H
 
+#include "data/dynamic.h" /* Dynamic */
 #include "session.h"
 #include <stddef.h> /* size_t */
-#include "data/dynamic.h" /* Dynamic */
 
 typedef struct Cursor {
     char *keep; // Pointer to the previous cursor state for history navigation
-    char *suggestion; // Pointer to the current suggestion string
+    char *suggestion;             // Pointer to the current suggestion string
     Dynamic    *data;             // The current input data
     size_t      position;         // Byte position from the end of the data
     size_t      visible_position; // Visible position from the end of the data
