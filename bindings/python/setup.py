@@ -108,6 +108,14 @@ include_dirs = [os.path.relpath(include_root, root_path)]
 source_glue_path = root_path / "tidesh" / "tidesh.c"
 source_glue = source_glue_path.read_text()
 
+# Platform-specific compile flags
+extra_compile_args: list[str] = ["-O3"]
+if PLATFORM == "linux":
+    extra_compile_args.append("-D_GNU_SOURCE")
+elif PLATFORM == "macos":
+    extra_compile_args.append("-D_XOPEN_SOURCE=700")
+    extra_compile_args.append("-D_DARWIN_C_SOURCE")
+
 # Configure the CFFI source
 ffibuilder.set_source(
     "tidesh._tidesh",
@@ -123,7 +131,7 @@ ffibuilder.set_source(
         ("PLATFORM", f'"{PLATFORM}"'),
         ("BRIEF", f'"{BRIEF}"'),
     ],
-    extra_compile_args=["-O3"],
+    extra_compile_args=extra_compile_args,
 )
 
 # Build the extension module

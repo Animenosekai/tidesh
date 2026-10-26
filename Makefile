@@ -6,7 +6,7 @@
 
 # Compiler and flags
 CC ?= clang
-CFLAGS = -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=unused-but-set-variable -Wno-error=comment -std=gnu11 -pthread $(EXTRA_CFLAGS) -D_XOPEN_SOURCE=700
+CFLAGS = -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=unused-but-set-variable -Wno-error=comment -std=gnu11 -pthread $(EXTRA_CFLAGS)
 DEBUGFLAGS = -Wall -Wextra -Werror -fsanitize=address -g
 RELEASEFLAGS = -O3 -DNDEBUG
 TESTINGFLAGS = -DTESTING -Itests/snow/ -DSNOW_ENABLED
@@ -64,6 +64,13 @@ else ifeq ($(UNAME), Linux)
     PLATFORM ?= linux
 else
     PLATFORM ?= windows
+endif
+
+# Platform-specific flags
+ifeq ($(PLATFORM), macos)
+	CFLAGS += -D_XOPEN_SOURCE=700 -D_DARWIN_C_SOURCE
+else ifeq ($(PLATFORM), linux)
+	CFLAGS += -D_GNU_SOURCE
 endif
 
 # Version information from git (if available)
