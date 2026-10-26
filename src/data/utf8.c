@@ -5,8 +5,7 @@
 #include <stdint.h>  /* uint32_t */
 
 #if defined(__unix__) || defined(__APPLE__)
-#define _XOPEN_SOURCE 700 // Modern POSIX compliance
-#include <wchar.h>        /* wcwidth, wchar_t */
+#include <wchar.h> /* wcwidth, wchar_t */
 #endif
 
 /* Get UTF-8 character length from first byte (1-4 bytes).

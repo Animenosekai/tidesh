@@ -19,6 +19,9 @@ typedef struct ConditionalBranch ConditionalBranch;
 typedef struct FSSandbox FSSandbox;
 typedef struct NetSandbox NetSandbox;
 typedef struct LimitSandbox LimitSandbox;
+typedef struct CustomContextManager CustomContextManager;
+typedef struct ContextFrame ContextFrame;
+typedef struct AllowedExitCodes AllowedExitCodes;
 
 typedef enum CommandType {
     COMMAND_NOT_FOUND,
@@ -98,29 +101,53 @@ struct ShellOptions {
     bool noclobber;
     bool monitor;
     bool pipefail;
+    bool notify;
+    bool hashall;
+    bool ignoreeof;
     bool default_glob;
-    ...;
 };
 
 struct Session {
-    char     *current_working_dir;
-    char     *previous_working_dir;
-    Environ  *environ;
-    History  *history;
-    Trie     *aliases;
-    Trie     *functions;
-    Trie     *path_commands;
+    char *current_working_dir;
+    char *previous_working_dir;
+    Environ *environ;
+    History *history;
+    Trie *aliases;
+    Trie *functions;
+    Trie *path_commands;
     DirStack *dirstack;
     Terminal *terminal;
-    Jobs     *jobs;
-    Features     features;
+    Jobs *jobs;
+    Features features;
+    bool exit_requested;
+    bool hooks_disabled;
+    bool initial_parent_hooks_run;
+    int loop_depth;
+    int loop_break;
+    int loop_continue;
+    int function_depth;
+    bool return_requested;
+    int return_status;
+    bool permanent_redirections;
+    char *trap_exit;
+    char *trap_signals[64];
+    void (*original_handlers[64])(int);
+    bool has_orig_handler[64];
+    bool in_trap;
+    bool is_subshell;
+    bool trap_exit_local;
     ShellOptions options;
-    bool         exit_requested;
-    bool         hooks_disabled;
-    FSSandbox    *fs_sandbox;
-    NetSandbox   *net_sandbox;
+    int ignore_errexit;
+    CustomContextManager *context_managers;
+    ContextFrame *context_stack;
+    AllowedExitCodes *allowed_exit_codes;
+    FSSandbox *fs_sandbox;
+    NetSandbox *net_sandbox;
     LimitSandbox *limit_sandbox;
-    ...;
+    int active_child_count;
+    int try_depth;
+    bool try_caught;
+    int try_exit_code;
 };
 
 struct Terminal {
