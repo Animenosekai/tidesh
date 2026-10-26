@@ -791,4 +791,138 @@ describe(ast) {
         free_session(session);
         free(session);
     }
+
+    it("should parse POSIX conditional statement with if, elif, else, fi") {
+        Session    *session = init_session(NULL, "/tmp/test_history");
+        LexerInput *lexer   = init_lexer_input(
+            NULL, "if test $x -eq 1; then echo 1; elif test $x -eq 2; then echo 2; else echo 3; fi",
+            NULL, session);
+        ASTNode *ast = parse(lexer, session);
+
+        assertneq(ast, NULL);
+        asserteq(ast->type, NODE_CONDITIONAL);
+
+        ConditionalBranch *b1 = ast->branches;
+        assertneq(b1, NULL);
+        assertneq(b1->condition, NULL);
+        assertneq(b1->body, NULL);
+
+        ConditionalBranch *b2 = b1->next;
+        assertneq(b2, NULL);
+        assertneq(b2->condition, NULL);
+        assertneq(b2->body, NULL);
+
+        ConditionalBranch *b3 = b2->next;
+        assertneq(b3, NULL);
+        asserteq(b3->condition, NULL); // else branch
+        assertneq(b3->body, NULL);
+        asserteq(b3->next, NULL);
+
+        free_ast(ast);
+        free(ast);
+        free_lexer_input(lexer);
+        free(lexer);
+        free_session(session);
+        free(session);
+    }
+
+    it("should parse block style conditional statement with braces and else if / elif") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // if condition { body }
+        LexerInput *l1 = init_lexer_input(NULL, "if test $x -eq 1 { echo 1; }", NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        assertneq(ast1, NULL);
+        asserteq(ast1->type, NODE_CONDITIONAL);
+        assertneq(ast1->branches, NULL);
+        assertneq(ast1->branches->condition, NULL);
+        assertneq(ast1->branches->body, NULL);
+        asserteq(ast1->branches->next, NULL);
+        free_ast(ast1);
+        free(ast1);
+        free_lexer_input(l1);
+        free(l1);
+
+        // if (condition) { body } else if (condition2) { body2 } else { body3 }
+        LexerInput *l2 = init_lexer_input(
+            NULL,
+            "if (test $x -eq 1) {\n"
+            "    echo 1\n"
+            "} else if (test $x -eq 2) {\n"
+            "    echo 2\n"
+            "} else {\n"
+            "    echo 3\n"
+            "}\n",
+            NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+        assertneq(ast2, NULL);
+        asserteq(ast2->type, NODE_CONDITIONAL);
+
+        ConditionalBranch *b1 = ast2->branches;
+        assertneq(b1, NULL);
+        assertneq(b1->condition, NULL);
+        assertneq(b1->body, NULL);
+
+        ConditionalBranch *b2 = b1->next;
+        assertneq(b2, NULL);
+        assertneq(b2->condition, NULL);
+        assertneq(b2->body, NULL);
+
+        ConditionalBranch *b3 = b2->next;
+        assertneq(b3, NULL);
+        asserteq(b3->condition, NULL); // else branch
+        assertneq(b3->body, NULL);
+        asserteq(b3->next, NULL);
+
+        free_ast(ast2);
+        free(ast2);
+        free_lexer_input(l2);
+        free(l2);
+
+        // if condition { body } elif condition { body } else { body }
+        LexerInput *l3 = init_lexer_input(
+            NULL, "if test $x -eq 1 { echo 1; } elif test $x -eq 2 { echo 2; } else { echo 3; }",
+            NULL, session);
+        ASTNode *ast3 = parse(l3, session);
+        assertneq(ast3, NULL);
+        asserteq(ast3->type, NODE_CONDITIONAL);
+        assertneq(ast3->branches, NULL);
+        assertneq(ast3->branches->next, NULL);
+        assertneq(ast3->branches->next->next, NULL);
+        free_ast(ast3);
+        free(ast3);
+        free_lexer_input(l3);
+        free(l3);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should return NULL on syntax errors in conditional statements") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Missing then or {
+        LexerInput *l1 = init_lexer_input(NULL, "if true; echo 1; fi", NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+        asserteq(ast1, NULL);
+        free_lexer_input(l1);
+        free(l1);
+
+        // Missing closing } in block style
+        LexerInput *l2 = init_lexer_input(NULL, "if true { echo 1;", NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+        asserteq(ast2, NULL);
+        free_lexer_input(l2);
+        free(l2);
+
+        // Missing { after else in block style
+        LexerInput *l3 = init_lexer_input(NULL, "if true { echo 1; } else echo 2", NULL, session);
+        ASTNode *ast3 = parse(l3, session);
+        asserteq(ast3, NULL);
+        free_lexer_input(l3);
+        free(l3);
+
+        free_session(session);
+        free(session);
+    }
 }

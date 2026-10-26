@@ -1552,4 +1552,192 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should execute block style (C-style) conditional statements") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Basic if true { ... }
+        int st = execute_string("RES=init; if true { RES=yes; }", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "yes");
+
+        // if false { ... } else { ... }
+        st = execute_string("RES=init; if false { RES=no; } else { RES=else_branch; }", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "else_branch");
+
+        // if false { ... } elif true { ... } else { ... }
+        st = execute_string(
+            "RES=init; if false { RES=branch1; } elif true { RES=branch2; } else { RES=branch3; }",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "branch2");
+
+        // if false { ... } else if true { ... } else { ... }
+        st = execute_string(
+            "RES=init; if false { RES=b1; } else if true { RES=b2; } else { RES=b3; }",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "b2");
+
+        // With parentheses around condition: if (condition) { ... }
+        st = execute_string("RES=init; if (test 1 -eq 1) { RES=paren_ok; }", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "paren_ok");
+
+        // With test brackets [ ... ]
+        st = execute_string("RES=init; if [ \"abc\" = \"abc\" ] { RES=bracket_ok; }", session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "bracket_ok");
+
+        // Multi-line block style with newlines before braces
+        st = execute_string(
+            "RES=init\n"
+            "if false\n"
+            "{\n"
+            "    RES=wrong\n"
+            "}\n"
+            "else\n"
+            "{\n"
+            "    RES=multi_line_ok\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "multi_line_ok");
+
+        // Block style if followed by another statement on next line
+        st = execute_string(
+            "X=0\n"
+            "Y=0\n"
+            "if true {\n"
+            "    X=1\n"
+            "}\n"
+            "Y=2\n",
+            session);
+        asserteq(st, 0);
+        char *vx = environ_get(session->environ, "X");
+        char *vy = environ_get(session->environ, "Y");
+        assertneq(vx, NULL);
+        assertneq(vy, NULL);
+        asserteq_str(vx, "1");
+        asserteq_str(vy, "2");
+
+        // Nested block-style conditionals
+        st = execute_string(
+            "OUT=init\n"
+            "if true {\n"
+            "    if false {\n"
+            "        OUT=inner_false\n"
+            "    } else {\n"
+            "        OUT=inner_true\n"
+            "    }\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "OUT");
+        assertneq(val, NULL);
+        asserteq_str(val, "inner_true");
+
+        // Mixed nesting: POSIX inside block style
+        st = execute_string(
+            "OUT=init\n"
+            "if true {\n"
+            "    if true; then\n"
+            "        OUT=posix_in_block\n"
+            "    fi\n"
+            "}\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "OUT");
+        assertneq(val, NULL);
+        asserteq_str(val, "posix_in_block");
+
+        // Mixed nesting: block style inside POSIX
+        st = execute_string(
+            "OUT=init\n"
+            "if true; then\n"
+            "    if true {\n"
+            "        OUT=block_in_posix\n"
+            "    }\n"
+            "fi\n",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "OUT");
+        assertneq(val, NULL);
+        asserteq_str(val, "block_in_posix");
+
+        // Redirection with block style
+        unlink("/tmp/test_block_redir.txt");
+        st = execute_string(
+            "if true {\n"
+            "    echo \"block_redir_content\"\n"
+            "} > /tmp/test_block_redir.txt\n",
+            session);
+        asserteq(st, 0);
+        FILE *rf = fopen("/tmp/test_block_redir.txt", "r");
+        assertneq(rf, NULL);
+        char rbuf[64] = {0};
+        fgets(rbuf, sizeof(rbuf), rf);
+        fclose(rf);
+        unlink("/tmp/test_block_redir.txt");
+        assert(strstr(rbuf, "block_redir_content") != NULL);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should maintain full backward compatibility with POSIX conditional statements") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Standard POSIX if then fi
+        int st = execute_string("RES=init; if true; then RES=posix_yes; fi", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "posix_yes");
+
+        // Standard POSIX if then elif then else fi
+        st = execute_string(
+            "RES=init; if false; then RES=1; elif true; then RES=2; else RES=3; fi",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "2");
+
+        // POSIX with braces inside then body
+        st = execute_string(
+            "RES=init; if true; then { RES=block_in_body; }; fi",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "block_in_body");
+
+        // POSIX with condition as a block: if { cmd; }; then ... fi
+        st = execute_string(
+            "RES=init; if { true; }; then RES=block_cond_ok; fi",
+            session);
+        asserteq(st, 0);
+        val = environ_get(session->environ, "RES");
+        assertneq(val, NULL);
+        asserteq_str(val, "block_cond_ok");
+
+        free_session(session);
+        free(session);
+    }
 }

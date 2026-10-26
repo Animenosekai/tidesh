@@ -17,6 +17,13 @@ char *expand_case_word(const char *raw_value, Session *session) {
 }
 
 int execute_conditional(ASTNode *node, Session *session) {
+    RedirectionState redir_state = {0};
+    if (!apply_in_process_redirections(node, session, &redir_state)) {
+        restore_in_process_redirections(&redir_state);
+        environ_set_exit_status(session->environ, 1);
+        return 1;
+    }
+
     int exit_status = 0;
 
     // Iterate through branches
@@ -29,6 +36,7 @@ int execute_conditional(ASTNode *node, Session *session) {
             } else {
                 exit_status = 0;
             }
+            restore_in_process_redirections(&redir_state);
             environ_set_exit_status(session->environ, exit_status);
             if (session->options.errexit && exit_status != 0 &&
                 session->ignore_errexit == 0) {
@@ -41,6 +49,7 @@ int execute_conditional(ASTNode *node, Session *session) {
             int condition_status = execute(branch->condition, session);
             session->ignore_errexit--;
             if (session->return_requested) {
+                restore_in_process_redirections(&redir_state);
                 return session->return_status;
             }
             if (condition_status == 0) {
@@ -50,6 +59,7 @@ int execute_conditional(ASTNode *node, Session *session) {
                 } else {
                     exit_status = 0;
                 }
+                restore_in_process_redirections(&redir_state);
                 environ_set_exit_status(session->environ, exit_status);
                 if (session->options.errexit && exit_status != 0 &&
                     session->ignore_errexit == 0) {
@@ -61,6 +71,7 @@ int execute_conditional(ASTNode *node, Session *session) {
         branch = branch->next;
     }
 
+    restore_in_process_redirections(&redir_state);
     // No condition matched, return 0 (or the last condition's status)
     environ_set_exit_status(session->environ, 0);
     return 0;

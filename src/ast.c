@@ -1,44 +1,41 @@
 #include <stdbool.h> /* bool, true, false */
-#include <stddef.h>  /* NULL */
+#include <stddef.h>  /* size_t, NULL */
+#include <stdlib.h>  /* realloc, free */
+#include <string.h>  /* memmove */
 
 #include "ast.h"
 #include "lexer.h"
 #include "session.h"
 
-/* Peek at the next token without consuming it */
-LexerToken *parser_peek(Parser *parser) {
-    if (!parser->has_token) {
-        parser->current_token = lexer_next_token(parser->lexer);
-        parser->has_token     = true;
+/* Peek at the n-th next token (0-indexed) without consuming it */
+LexerToken *parser_peek_nth(Parser *parser, size_t n) {
+    while (parser->buf_len <= n) {
+        if (parser->buf_len >= parser->buf_cap) {
+            size_t new_cap = parser->buf_cap == 0 ? 4 : parser->buf_cap * 2;
+            parser->buffer =
+                realloc(parser->buffer, new_cap * sizeof(LexerToken));
+            parser->buf_cap = new_cap;
+        }
+        parser->buffer[parser->buf_len++] = lexer_next_token(parser->lexer);
     }
-    return &parser->current_token;
+    return &parser->buffer[n];
 }
 
+/* Peek at the next token without consuming it */
+LexerToken *parser_peek(Parser *parser) { return parser_peek_nth(parser, 0); }
+
 /* Peek at the token after the next token without consuming either */
-LexerToken *parser_peek2(Parser *parser) {
-    if (!parser->has_token) {
-        parser->current_token = lexer_next_token(parser->lexer);
-        parser->has_token     = true;
-    }
-    if (!parser->has_lookahead) {
-        parser->lookahead_token = lexer_next_token(parser->lexer);
-        parser->has_lookahead   = true;
-    }
-    return &parser->lookahead_token;
-}
+LexerToken *parser_peek2(Parser *parser) { return parser_peek_nth(parser, 1); }
 
 /* Consume and return the next token */
 LexerToken parser_next(Parser *parser) {
-    if (!parser->has_token) {
-        return lexer_next_token(parser->lexer);
+    parser_peek_nth(parser, 0);
+    LexerToken token = parser->buffer[0];
+    if (parser->buf_len > 1) {
+        memmove(parser->buffer, parser->buffer + 1,
+                (parser->buf_len - 1) * sizeof(LexerToken));
     }
-    LexerToken token = parser->current_token;
-    if (parser->has_lookahead) {
-        parser->current_token = parser->lookahead_token;
-        parser->has_lookahead = false;
-    } else {
-        parser->has_token = false;
-    }
+    parser->buf_len--;
     return token;
 }
 
@@ -49,14 +46,15 @@ void parser_skip(Parser *parser) {
 }
 
 ASTNode *parse(LexerInput *lexer, Session *session) {
-    Parser   parser = {.lexer         = lexer,
-                       .has_token     = false,
-                       .has_lookahead = false,
-                       .error         = false};
+    Parser   parser = {.lexer   = lexer,
+                       .buffer  = NULL,
+                       .buf_len = 0,
+                       .buf_cap = 0,
+                       .error   = false};
     ASTNode *tree   = ast_parse_sequence(&parser, session);
-    if (parser.has_token)
-        free_lexer_token(&parser.current_token);
-    if (parser.has_lookahead)
-        free_lexer_token(&parser.lookahead_token);
+    for (size_t i = 0; i < parser.buf_len; i++) {
+        free_lexer_token(&parser.buffer[i]);
+    }
+    free(parser.buffer);
     return tree;
 }

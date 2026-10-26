@@ -16,16 +16,16 @@
 typedef struct Parser {
     /* The lexer input */
     LexerInput *lexer;
-    /* The current token */
-    LexerToken current_token;
-    /* Is there a current token? */
-    bool has_token;
-    /* Lookahead token */
-    LexerToken lookahead_token;
-    bool       has_lookahead;
+    /* Token buffer for lookahead */
+    LexerToken *buffer;
+    size_t      buf_len;
+    size_t      buf_cap;
     /* Did an error occur? */
     bool error;
 } Parser;
+
+/* Peek at the n-th next token (0-indexed) without consuming it */
+LexerToken *parser_peek_nth(Parser *parser, size_t n);
 
 /* Peek at the next token without consuming it */
 LexerToken *parser_peek(Parser *parser);

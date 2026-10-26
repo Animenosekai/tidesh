@@ -258,7 +258,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@; \
 
 # Include generated dependencies
--include $(OBJ_DIR)/*.d $(TESTS_OBJ_DIR)/*.d
+-include $(OBJ_DIR)/*.d $(OBJ_DIR)/*/*.d $(TESTS_OBJ_DIR)/*.d $(TESTS_OBJ_DIR)/*/*.d $(TESTS_SRC_OBJ_DIR)/*.d $(TESTS_SRC_OBJ_DIR)/*/*.d
 
 # Component build targets
 .PHONY: compile

@@ -130,6 +130,9 @@ ASTNode *ast_parse_command(Parser *parser, Session *session) {
 #endif
 
 #ifndef TIDESH_DISABLE_CONDITIONALS
+    if (peek->type == TOKEN_IF) {
+        return ast_parse_conditional(parser, session);
+    }
     if (peek->type == TOKEN_CASE) {
         return ast_parse_case(parser, session);
     }
