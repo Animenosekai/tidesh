@@ -102,6 +102,9 @@ typedef struct ASTNode {
     /* Whether each argument is a process substitution (0: none, 1: <(, 2: >()
      */
     int *arg_is_sub;
+    /* Named argument keys (arg_keys[i] is parameter name if named, NULL if
+     * positional) */
+    char **arg_keys;
     /* The argument count */
     int argc;
     /* I/O redirections */

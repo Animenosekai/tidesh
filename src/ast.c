@@ -32,6 +32,7 @@ static ASTNode *init_ast(ASTNode *node, NodeType type) {
     node->type        = type;
     node->argv        = NULL;
     node->arg_is_sub  = NULL;
+    node->arg_keys    = NULL;
     node->argc        = 0;
     node->redirects   = NULL;
     node->assignments = NULL;
@@ -39,7 +40,14 @@ static ASTNode *init_ast(ASTNode *node, NodeType type) {
     node->right       = NULL;
     node->background  = false;
 #ifndef TIDESH_DISABLE_CONDITIONALS
-    node->branches = NULL;
+    node->branches   = NULL;
+    node->case_items = NULL;
+#endif
+#ifndef TIDESH_DISABLE_LOOPS
+    node->for_has_in = false;
+#endif
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+    node->with_contexts = NULL;
 #endif
     return node;
 }
@@ -178,6 +186,16 @@ void free_ast(ASTNode *node) {
         node->arg_is_sub = NULL;
     }
 
+    if (node->arg_keys) {
+        for (int i = 0; i < node->argc; i++) {
+            if (node->arg_keys[i]) {
+                free(node->arg_keys[i]);
+            }
+        }
+        free(node->arg_keys);
+        node->arg_keys = NULL;
+    }
+
     if (node->assignments) {
         free_array(node->assignments);
         free(node->assignments);
@@ -248,6 +266,16 @@ ASTNode *copy_ast(const ASTNode *node) {
         }
     }
 
+    if (node->argc > 0 && node->arg_keys) {
+        cp->arg_keys = calloc(node->argc + 1, sizeof(char *));
+        if (cp->arg_keys) {
+            for (int i = 0; i < node->argc; i++) {
+                cp->arg_keys[i] =
+                    node->arg_keys[i] ? strdup(node->arg_keys[i]) : NULL;
+            }
+        }
+    }
+
     if (node->assignments) {
         cp->assignments = array_copy(node->assignments, NULL);
     }
@@ -289,6 +317,9 @@ typedef struct Parser {
     LexerToken current_token;
     /* Is there a current token? */
     bool has_token;
+    /* Lookahead token */
+    LexerToken lookahead_token;
+    bool       has_lookahead;
     /* Did an error occur? */
     bool error;
 } Parser;
@@ -302,13 +333,32 @@ static LexerToken *parser_peek(Parser *parser) {
     return &parser->current_token;
 }
 
+/* Peek at the token after the next token without consuming either */
+static LexerToken *parser_peek2(Parser *parser) {
+    if (!parser->has_token) {
+        parser->current_token = lexer_next_token(parser->lexer);
+        parser->has_token     = true;
+    }
+    if (!parser->has_lookahead) {
+        parser->lookahead_token = lexer_next_token(parser->lexer);
+        parser->has_lookahead   = true;
+    }
+    return &parser->lookahead_token;
+}
+
 /* Consume and return the next token */
 static LexerToken parser_next(Parser *parser) {
     if (!parser->has_token) {
         return lexer_next_token(parser->lexer);
     }
-    parser->has_token = false;
-    return parser->current_token;
+    LexerToken token = parser->current_token;
+    if (parser->has_lookahead) {
+        parser->current_token = parser->lookahead_token;
+        parser->has_lookahead = false;
+    } else {
+        parser->has_token = false;
+    }
+    return token;
 }
 
 /* Consume the next token without returning it */
@@ -342,10 +392,15 @@ static ASTNode *parse_until(Parser *parser, Session *session);
 #endif
 
 ASTNode *parse(LexerInput *lexer, Session *session) {
-    Parser   parser = {.lexer = lexer, .has_token = false, .error = false};
+    Parser   parser = {.lexer         = lexer,
+                       .has_token     = false,
+                       .has_lookahead = false,
+                       .error         = false};
     ASTNode *tree   = parse_sequence(&parser, session);
     if (parser.has_token)
         free_lexer_token(&parser.current_token);
+    if (parser.has_lookahead)
+        free_lexer_token(&parser.lookahead_token);
     return tree;
 }
 
@@ -1031,9 +1086,76 @@ static void add_argument(ASTNode *node, char *arg, int sub_type) {
     node->argc++;
     node->argv       = realloc(node->argv, (node->argc + 1) * sizeof(char *));
     node->arg_is_sub = realloc(node->arg_is_sub, node->argc * sizeof(int));
+    if (node->arg_keys) {
+        node->arg_keys =
+            realloc(node->arg_keys, (node->argc + 1) * sizeof(char *));
+        node->arg_keys[node->argc - 1] = NULL;
+        node->arg_keys[node->argc]     = NULL;
+    }
     node->argv[node->argc - 1]       = strdup(arg);
     node->arg_is_sub[node->argc - 1] = sub_type;
     node->argv[node->argc]           = NULL;
+}
+
+/* Add a named argument (or positional if key is NULL) to a command node */
+static void add_named_argument(ASTNode *node, const char *key, const char *arg,
+                               int sub_type) {
+    if (!arg)
+        return;
+    node->argc++;
+    node->argv       = realloc(node->argv, (node->argc + 1) * sizeof(char *));
+    node->arg_is_sub = realloc(node->arg_is_sub, node->argc * sizeof(int));
+    if (!node->arg_keys) {
+        node->arg_keys = calloc(node->argc + 1, sizeof(char *));
+    } else {
+        node->arg_keys =
+            realloc(node->arg_keys, (node->argc + 1) * sizeof(char *));
+    }
+    node->argv[node->argc - 1]       = strdup(arg);
+    node->arg_is_sub[node->argc - 1] = sub_type;
+    node->arg_keys[node->argc - 1]   = key ? strdup(key) : NULL;
+    node->argv[node->argc]           = NULL;
+    node->arg_keys[node->argc]       = NULL;
+}
+
+static bool is_valid_param_name(const char *name) {
+    if (!name || !*name)
+        return false;
+    if (!isalpha((unsigned char)name[0]) && name[0] != '_')
+        return false;
+    for (size_t i = 1; name[i]; i++) {
+        if (!isalnum((unsigned char)name[i]) && name[i] != '_')
+            return false;
+    }
+    return true;
+}
+
+typedef struct FuncArgItem {
+    char *key;
+    char *val;
+} FuncArgItem;
+
+static void add_func_arg_item(FuncArgItem **items, size_t *count, size_t *cap,
+                              const char *key, const char *val) {
+    if (*count >= *cap) {
+        *cap   = (*cap == 0) ? 4 : (*cap * 2);
+        *items = realloc(*items, *cap * sizeof(FuncArgItem));
+    }
+    (*items)[*count].key = key ? strdup(key) : NULL;
+    (*items)[*count].val = val ? strdup(val) : strdup("");
+    (*count)++;
+}
+
+static void free_func_arg_items(FuncArgItem *items, size_t count) {
+    if (!items)
+        return;
+    for (size_t i = 0; i < count; i++) {
+        if (items[i].key)
+            free(items[i].key);
+        if (items[i].val)
+            free(items[i].val);
+    }
+    free(items);
 }
 
 #if !defined(TIDESH_DISABLE_LOOPS) || !defined(TIDESH_DISABLE_CONDITIONALS) || \
@@ -1975,23 +2097,208 @@ static ASTNode *parse_command(Parser *parser, Session *session) {
             Array     *parts = NULL;
 
 #ifndef TIDESH_DISABLE_FUNCTIONS
-            // Check for function definition: name ()
-            if (session && session->features.functions && first_word &&
-                word.type == TOKEN_WORD) {
-                if (parser_peek(parser)->type == TOKEN_LPAREN) {
-                    parser_skip(parser); // consume '('
-                    if (parser_peek(parser)->type == TOKEN_RPAREN) {
+            // Check for function definition name(...) { ... } or function call
+            // name(...)
+            if ((!session || session->features.functions) && first_word &&
+                word.type == TOKEN_WORD &&
+                parser_peek(parser)->type == TOKEN_LPAREN) {
+                parser_skip(parser); // consume '('
+
+                FuncArgItem *items      = NULL;
+                size_t       item_count = 0;
+                size_t       item_cap   = 0;
+
+                while (true) {
+                    LexerToken *t = parser_peek(parser);
+                    while (t->type == TOKEN_EOL || t->type == TOKEN_COMMENT) {
+                        parser_skip(parser);
+                        t = parser_peek(parser);
+                    }
+                    if (t->type == TOKEN_EOF || parser->error) {
+                        fprintf(
+                            stderr,
+                            "Syntax error: unexpected EOF in argument list\n");
+                        parser->error = true;
+                        break;
+                    }
+                    if (t->type == TOKEN_RPAREN) {
                         parser_skip(parser); // consume ')'
-                        ASTNode *body = parse_command(parser, session);
-                        if (body) {
-                            cmd->type = NODE_FUNCTION_DEF;
-                            add_argument(cmd, word.value, 0);
-                            cmd->left = body;
-                            free_lexer_token(&word);
-                            return cmd;
+                        break;
+                    }
+                    if (t->type == TOKEN_WORD && strcmp(t->value, ",") == 0) {
+                        parser_skip(parser);
+                        continue;
+                    }
+
+                    if (t->type == TOKEN_ASSIGNMENT) {
+                        LexerToken assign_tok = parser_next(parser);
+                        char  *val = assign_tok.extra ? assign_tok.extra : "";
+                        char  *val_copy = strdup(val);
+                        size_t vlen     = strlen(val_copy);
+                        if (vlen > 0 && val_copy[vlen - 1] == ',') {
+                            val_copy[vlen - 1] = '\0';
+                        }
+                        add_func_arg_item(&items, &item_count, &item_cap,
+                                          assign_tok.value, val_copy);
+                        free(val_copy);
+                        free_lexer_token(&assign_tok);
+                        continue;
+                    }
+
+                    if (t->type == TOKEN_WORD) {
+                        LexerToken w_tok = parser_next(parser);
+                        char      *w =
+                            w_tok.value ? strdup(w_tok.value) : strdup("");
+                        free_lexer_token(&w_tok);
+
+                        // Check if followed by '=': KEY = VAL
+                        LexerToken *next_tok = parser_peek(parser);
+                        if (next_tok->type == TOKEN_WORD &&
+                            strcmp(next_tok->value, "=") == 0) {
+                            parser_skip(parser); // consume '='
+                            t = parser_peek(parser);
+                            while (t->type == TOKEN_EOL ||
+                                   t->type == TOKEN_COMMENT) {
+                                parser_skip(parser);
+                                t = parser_peek(parser);
+                            }
+                            char *val_allocated = NULL;
+                            if (t->type == TOKEN_WORD ||
+                                t->type == TOKEN_ASSIGNMENT) {
+                                LexerToken v_tok = parser_next(parser);
+                                val_allocated    = v_tok.value
+                                                       ? strdup(v_tok.value)
+                                                       : strdup("");
+                                free_lexer_token(&v_tok);
+                                size_t vlen = strlen(val_allocated);
+                                if (vlen > 0 &&
+                                    val_allocated[vlen - 1] == ',') {
+                                    val_allocated[vlen - 1] = '\0';
+                                }
+                            }
+                            add_func_arg_item(&items, &item_count, &item_cap, w,
+                                              val_allocated ? val_allocated
+                                                            : "");
+                            free(val_allocated);
+                            free(w);
+                            continue;
+                        }
+
+                        // Check if w contains '=': KEY=VAL
+                        char *eq = strchr(w, '=');
+                        if (eq && eq != w) {
+                            size_t klen   = (size_t)(eq - w);
+                            char  *k      = strndup(w, klen);
+                            char  *v      = eq + 1;
+                            char  *v_copy = strdup(v);
+                            size_t vlen   = strlen(v_copy);
+                            if (vlen > 0 && v_copy[vlen - 1] == ',') {
+                                v_copy[vlen - 1] = '\0';
+                            }
+                            add_func_arg_item(&items, &item_count, &item_cap, k,
+                                              v_copy);
+                            free(k);
+                            free(v_copy);
+                            free(w);
+                            continue;
+                        }
+
+                        // Positional argument or parameter name
+                        size_t wlen = strlen(w);
+                        if (wlen > 0 && w[wlen - 1] == ',') {
+                            w[wlen - 1] = '\0';
+                        }
+                        if (strchr(w, ',')) {
+                            char *saveptr = NULL;
+                            char *tok     = strtok_r(w, ",", &saveptr);
+                            while (tok) {
+                                if (*tok) {
+                                    add_func_arg_item(&items, &item_count,
+                                                      &item_cap, NULL, tok);
+                                }
+                                tok = strtok_r(NULL, ",", &saveptr);
+                            }
+                        } else {
+                            add_func_arg_item(&items, &item_count, &item_cap,
+                                              NULL, w);
+                        }
+                        free(w);
+                        continue;
+                    }
+
+                    LexerToken other_tok = parser_next(parser);
+                    if (other_tok.value) {
+                        char  *ov    = strdup(other_tok.value);
+                        size_t ovlen = strlen(ov);
+                        if (ovlen > 0 && ov[ovlen - 1] == ',') {
+                            ov[ovlen - 1] = '\0';
+                        }
+                        add_func_arg_item(&items, &item_count, &item_cap, NULL,
+                                          ov);
+                        free(ov);
+                    }
+                    free_lexer_token(&other_tok);
+                }
+
+                bool can_be_def = true;
+                for (size_t i = 0; i < item_count; i++) {
+                    if (items[i].key != NULL ||
+                        !is_valid_param_name(items[i].val)) {
+                        can_be_def = false;
+                        break;
+                    }
+                }
+
+                LexerToken *next1       = parser_peek(parser);
+                bool        is_func_def = false;
+                if (can_be_def) {
+                    if (next1->type == TOKEN_LBRACE ||
+                        next1->type == TOKEN_LPAREN) {
+                        is_func_def = true;
+                    } else if (next1->type == TOKEN_EOL) {
+                        LexerToken *next2 = parser_peek2(parser);
+                        if (next2->type == TOKEN_LBRACE ||
+                            next2->type == TOKEN_LPAREN) {
+                            parser_skip(parser); // consume newline
+                            is_func_def = true;
                         }
                     }
                 }
+
+                if (is_func_def) {
+                    ASTNode *body = parse_command(parser, session);
+                    if (body) {
+                        cmd->type = NODE_FUNCTION_DEF;
+                        add_argument(cmd, word.value, 0);
+                        for (size_t i = 0; i < item_count; i++) {
+                            add_argument(cmd, items[i].val, 0);
+                        }
+                        cmd->left = body;
+                        free_func_arg_items(items, item_count);
+                        free_lexer_token(&word);
+                        return cmd;
+                    }
+                    free_func_arg_items(items, item_count);
+                    free_lexer_token(&word);
+                    free_ast(cmd);
+                    free(cmd);
+                    return NULL;
+                }
+
+                // Otherwise, it is a function / command call
+                cmd->type = NODE_COMMAND;
+                add_argument(cmd, word.value, 0); // argv[0] = command name
+                for (size_t i = 0; i < item_count; i++) {
+                    if (items[i].key) {
+                        add_named_argument(cmd, items[i].key, items[i].val, 0);
+                    } else {
+                        add_named_argument(cmd, NULL, items[i].val, 0);
+                    }
+                }
+                free_func_arg_items(items, item_count);
+                free_lexer_token(&word);
+                first_word = false;
+                continue;
             }
 #endif
 

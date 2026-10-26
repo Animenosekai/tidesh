@@ -533,6 +533,99 @@ describe(execute) {
         free(session);
     }
 
+    it("should support named function parameters and all invocation styles") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Define function with named parameters
+        int def_st = execute_string(
+            "greet(name, greeting) {\n"
+            "    echo \"Greeting: $greeting, Name: $name (pos: $1, $2)\"\n"
+            "}",
+            session);
+        asserteq(def_st, 0);
+
+        // 1. Invocation with named arguments out of order
+        char *out1 = execute_string_stdout(
+            "greet(greeting = \"Hello\", name = \"World\")", session);
+        assertneq(out1, NULL);
+        assert(strstr(out1, "Greeting: Hello, Name: World (pos: World, Hello)") !=
+               NULL);
+        free(out1);
+
+        // 2. Invocation with traditional shell syntax
+        char *out2 = execute_string_stdout("greet \"World\" \"Hello\"", session);
+        assertneq(out2, NULL);
+        assert(strstr(out2, "Greeting: Hello, Name: World (pos: World, Hello)") !=
+               NULL);
+        free(out2);
+
+        // 3. Invocation with function call syntax and positional arguments
+        char *out3 = execute_string_stdout("greet(\"World\", \"Hello\")", session);
+        assertneq(out3, NULL);
+        assert(strstr(out3, "Greeting: Hello, Name: World (pos: World, Hello)") !=
+               NULL);
+        free(out3);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should isolate named function parameters from caller scope") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        environ_set(session->environ, "name", "GlobalName");
+
+        execute_string(
+            "test_scope(name, greeting) {\n"
+            "    echo \"inside: $name, $greeting\"\n"
+            "}",
+            session);
+
+        char *out = execute_string_stdout(
+            "test_scope(greeting = \"Hi\", name = \"InnerName\")", session);
+        assertneq(out, NULL);
+        assert(strstr(out, "inside: InnerName, Hi") != NULL);
+        free(out);
+
+        // Caller environment should be preserved
+        asserteq_str(environ_get(session->environ, "name"), "GlobalName");
+        asserteq(environ_get(session->environ, "greeting"), NULL);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should allow old fashion function definition alongside named parameters") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        execute_string("old_func() { echo \"Old: $1, $2\"; }", session);
+
+        char *out1 = execute_string_stdout("old_func \"foo\" \"bar\"", session);
+        assertneq(out1, NULL);
+        assert(strstr(out1, "Old: foo, bar") != NULL);
+        free(out1);
+
+        char *out2 = execute_string_stdout("old_func(\"foo\", \"bar\")", session);
+        assertneq(out2, NULL);
+        assert(strstr(out2, "Old: foo, bar") != NULL);
+        free(out2);
+
+        free_session(session);
+        free(session);
+    }
+
+    it("should support commands called with parentheses syntax") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        char *out = execute_string_stdout("echo(\"hello\", \"world\")", session);
+        assertneq(out, NULL);
+        assert(strstr(out, "hello world") != NULL);
+        free(out);
+
+        free_session(session);
+        free(session);
+    }
+
     it("should expand nested variables in parameter defaults") {
         Session *session = init_session(NULL, "/tmp/test_history");
 

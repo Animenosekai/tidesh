@@ -721,4 +721,74 @@ describe(ast) {
         free_session(session);
         free(session);
     }
+
+    it("should parse function definition with named parameters") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        LexerInput *lexer = init_lexer_input(
+            NULL, "my_func(param1, param2) { echo $param1; }", NULL, session);
+        ASTNode *ast = parse(lexer, session);
+
+        assertneq(ast, NULL);
+        asserteq(ast->type, NODE_FUNCTION_DEF);
+        asserteq(ast->argc, 3);
+        asserteq_str(ast->argv[0], "my_func");
+        asserteq_str(ast->argv[1], "param1");
+        asserteq_str(ast->argv[2], "param2");
+        assertneq(ast->left, NULL);
+        asserteq(ast->left->type, NODE_BLOCK);
+
+        free_ast(ast);
+        free(ast);
+        free_lexer_input(lexer);
+        free(lexer);
+        free_session(session);
+        free(session);
+    }
+
+    it("should parse function call with named and positional arguments") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        LexerInput *l1 = init_lexer_input(
+            NULL,
+            "my_func(param2 = \"something\", param1 = \"something else\")",
+            NULL, session);
+        ASTNode *ast1 = parse(l1, session);
+
+        assertneq(ast1, NULL);
+        asserteq(ast1->type, NODE_COMMAND);
+        asserteq(ast1->argc, 3);
+        asserteq_str(ast1->argv[0], "my_func");
+        assertneq(ast1->arg_keys, NULL);
+        asserteq_str(ast1->arg_keys[1], "param2");
+        asserteq_str(ast1->argv[1], "something");
+        asserteq_str(ast1->arg_keys[2], "param1");
+        asserteq_str(ast1->argv[2], "something else");
+
+        free_ast(ast1);
+        free(ast1);
+        free_lexer_input(l1);
+        free(l1);
+
+        LexerInput *l2 = init_lexer_input(
+            NULL, "my_func(\"something else\", \"something\")", NULL, session);
+        ASTNode *ast2 = parse(l2, session);
+
+        assertneq(ast2, NULL);
+        asserteq(ast2->type, NODE_COMMAND);
+        asserteq(ast2->argc, 3);
+        asserteq_str(ast2->argv[0], "my_func");
+        asserteq(ast2->arg_keys[1], NULL);
+        asserteq_str(ast2->argv[1], "something else");
+        asserteq(ast2->arg_keys[2], NULL);
+        asserteq_str(ast2->argv[2], "something");
+
+        free_ast(ast2);
+        free(ast2);
+        free_lexer_input(l2);
+        free(l2);
+
+        free_session(session);
+        free(session);
+    }
 }

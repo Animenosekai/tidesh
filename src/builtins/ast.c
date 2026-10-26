@@ -204,9 +204,20 @@ static void ast_pretty_print_node(FILE *out, const ASTNode *node,
             fputs(is_last_stack[i] ? box->space : box->vertical, out);
         }
         fputs(box->branch, out);
-        fprintf(out, "name: \"%s\"\n",
+        fprintf(out, "name: \"%s\"",
                 (node->argc > 0 && node->argv && node->argv[0]) ? node->argv[0]
                                                                 : "");
+        if (node->argc > 1 && node->argv) {
+            fputs(" (params: ", out);
+            for (int i = 1; i < node->argc; i++) {
+                if (i > 1) {
+                    fputs(", ", out);
+                }
+                fputs(node->argv[i], out);
+            }
+            fputs(")", out);
+        }
+        fputc('\n', out);
         is_last_stack[depth] = false;
         ast_pretty_print_node(out, node->left, "body", box, is_last_stack,
                               depth + 1, true);
@@ -439,6 +450,15 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
                                     ? node->argv[0]
                                     : "");
         fputs(",\n", out);
+        print_indent(out, indent + 1);
+        fputs("\"params\": [", out);
+        for (int i = 1; i < node->argc; i++) {
+            if (i > 1) {
+                fputs(", ", out);
+            }
+            print_json_escaped(out, node->argv[i]);
+        }
+        fputs("],\n", out);
         print_indent(out, indent + 1);
         fputs("\"body\": ", out);
         ast_json_print(out, node->left, indent + 1);

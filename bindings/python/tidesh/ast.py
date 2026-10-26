@@ -553,6 +553,17 @@ class FunctionDefNode(ASTNode):
         return ""
 
     @property
+    def params(self) -> list[str]:
+        """Get the function parameter names."""
+        if self._node.argc > 1 and self._node.argv != ffi.NULL:
+            return [
+                ffi.string(self._node.argv[i]).decode()
+                for i in range(1, self._node.argc)
+                if self._node.argv[i] != ffi.NULL
+            ]
+        return []
+
+    @property
     def body(self) -> ASTNode | None:
         """Get the function body AST node."""
         return create_ast_node(self._node.left)
@@ -561,12 +572,13 @@ class FunctionDefNode(ASTNode):
         """Serialize function definition node to dictionary."""
         data = super().to_dict()
         data["name"] = self.name
+        data["params"] = self.params
         data["body"] = self.body.to_dict() if self.body else None
         return data
 
     def __repr__(self) -> str:
         """String representation of function definition node."""
-        return f"<FunctionDefNode name={self.name!r} body={self.body!r}>"
+        return f"<FunctionDefNode name={self.name!r} params={self.params!r} body={self.body!r}>"
 
 
 class ConditionalNode(ASTNode):

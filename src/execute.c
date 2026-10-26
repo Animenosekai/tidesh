@@ -783,6 +783,27 @@ static void restore_in_process_redirections(RedirectionState *state) {
     state->capacity = 0;
 }
 
+static void free_expanded_args(int argc, char **argv, char **arg_keys,
+                               int *arg_is_sub) {
+    if (argv) {
+        for (int i = 0; i < argc; i++) {
+            if (argv[i])
+                free(argv[i]);
+        }
+        free(argv);
+    }
+    if (arg_keys) {
+        for (int i = 0; i < argc; i++) {
+            if (arg_keys[i])
+                free(arg_keys[i]);
+        }
+        free(arg_keys);
+    }
+    if (arg_is_sub) {
+        free(arg_is_sub);
+    }
+}
+
 int execute(ASTNode *node, Session *session) {
     if (!node)
         return 0;
@@ -1099,16 +1120,15 @@ int execute(ASTNode *node, Session *session) {
 
 #ifndef TIDESH_DISABLE_FUNCTIONS
     if (node->type == NODE_FUNCTION_DEF) {
-        char    *name = node->argv[0];
-        ASTNode *body = node->left;
-        node->left    = NULL; // Transfer ownership to the session
+        char    *name      = node->argv[0];
+        ASTNode *func_copy = copy_ast(node);
 
         // Store the AST node pointer in the trie
-        if (!store_function_body(session->functions, name, body)) {
+        if (!store_function_body(session->functions, name, func_copy)) {
             fprintf(stderr, "tidesh: failed to store function body\n");
-            if (body) {
-                free_ast(body);
-                free(body);
+            if (func_copy) {
+                free_ast(func_copy);
+                free(func_copy);
             }
             return 1;
         }
@@ -1272,25 +1292,27 @@ int execute(ASTNode *node, Session *session) {
         // Expand arguments
         int    argc       = 0;
         char **argv       = NULL;
+        char **arg_keys   = NULL;
         int   *arg_is_sub = NULL;
 
         for (int i = 0; i < node->argc; i++) {
+            const char *arg_key = (node->arg_keys && node->arg_keys[i])
+                                      ? node->arg_keys[i]
+                                      : NULL;
             if (node->arg_is_sub && node->arg_is_sub[i] != 0) {
                 argc++;
                 argv           = realloc(argv, (argc + 1) * sizeof(char *));
+                arg_keys       = realloc(arg_keys, (argc + 1) * sizeof(char *));
                 arg_is_sub     = realloc(arg_is_sub, argc * sizeof(int));
                 argv[argc - 1] = strdup(node->argv[i]);
+                arg_keys[argc - 1]   = arg_key ? strdup(arg_key) : NULL;
                 arg_is_sub[argc - 1] = node->arg_is_sub[i];
                 argv[argc]           = NULL;
+                arg_keys[argc]       = NULL;
             } else {
                 Array *expansion = full_expansion(node->argv[i], session);
                 if (!expansion) {
-                    for (int k = 0; k < argc; k++)
-                        free(argv[k]);
-                    if (argv)
-                        free(argv);
-                    if (arg_is_sub)
-                        free(arg_is_sub);
+                    free_expanded_args(argc, argv, arg_keys, arg_is_sub);
                     environ_set_exit_status(session->environ, 1);
                     if (session->options.errexit &&
                         session->ignore_errexit == 0) {
@@ -1300,11 +1322,14 @@ int execute(ASTNode *node, Session *session) {
                 }
                 for (size_t j = 0; j < expansion->count; j++) {
                     argc++;
-                    argv           = realloc(argv, (argc + 1) * sizeof(char *));
-                    arg_is_sub     = realloc(arg_is_sub, argc * sizeof(int));
-                    argv[argc - 1] = strdup(expansion->items[j]);
+                    argv       = realloc(argv, (argc + 1) * sizeof(char *));
+                    arg_keys   = realloc(arg_keys, (argc + 1) * sizeof(char *));
+                    arg_is_sub = realloc(arg_is_sub, argc * sizeof(int));
+                    argv[argc - 1]       = strdup(expansion->items[j]);
+                    arg_keys[argc - 1]   = arg_key ? strdup(arg_key) : NULL;
                     arg_is_sub[argc - 1] = 0;
                     argv[argc]           = NULL;
+                    arg_keys[argc]       = NULL;
                 }
                 free_array(expansion);
                 free(expansion);
@@ -1316,10 +1341,7 @@ int execute(ASTNode *node, Session *session) {
 #ifndef TIDESH_DISABLE_ASSIGNMENTS
             if (!session->features.assignments) {
                 fprintf(stderr, "tidesh: assignments are disabled\n");
-                if (argv)
-                    free(argv);
-                if (arg_is_sub)
-                    free(arg_is_sub);
+                free_expanded_args(argc, argv, arg_keys, arg_is_sub);
                 return 127;
             }
             for (size_t i = 0; i < node->assignments->count; i++) {
@@ -1335,19 +1357,13 @@ int execute(ASTNode *node, Session *session) {
                 free(copy);
             }
 #endif
-            if (argv)
-                free(argv);
-            if (arg_is_sub)
-                free(arg_is_sub);
+            free_expanded_args(argc, argv, arg_keys, arg_is_sub);
             environ_set_exit_status(session->environ, 0);
             return 0;
         }
 
         if (!argv || !argv[0]) {
-            if (argv)
-                free(argv);
-            if (arg_is_sub)
-                free(arg_is_sub);
+            free_expanded_args(argc, argv, arg_keys, arg_is_sub);
             environ_set_exit_status(session->environ, 0);
             return 0;
         }
@@ -1370,10 +1386,7 @@ int execute(ASTNode *node, Session *session) {
         }
 
         if (session->options.noexec && strcmp(cmd_name, "set") != 0) {
-            for (int i = 0; i < argc; i++)
-                free(argv[i]);
-            free(argv);
-            free(arg_is_sub);
+            free_expanded_args(argc, argv, arg_keys, arg_is_sub);
             if (cmd_name_trimmed)
                 free(cmd_name_trimmed);
             environ_set_exit_status(session->environ, 0);
@@ -1430,10 +1443,7 @@ int execute(ASTNode *node, Session *session) {
             RedirectionState redir_state = {0};
             if (!apply_in_process_redirections(node, session, &redir_state)) {
                 restore_in_process_redirections(&redir_state);
-                for (int i = 0; i < argc; i++)
-                    free(argv[i]);
-                free(argv);
-                free(arg_is_sub);
+                free_expanded_args(argc, argv, arg_keys, arg_is_sub);
                 if (cmd_name_trimmed)
                     free(cmd_name_trimmed);
                 environ_set_exit_status(session->environ, 1);
@@ -1477,10 +1487,7 @@ int execute(ASTNode *node, Session *session) {
             }
 #endif
 
-            for (int i = 0; i < argc; i++)
-                free(argv[i]);
-            free(argv);
-            free(arg_is_sub);
+            free_expanded_args(argc, argv, arg_keys, arg_is_sub);
             if (cmd_name_trimmed)
                 free(cmd_name_trimmed);
             environ_set_exit_status(session->environ, st);
@@ -1494,25 +1501,120 @@ int execute(ASTNode *node, Session *session) {
 #ifndef TIDESH_DISABLE_FUNCTIONS
         // Check for shell functions
         if (session->features.functions) {
-            ASTNode *func_body =
+            ASTNode *func_node =
                 load_function_body(session->functions, cmd_name);
-            if (func_body) {
+            if (func_node) {
+                ASTNode *func_body = (func_node->type == NODE_FUNCTION_DEF)
+                                         ? func_node->left
+                                         : func_node;
                 RedirectionState redir_state = {0};
                 if (!apply_in_process_redirections(node, session,
                                                    &redir_state)) {
                     restore_in_process_redirections(&redir_state);
-                    for (int i = 0; i < argc; i++)
-                        free(argv[i]);
-                    free(argv);
-                    free(arg_is_sub);
+                    free_expanded_args(argc, argv, arg_keys, arg_is_sub);
                     if (cmd_name_trimmed)
                         free(cmd_name_trimmed);
                     environ_set_exit_status(session->environ, 1);
                     return 1;
                 }
 
+                size_t num_declared = (func_node->type == NODE_FUNCTION_DEF &&
+                                       func_node->argc > 1)
+                                          ? (size_t)(func_node->argc - 1)
+                                          : 0;
+
+                char **param_vals = num_declared > 0
+                                        ? calloc(num_declared, sizeof(char *))
+                                        : NULL;
+                bool  *param_set  = num_declared > 0
+                                        ? calloc(num_declared, sizeof(bool))
+                                        : NULL;
+
+                // 1. Match named arguments to declared parameters
+                if (num_declared > 0 && arg_keys) {
+                    for (int i = 1; i < argc; i++) {
+                        if (arg_keys[i]) {
+                            for (size_t p = 0; p < num_declared; p++) {
+                                if (strcmp(arg_keys[i],
+                                           func_node->argv[p + 1]) == 0) {
+                                    param_vals[p] = argv[i];
+                                    param_set[p]  = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Match positional arguments to unset declared parameters
+                size_t next_pos_idx = 0;
+                for (int i = 1; i < argc; i++) {
+                    if (!arg_keys || !arg_keys[i]) {
+                        while (next_pos_idx < num_declared &&
+                               param_set[next_pos_idx]) {
+                            next_pos_idx++;
+                        }
+                        if (next_pos_idx < num_declared) {
+                            param_vals[next_pos_idx] = argv[i];
+                            param_set[next_pos_idx]  = true;
+                            next_pos_idx++;
+                        }
+                    }
+                }
+
+                for (size_t p = 0; p < num_declared; p++) {
+                    if (!param_set[p]) {
+                        param_vals[p] = "";
+                    }
+                }
+
+                size_t pos_call_count = 0;
+                for (int i = 1; i < argc; i++) {
+                    if (!arg_keys || !arg_keys[i]) {
+                        pos_call_count++;
+                    }
+                }
+
+                size_t max_pos = 0;
+                if (num_declared > 0) {
+                    for (size_t p = 0; p < num_declared; p++) {
+                        if (param_set[p] && (p + 1) > max_pos) {
+                            max_pos = p + 1;
+                        }
+                    }
+                    if (pos_call_count > max_pos) {
+                        max_pos = pos_call_count;
+                    }
+                } else {
+                    max_pos = argc - 1;
+                }
+
+                char **pos_values =
+                    max_pos > 0 ? calloc(max_pos, sizeof(char *)) : NULL;
+                for (size_t p = 0; p < max_pos; p++) {
+                    if (p < num_declared) {
+                        pos_values[p] = param_vals[p];
+                    }
+                }
+                if (pos_call_count > num_declared) {
+                    size_t cur_pos = 0;
+                    for (int i = 1; i < argc; i++) {
+                        if (!arg_keys || !arg_keys[i]) {
+                            if (cur_pos >= num_declared && cur_pos < max_pos) {
+                                pos_values[cur_pos] = argv[i];
+                            } else if (num_declared == 0 && cur_pos < max_pos) {
+                                pos_values[cur_pos] = argv[i];
+                            }
+                            cur_pos++;
+                        }
+                    }
+                } else if (num_declared == 0) {
+                    for (int i = 1; i < argc; i++) {
+                        pos_values[i - 1] = argv[i];
+                    }
+                }
+
                 // 1. Backup and clear existing positional parameters ($0, $1,
-                // $2,
                 // ...)
                 size_t          old_pos_count = 0;
                 PosParamBackup *old_pos_params =
@@ -1520,30 +1622,91 @@ int execute(ASTNode *node, Session *session) {
 
                 // 2. Set new positional parameters for the function ($0, $1,
                 // ...)
-                environ_set(session->environ, "0",
-                            (char *)cmd_name); // $0 is function name
-                for (int i = 1; i < argc; i++) {
+                environ_set(session->environ, "0", (char *)cmd_name);
+                for (size_t i = 0; i < max_pos; i++) {
                     char key_str[16];
-                    snprintf(key_str, sizeof(key_str), "%d", i);
-                    environ_set(session->environ, key_str, argv[i]);
+                    snprintf(key_str, sizeof(key_str), "%zu", i + 1);
+                    environ_set(session->environ, key_str,
+                                pos_values[i] ? pos_values[i] : "");
                 }
                 char argc_str[16];
-                snprintf(argc_str, sizeof(argc_str), "%d", argc - 1);
+                snprintf(argc_str, sizeof(argc_str), "%zu", max_pos);
                 environ_set(session->environ, "#", argc_str);
 
                 Dynamic all_params = {0};
                 init_dynamic(&all_params);
-                for (int i = 1; i < argc; i++) {
-                    if (i > 1) {
+                for (size_t i = 0; i < max_pos; i++) {
+                    if (i > 0) {
                         dynamic_append(&all_params, ' ');
                     }
-                    dynamic_extend(&all_params, argv[i]);
+                    dynamic_extend(&all_params,
+                                   pos_values[i] ? pos_values[i] : "");
                 }
                 char *all_str = dynamic_to_string(&all_params);
                 environ_set(session->environ, "@", all_str ? all_str : "");
                 environ_set(session->environ, "*", all_str ? all_str : "");
                 free(all_str);
                 free_dynamic(&all_params);
+                if (pos_values)
+                    free(pos_values);
+
+                // Backup and set named parameters
+                typedef struct NamedParamBackup {
+                    char *key;
+                    char *val;
+                    bool  existed;
+                } NamedParamBackup;
+
+                size_t max_named =
+                    num_declared + (argc > 1 ? (size_t)(argc - 1) : 0);
+                NamedParamBackup *named_backups =
+                    max_named > 0 ? calloc(max_named, sizeof(NamedParamBackup))
+                                  : NULL;
+                size_t named_backup_count = 0;
+
+                for (size_t p = 0; p < num_declared; p++) {
+                    const char *pname = func_node->argv[p + 1];
+                    char *cur = environ_get(session->environ, (char *)pname);
+                    named_backups[named_backup_count].key     = strdup(pname);
+                    named_backups[named_backup_count].existed = (cur != NULL);
+                    named_backups[named_backup_count].val =
+                        cur ? strdup(cur) : NULL;
+                    named_backup_count++;
+                    environ_set(session->environ, (char *)pname, param_vals[p]);
+                }
+
+                if (arg_keys) {
+                    for (int i = 1; i < argc; i++) {
+                        if (arg_keys[i]) {
+                            bool already = false;
+                            for (size_t b = 0; b < named_backup_count; b++) {
+                                if (strcmp(named_backups[b].key, arg_keys[i]) ==
+                                    0) {
+                                    already = true;
+                                    break;
+                                }
+                            }
+                            if (!already) {
+                                char *cur =
+                                    environ_get(session->environ, arg_keys[i]);
+                                named_backups[named_backup_count].key =
+                                    strdup(arg_keys[i]);
+                                named_backups[named_backup_count].existed =
+                                    (cur != NULL);
+                                named_backups[named_backup_count].val =
+                                    cur ? strdup(cur) : NULL;
+                                named_backup_count++;
+                                environ_set(session->environ, arg_keys[i],
+                                            argv[i]);
+                            }
+                        }
+                    }
+                }
+
+                if (param_vals)
+                    free(param_vals);
+                if (param_set)
+                    free(param_set);
 
                 session->function_depth++;
                 // Execute the function body in the current process
@@ -1555,6 +1718,22 @@ int execute(ASTNode *node, Session *session) {
                     st                        = session->return_status;
                 }
 
+                // Restore named parameters
+                if (named_backups) {
+                    for (size_t b = 0; b < named_backup_count; b++) {
+                        if (named_backups[b].existed) {
+                            environ_set(session->environ, named_backups[b].key,
+                                        named_backups[b].val);
+                            free(named_backups[b].val);
+                        } else {
+                            environ_remove(session->environ,
+                                           named_backups[b].key);
+                        }
+                        free(named_backups[b].key);
+                    }
+                    free(named_backups);
+                }
+
                 // 3. Clear function positional parameters and restore original
                 // ones
                 restore_positional_params(session, old_pos_params,
@@ -1562,11 +1741,7 @@ int execute(ASTNode *node, Session *session) {
 
                 restore_in_process_redirections(&redir_state);
 
-                // Original cleanup for argv, arg_is_sub, cmd_name_trimmed
-                for (int i = 0; i < argc; i++)
-                    free(argv[i]);
-                free(argv);
-                free(arg_is_sub);
+                free_expanded_args(argc, argv, arg_keys, arg_is_sub);
                 if (cmd_name_trimmed)
                     free(cmd_name_trimmed);
                 environ_set_exit_status(session->environ, st);
@@ -1592,10 +1767,7 @@ int execute(ASTNode *node, Session *session) {
 #else
                 fprintf(stderr, "tidesh: command not found: %s\n", cmd_name);
 #endif
-                for (int i = 0; i < argc; i++)
-                    free(argv[i]);
-                free(argv);
-                free(arg_is_sub);
+                free_expanded_args(argc, argv, arg_keys, arg_is_sub);
                 if (cmd_name_trimmed)
                     free(cmd_name_trimmed);
                 environ_set_exit_status(session->environ, 127);
@@ -1786,12 +1958,7 @@ int execute(ASTNode *node, Session *session) {
         /* Parent Process */
         char *cmd_str    = build_command_string(argv, argc);
         char *argv0_copy = argv && argv[0] ? strdup(argv[0]) : NULL;
-        for (int i = 0; i < argc; i++)
-            free(argv[i]);
-        if (argv)
-            free(argv);
-        if (arg_is_sub)
-            free(arg_is_sub);
+        free_expanded_args(argc, argv, arg_keys, arg_is_sub);
         if (cmd_name_trimmed)
             free(cmd_name_trimmed);
 

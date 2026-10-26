@@ -280,7 +280,7 @@ static char *execute_string_capture_in_process(const char *cmd,
 
     // Read captured stdout from pipe_fd[0]
     char    buf[1024];
-    Dynamic d;
+    Dynamic d = {0};
     init_dynamic(&d);
     ssize_t bytes_read;
     while ((bytes_read = read(pipe_fd[0], buf, sizeof(buf))) > 0) {

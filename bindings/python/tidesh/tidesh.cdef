@@ -294,6 +294,7 @@ struct ASTNode {
     NodeType type;
     char **argv;
     int *arg_is_sub;
+    char **arg_keys;
     int argc;
     Redirection *redirects;
     Array *assignments;
