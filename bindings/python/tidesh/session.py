@@ -716,32 +716,18 @@ class Session:
         deny: list[str | os.PathLike[str]] | str | os.PathLike[str] | None = None,
         chroot: str | os.PathLike[str] | None = None,
         default: str = "allow",
+        airgap: bool = False,
+        offline: bool = False,
+        domains: list[str] | str | None = None,
+        allow_ports: list[int] | int | None = None,
+        deny_ports: list[int] | int | None = None,
+        loopback: bool | None = None,
     ) -> typing.Iterator[Session]:
         """
-        Filesystem sandboxing context manager.
+        Unified filesystem & network sandboxing context manager.
 
-        Restricts filesystem access within the context scope to specified read-only,
-        read-write, denied paths, and/or chroot directory.
-
-        Parameters
-        ----------
-        readonly : bool
-            Whether to make the filesystem read-only (except paths in rw).
-        ro : list[str] | str | None
-            Paths restricted to read-only access.
-        rw : list[str] | str | None
-            Paths permitted for write access.
-        deny : list[str] | str | None
-            Paths completely forbidden from access.
-        chroot : str | os.PathLike[str] | None
-            Optional chroot jail directory.
-        default : str
-            Default access policy: "allow" or "deny".
-
-        Yields
-        ------
-        Session
-            The current session within the sandboxed scope.
+        Restricts filesystem access and/or network communication within
+        the context scope.
         """
         sb = lib.fs_sandbox_create()
         if sb == ffi.NULL:
@@ -763,12 +749,157 @@ class Session:
             for p in paths:
                 lib.fs_sandbox_add_paths(sb, str(p).encode(), 2)
         lib.fs_sandbox_push(self._session, sb)
+
+        net_sb = None
+        has_net = (
+            airgap
+            or offline
+            or domains
+            or allow_ports
+            or deny_ports
+            or (loopback is not None)
+        )
+        if has_net:
+            net_sb = lib.net_sandbox_create()
+            if net_sb == ffi.NULL:
+                popped = lib.fs_sandbox_pop(self._session)
+                if popped != ffi.NULL:
+                    lib.fs_sandbox_free(popped)
+                raise SessionError("Failed to create network sandbox")
+            net_sb.offline = bool(airgap or offline)
+            if loopback is not None:
+                net_sb.allow_loopback = loopback
+            elif airgap:
+                net_sb.allow_loopback = False
+            else:
+                net_sb.allow_loopback = True
+
+            if domains:
+                d_list = domains if isinstance(domains, (list, tuple)) else [domains]
+                for d in d_list:
+                    lib.net_sandbox_add_domain(net_sb, str(d).encode())
+            if allow_ports:
+                p_list = (
+                    allow_ports
+                    if isinstance(allow_ports, (list, tuple))
+                    else [allow_ports]
+                )
+                for p in p_list:
+                    lib.net_sandbox_add_port(net_sb, int(p), True)
+            if deny_ports:
+                p_list = (
+                    deny_ports
+                    if isinstance(deny_ports, (list, tuple))
+                    else [deny_ports]
+                )
+                for p in p_list:
+                    lib.net_sandbox_add_port(net_sb, int(p), False)
+            lib.net_sandbox_push(self._session, net_sb)
+
         try:
             yield self
         finally:
+            if net_sb is not None:
+                popped_net = lib.net_sandbox_pop(self._session)
+                if popped_net != ffi.NULL:
+                    lib.net_sandbox_free(popped_net)
             popped = lib.fs_sandbox_pop(self._session)
             if popped != ffi.NULL:
                 lib.fs_sandbox_free(popped)
+
+    @contextlib.contextmanager
+    def airgap(
+        self,
+        *,
+        loopback: bool = False,
+    ) -> typing.Iterator[Session]:
+        """
+        Full air-gapping network sandboxing context manager.
+
+        Disables all external network connectivity within the block.
+
+        Parameters
+        ----------
+        loopback : bool
+            Whether to permit loopback (localhost / 127.0.0.1) access. Default: False.
+        """
+        sb = lib.net_sandbox_create()
+        if sb == ffi.NULL:
+            raise SessionError("Failed to create network sandbox")
+        sb.offline = True
+        sb.allow_loopback = loopback
+        lib.net_sandbox_push(self._session, sb)
+        try:
+            yield self
+        finally:
+            popped = lib.net_sandbox_pop(self._session)
+            if popped != ffi.NULL:
+                lib.net_sandbox_free(popped)
+
+    @contextlib.contextmanager
+    def network(
+        self,
+        *,
+        offline: bool = False,
+        loopback: bool = True,
+        domains: list[str] | str | None = None,
+        allow_ports: list[int] | int | None = None,
+        deny_ports: list[int] | int | None = None,
+        ips: list[str] | str | None = None,
+    ) -> typing.Iterator[Session]:
+        """
+        Fine-grained network sandboxing context manager.
+
+        Restricts network communication to specified domains, allowed ports,
+        denied ports, or airgap mode.
+
+        Parameters
+        ----------
+        offline : bool
+            Whether to disable external network access.
+        loopback : bool
+            Whether loopback connections are permitted. Default: True.
+        domains : list[str] | str | None
+            Allowed domain names (e.g. ['github.com', 'registry.npmjs.org']).
+        allow_ports : list[int] | int | None
+            Allowed destination ports (e.g. [443, 8080]).
+        deny_ports : list[int] | int | None
+            Blocked ports (e.g. [22, 25]).
+        ips : list[str] | str | None
+            Explicitly allowed IP addresses.
+        """
+        sb = lib.net_sandbox_create()
+        if sb == ffi.NULL:
+            raise SessionError("Failed to create network sandbox")
+        sb.offline = offline
+        sb.allow_loopback = loopback
+        if domains:
+            d_list = domains if isinstance(domains, (list, tuple)) else [domains]
+            for d in d_list:
+                lib.net_sandbox_add_domain(sb, str(d).encode())
+        if allow_ports:
+            p_list = (
+                allow_ports if isinstance(allow_ports, (list, tuple)) else [allow_ports]
+            )
+            for p in p_list:
+                lib.net_sandbox_add_port(sb, int(p), True)
+        if deny_ports:
+            p_list = (
+                deny_ports if isinstance(deny_ports, (list, tuple)) else [deny_ports]
+            )
+            for p in p_list:
+                lib.net_sandbox_add_port(sb, int(p), False)
+        if ips:
+            ip_list = ips if isinstance(ips, (list, tuple)) else [ips]
+            for ip in ip_list:
+                lib.net_sandbox_add_ip(sb, str(ip).encode())
+        lib.net_sandbox_push(self._session, sb)
+        try:
+            yield self
+        finally:
+            popped = lib.net_sandbox_pop(self._session)
+            if popped != ffi.NULL:
+                lib.net_sandbox_free(popped)
 
     @contextlib.contextmanager
     def tempdir(

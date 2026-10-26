@@ -739,6 +739,78 @@ def test_filesystem_sandboxing_context_managers() -> None:
     os.rmdir(jail)
 
 
+def test_network_sandboxing() -> None:
+    session = tidesh.Session()
+
+    # 1. Full airgap
+    with session.airgap():
+        # Connecting to external IP should fail
+        ret = session.execute(
+            "python3 -c 'import socket; s = socket.socket(); s.connect((\"1.1.1.1\", 80))'",
+        )
+        assert ret != 0
+
+        # Resolving external domain should fail
+        ret = session.execute(
+            "python3 -c 'import socket; socket.getaddrinfo(\"example.com\", 80)'",
+        )
+        assert ret != 0
+
+    # 2. Airgap with loopback enabled
+    with session.airgap(loopback=True):
+        # Localhost should resolve successfully
+        ret = session.execute(
+            "python3 -c 'import socket; socket.getaddrinfo(\"localhost\", 80)'",
+        )
+        assert ret == 0
+
+        # External should still fail
+        ret = session.execute(
+            "python3 -c 'import socket; s = socket.socket(); s.connect((\"1.1.1.1\", 80))'",
+        )
+        assert ret != 0
+
+    # 3. Fine-grained network sandboxing with domain allowlist
+    with session.network(domains=["localhost"]):
+        ret = session.execute(
+            "python3 -c 'import socket; socket.getaddrinfo(\"localhost\", 80)'",
+        )
+        assert ret == 0
+
+        # Non-allowed domain fails
+        ret = session.execute(
+            "python3 -c 'import socket; socket.getaddrinfo(\"untrusted.api.org\", 80)'",
+        )
+        assert ret != 0
+
+    # 4. Loopback disabled
+    with session.network(domains=["localhost"], loopback=False):
+        ret = session.execute(
+            "python3 -c 'import socket; s = socket.socket(); s.connect((\"127.0.0.1\", 80))'",
+        )
+        assert ret != 0
+
+    # 5. Port restrictions
+    with session.network(deny_ports=[9999]):
+        ret = session.execute(
+            "python3 -c 'import socket; s = socket.socket(); s.connect((\"127.0.0.1\", 9999))'",
+        )
+        assert ret != 0
+
+    # 6. Combined sandbox (filesystem readonly + airgap)
+    with session.sandbox(readonly=True, airgap=True):
+        # Write fails
+        ret = session.execute("echo 'fail' > /tmp/py_unified_fail.txt")
+        assert ret != 0
+        assert not os.path.exists("/tmp/py_unified_fail.txt")
+
+        # Network fails
+        ret = session.execute(
+            "python3 -c 'import socket; s = socket.socket(); s.connect((\"1.1.1.1\", 80))'",
+        )
+        assert ret != 0
+
+
 if __name__ == "__main__":
     import inspect
     import sys

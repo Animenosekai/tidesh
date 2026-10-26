@@ -6,7 +6,7 @@
 
 # Compiler and flags
 CC ?= clang
-CFLAGS = -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=unused-but-set-variable -Wno-error=comment -std=gnu11 $(EXTRA_CFLAGS)
+CFLAGS = -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-parameter -Wno-error=unused-but-set-variable -Wno-error=comment -std=gnu11 -pthread $(EXTRA_CFLAGS)
 DEBUGFLAGS = -Wall -Wextra -Werror -fsanitize=address -g
 RELEASEFLAGS = -O3 -DNDEBUG
 TESTINGFLAGS = -DTESTING -Itests/snow/ -DSNOW_ENABLED
@@ -83,7 +83,20 @@ BUILD_DATE := $(shell date +"%Y-%m-%d")
 CFLAGS += -DPROJECT_NAME='"$(PROJECT_NAME)"' -DRAW_VERSION='"$(VERSION)"' -DGIT_VERSION='"$(GIT_VERSION)"' -DVERSION='"$(VERSION)-$(GIT_VERSION)"' -DBUILD_DATE='"$(BUILD_DATE)"' -DPLATFORM='"$(PLATFORM)"' -DBRIEF='"$(BRIEF)"'
 
 # Source files
-SRC = $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*/*.c)
+SRC = $(filter-out $(SRC_DIR)/sandbox/preload.c $(SRC_DIR)/sandbox_preload.c,$(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*/*.c))
+
+# Dynamic library extension for network preload sandbox library
+ifeq ($(PLATFORM), macos)
+    DYLIB_EXT = dylib
+    DYLIB_FLAGS = -dynamiclib
+else ifeq ($(PLATFORM), windows)
+    DYLIB_EXT = dll
+    DYLIB_FLAGS = -shared
+else
+    DYLIB_EXT = so
+    DYLIB_FLAGS = -shared -fPIC
+endif
+PRELOAD_LIB = $(BIN_DIR)/libtidesh_net.$(DYLIB_EXT)
 
 # Object files
 OBJ = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRC))
@@ -265,10 +278,16 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 compile: $(OBJ)
 	@echo "$(BOLD)⚙️ Core module ready$(SGR0)"
 
+# Preload library
+$(PRELOAD_LIB): $(SRC_DIR)/sandbox/preload.c
+	@mkdir -p $(BIN_DIR)
+	@echo "$(BOLD)⚙️ Building network sandbox preload library...$(SGR0)"
+	$(SILENT)$(CC) $(DYLIB_FLAGS) $< -o $@
+
 # Binary targets
-$(TARGET): $(OBJ)
+$(TARGET): $(OBJ) $(PRELOAD_LIB)
 	@echo "$(BOLD)🔗 Linking...$(SGR0)"
-	$(SILENT)$(CC) $(CFLAGS) -o $@ $^
+	$(SILENT)$(CC) $(CFLAGS) -o $@ $(OBJ)
 
 ######################################
 #              RUNNING               #
@@ -373,9 +392,9 @@ test/utf8: $(TESTS_TARGET)
 	$(SILENT)$(TESTS_TARGET) utf8
 
 # Test binary targets
-$(TESTS_TARGET): $(TESTS_OBJ) $(TESTS_SRC_OBJ)
+$(TESTS_TARGET): $(TESTS_OBJ) $(TESTS_SRC_OBJ) $(PRELOAD_LIB)
 	@echo "$(BOLD)🔗 Linking tests...$(SGR0)"
-	$(SILENT)$(CC) $(CFLAGS) $(TESTINGFLAGS) -o $@ $^
+	$(SILENT)$(CC) $(CFLAGS) $(TESTINGFLAGS) -o $@ $(TESTS_OBJ) $(TESTS_SRC_OBJ)
 
 ######################################
 #         PYTHON BINDINGS            #

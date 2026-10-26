@@ -388,5 +388,23 @@ void fs_sandbox_add_paths(FSSandbox *sb, const char *path_list, int target);
 void fs_sandbox_set_chroot(FSSandbox *sb, const char *path);
 int fs_sandbox_rmtree(const char *path);
 
+// Network Sandbox
+typedef struct NetSandbox NetSandbox;
+struct NetSandbox {
+    bool is_active;
+    bool offline;
+    bool allow_loopback;
+    ...;
+};
+NetSandbox *net_sandbox_create(void);
+void net_sandbox_free(NetSandbox *sb);
+void net_sandbox_push(Session *session, NetSandbox *sb);
+NetSandbox *net_sandbox_pop(Session *session);
+void net_sandbox_add_domain(NetSandbox *sb, const char *domain);
+void net_sandbox_add_port(NetSandbox *sb, int port, bool allow);
+void net_sandbox_parse_ports(NetSandbox *sb, const char *port_list, bool allow);
+void net_sandbox_parse_domains(NetSandbox *sb, const char *domain_list);
+void net_sandbox_add_ip(NetSandbox *sb, const char *ip);
+
 // General free
 void free(void *ptr);

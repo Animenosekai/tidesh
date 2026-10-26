@@ -678,7 +678,7 @@ int execute_command(ASTNode *node, Session *session) {
         signal(SIGQUIT, SIG_DFL);
 
 #ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
-        fs_sandbox_apply_child(session);
+        sandbox_apply_child(session);
 #endif
 
         // Handle process substitution in argv

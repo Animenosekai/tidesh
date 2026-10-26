@@ -100,6 +100,7 @@ typedef struct Session {
 #endif
     struct AllowedExitCodes *allowed_exit_codes; // Active allowed exit codes
     struct FSSandbox        *fs_sandbox;    // Active filesystem sandbox stack
+    struct NetSandbox       *net_sandbox;   // Active network sandbox stack
     int                      try_depth;     // Nesting depth of try blocks
     bool                     try_caught;    // Flag indicating exception raised
     int                      try_exit_code; // Caught exit code

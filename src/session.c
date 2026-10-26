@@ -111,6 +111,7 @@ Session *init_session(Session *session, char *history_path) {
     session->ignore_errexit     = 0;
     session->allowed_exit_codes = NULL;
     session->fs_sandbox         = NULL;
+    session->net_sandbox        = NULL;
     session->try_depth          = 0;
     session->try_caught         = false;
     session->try_exit_code      = 0;
@@ -209,6 +210,13 @@ void free_session(Session *session) {
         FSSandbox *popped = fs_sandbox_pop(session);
         if (popped) {
             fs_sandbox_free(popped);
+        }
+    }
+
+    while (session->net_sandbox) {
+        NetSandbox *popped = net_sandbox_pop(session);
+        if (popped) {
+            net_sandbox_free(popped);
         }
     }
 }

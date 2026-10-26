@@ -45,9 +45,32 @@ void context_invocation_add_arg(ContextInvocation *inv, const char *key,
         realloc(inv->args, (inv->arg_count + 1) * sizeof(ContextArg));
     if (!new_args)
         return;
-    inv->args                       = new_args;
-    inv->args[inv->arg_count].key   = key ? strdup(key) : NULL;
-    inv->args[inv->arg_count].value = value ? strdup(value) : strdup("");
+    inv->args = new_args;
+
+    char *k_copy = NULL;
+    if (key) {
+        while (isspace((unsigned char)*key))
+            key++;
+        k_copy     = strdup(key);
+        size_t len = strlen(k_copy);
+        while (len > 0 && (isspace((unsigned char)k_copy[len - 1]) ||
+                           k_copy[len - 1] == ',')) {
+            k_copy[--len] = '\0';
+        }
+    }
+
+    const char *v_str = value ? value : "";
+    while (isspace((unsigned char)*v_str))
+        v_str++;
+    char  *v_copy = strdup(v_str);
+    size_t len    = strlen(v_copy);
+    while (len > 0 && (isspace((unsigned char)v_copy[len - 1]) ||
+                       v_copy[len - 1] == ',')) {
+        v_copy[--len] = '\0';
+    }
+
+    inv->args[inv->arg_count].key   = k_copy;
+    inv->args[inv->arg_count].value = v_copy;
     inv->arg_count++;
 }
 
@@ -200,7 +223,8 @@ bool is_builtin_context_manager(const char *name) {
             strcmp(name, "allow_codes") == 0 ||
             strcmp(name, "allowed_status") == 0 ||
             strcmp(name, "sandbox") == 0 || strcmp(name, "tempdir") == 0 ||
-            strcmp(name, "chroot") == 0);
+            strcmp(name, "chroot") == 0 || strcmp(name, "airgap") == 0 ||
+            strcmp(name, "network") == 0);
 }
 
 /* -------------------------------------------------------------------------
@@ -340,6 +364,10 @@ static void unwind_active_context(Session *session, ActiveContext *act,
             context_exit_tempdir(session, exit_status, act->builtin_state);
         } else if (strcmp(act->name, "chroot") == 0) {
             context_exit_chroot(session, exit_status, act->builtin_state);
+        } else if (strcmp(act->name, "airgap") == 0) {
+            context_exit_airgap(session, exit_status, act->builtin_state);
+        } else if (strcmp(act->name, "network") == 0) {
+            context_exit_network(session, exit_status, act->builtin_state);
         }
     } else if (act->custom_mgr && act->custom_mgr->exit_cmd &&
                act->custom_mgr->exit_cmd[0] != '\0') {
@@ -504,6 +532,14 @@ int execute_with_block(Session *session, ContextInvocation *invocations,
                 enter_status =
                     context_enter_chroot(session, expanded_args, inv->arg_count,
                                          &act->builtin_state);
+            } else if (strcmp(inv->name, "airgap") == 0) {
+                enter_status =
+                    context_enter_airgap(session, expanded_args, inv->arg_count,
+                                         &act->builtin_state);
+            } else if (strcmp(inv->name, "network") == 0) {
+                enter_status =
+                    context_enter_network(session, expanded_args,
+                                          inv->arg_count, &act->builtin_state);
             }
         } else {
             CustomContextManager *custom =

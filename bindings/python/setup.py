@@ -97,7 +97,7 @@ Or ensure sources are staged in bindings/python/src before building.
 sources = [
     str(p.relative_to(src_root))
     for p in sorted(src_root.glob("**/*.c"))
-    if p.name != "main.c"
+    if p.name not in ("main.c", "preload.c", "sandbox_preload.c")
 ]
 
 # Convert paths for setup

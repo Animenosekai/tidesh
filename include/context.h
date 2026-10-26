@@ -155,10 +155,12 @@ int execute_with_block(Session *session, ContextInvocation *invocations,
                        ASTNode *body);
 
 // Built-in Context Managers
+#include "contexts/airgap.h"
 #include "contexts/allowed_exit_codes.h"
 #include "contexts/chroot.h"
 #include "contexts/cwd.h"
 #include "contexts/env.h"
+#include "contexts/network.h"
 #include "contexts/options.h"
 #include "contexts/sandbox.h"
 #include "contexts/session.h"

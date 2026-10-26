@@ -1137,8 +1137,10 @@ The shell includes built-in context managers for session manipulation and filesy
 | `session` | Snapshot the entire session state (working directory, environment variables, aliases, functions, shell options, umask, traps, and custom context managers) and revert all changes on exit. | `with session { ... }` |
 | `umask(mode)` | Temporarily change file creation mask, restoring previous mask on exit. | `with umask("077") { ... }` |
 | `tempdir(var=..., cd=..., cleanup=...)` | Create an isolated temporary workspace directory, export it to `$TMPDIR` / `$SANDBOX_DIR` (and optional custom variable), change into it, and recursively clean it up on exit. | `with tempdir(var="TMP") { ... }` |
-| `sandbox(ro=..., rw=..., deny=..., readonly=..., chroot=...)` | Fine-grained filesystem sandbox with read-only (`ro` / `readonly=true`), read-write (`rw`), and forbidden (`deny`) path rules. Supported on macOS (Seatbelt) and UNIX/Linux (Landlock). | `with sandbox(ro="/usr:/lib", rw="/tmp", deny="/root") { ... }` |
+| `sandbox(ro=..., rw=..., deny=..., readonly=..., chroot=..., airgap=..., domains=..., ports=...)` | Unified filesystem and network sandbox. Supports fine-grained filesystem rules (read-only, read-write, deny), chroot jails, and network restrictions (airgap, allowed domains, port rules). | `with sandbox(readonly=true, airgap=true) { ... }` |
 | `chroot(path, rw=..., ro=..., readonly=...)` | Jail filesystem access and directory navigation within the specified root directory, with read & write access enabled inside the jail by default. | `with chroot("/var/jail") { ... }` |
+| `airgap(loopback=...)` | Complete network air-gapping: disables all outbound/inbound network interfaces and connections, with optional loopback (`localhost`) support. | `with airgap { ... }` or `with airgap(loopback=true) { ... }` |
+| `network(domains=..., ports=..., deny_ports=..., offline=..., loopback=...)` | Fine-grained network restrictions: domain allowlists (e.g. github.com, npmjs.org), port whitelists/blacklists, and airgap controls. | `with network(domains="github.com:registry.npmjs.org", ports="443") { ... }` |
 
 Multiple context managers can be combined in a single `with` statement:
 
@@ -1298,6 +1300,16 @@ with Session() as session:
 
     with session.chroot("/var/jail"):
         session.execute("pwd")
+
+    # Network sandboxing context managers
+    with session.airgap():
+        session.execute("curl https://example.com")  # Blocked
+
+    with session.airgap(loopback=True):
+        session.execute("curl http://localhost:8080")  # Allowed on localhost
+
+    with session.network(domains=["github.com", "registry.npmjs.org"], allow_ports=[443]):
+        session.execute("npm install express")  # Only allowed domains & ports
 ```
 
 ### Development

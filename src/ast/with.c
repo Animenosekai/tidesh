@@ -134,47 +134,94 @@ ASTNode *ast_parse_with(Parser *parser, Session *session) {
                     char *w = w_tok.value ? strdup(w_tok.value) : strdup("");
                     free_lexer_token(&w_tok);
 
-                    // Check if followed by '=': KEY = VAL
+                    // Check if followed by '=': KEY = VAL or KEY =VAL
                     LexerToken *next_tok = parser_peek(parser);
-                    if (next_tok->type == TOKEN_WORD &&
-                        strcmp(next_tok->value, "=") == 0) {
-                        parser_skip(parser); // consume '='
-                        token = parser_peek(parser);
-                        while (token->type == TOKEN_EOL ||
-                               token->type == TOKEN_COMMENT) {
-                            parser_skip(parser);
+                    if (next_tok->type == TOKEN_WORD && next_tok->value &&
+                        next_tok->value[0] == '=') {
+                        if (strcmp(next_tok->value, "=") == 0) {
+                            parser_skip(parser); // consume '='
                             token = parser_peek(parser);
-                        }
-
-                        char *val_str       = "";
-                        char *val_allocated = NULL;
-                        if (token->type == TOKEN_WORD ||
-                            token->type == TOKEN_ASSIGNMENT) {
-                            LexerToken v_tok = parser_next(parser);
-                            val_allocated =
-                                v_tok.value ? strdup(v_tok.value) : strdup("");
-                            free_lexer_token(&v_tok);
-                            size_t vlen = strlen(val_allocated);
-                            if (vlen > 0 && val_allocated[vlen - 1] == ',') {
-                                val_allocated[vlen - 1] = '\0';
+                            while (token->type == TOKEN_EOL ||
+                                   token->type == TOKEN_COMMENT) {
+                                parser_skip(parser);
+                                token = parser_peek(parser);
                             }
-                            val_str = val_allocated;
-                        }
 
-                        context_invocation_add_arg(inv, w, val_str);
-                        free(val_allocated);
-                        free(w);
-                        continue;
+                            char *val_str       = "";
+                            char *val_allocated = NULL;
+                            if (token->type == TOKEN_WORD ||
+                                token->type == TOKEN_ASSIGNMENT) {
+                                LexerToken  v_tok = parser_next(parser);
+                                const char *src_val =
+                                    (v_tok.type == TOKEN_ASSIGNMENT &&
+                                     v_tok.extra)
+                                        ? v_tok.extra
+                                        : (v_tok.value ? v_tok.value : "");
+                                val_allocated = strdup(src_val);
+                                free_lexer_token(&v_tok);
+                                size_t vlen = strlen(val_allocated);
+                                if (vlen > 0 &&
+                                    val_allocated[vlen - 1] == ',') {
+                                    val_allocated[vlen - 1] = '\0';
+                                }
+                                val_str = val_allocated;
+                            }
+
+                            context_invocation_add_arg(inv, w, val_str);
+                            free(val_allocated);
+                            free(w);
+                            continue;
+                        } else {
+                            // next_tok->value starts with '=', e.g. "=VAL"
+                            LexerToken eq_tok = parser_next(parser);
+                            char      *v_val  = eq_tok.value + 1; // skip '='
+                            char      *v_copy = strdup(v_val);
+                            size_t     vlen   = strlen(v_copy);
+                            if (vlen > 0 && v_copy[vlen - 1] == ',') {
+                                v_copy[vlen - 1] = '\0';
+                            }
+                            context_invocation_add_arg(inv, w, v_copy);
+                            free(v_copy);
+                            free_lexer_token(&eq_tok);
+                            free(w);
+                            continue;
+                        }
                     }
 
-                    // Check if w contains '=': KEY=VAL
+                    // Check if w contains '=': KEY=VAL or KEY= VAL
                     char *eq = strchr(w, '=');
                     if (eq) {
                         size_t klen   = (size_t)(eq - w);
                         char  *k      = strndup(w, klen);
                         char  *v      = eq + 1;
-                        char  *v_copy = strdup(v);
-                        size_t vlen   = strlen(v_copy);
+                        char  *v_copy = NULL;
+
+                        if (*v == '\0') {
+                            // Trailing '=', next token is VAL
+                            token = parser_peek(parser);
+                            while (token->type == TOKEN_EOL ||
+                                   token->type == TOKEN_COMMENT) {
+                                parser_skip(parser);
+                                token = parser_peek(parser);
+                            }
+                            if (token->type == TOKEN_WORD ||
+                                token->type == TOKEN_ASSIGNMENT) {
+                                LexerToken  v_tok = parser_next(parser);
+                                const char *src_val =
+                                    (v_tok.type == TOKEN_ASSIGNMENT &&
+                                     v_tok.extra)
+                                        ? v_tok.extra
+                                        : (v_tok.value ? v_tok.value : "");
+                                v_copy = strdup(src_val);
+                                free_lexer_token(&v_tok);
+                            } else {
+                                v_copy = strdup("");
+                            }
+                        } else {
+                            v_copy = strdup(v);
+                        }
+
+                        size_t vlen = strlen(v_copy);
                         if (vlen > 0 && v_copy[vlen - 1] == ',') {
                             v_copy[vlen - 1] = '\0';
                         }

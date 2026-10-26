@@ -47,7 +47,11 @@ static int list_context_managers(Session *session) {
         "deny=...)\n"
         "  tempdir(args...)     Create isolated temporary directory and clean "
         "up on exit\n"
-        "  chroot(path, ...)    Confine operations to jail directory\n");
+        "  chroot(path, ...)    Confine operations to jail directory\n"
+        "  airgap(loopback=...) Full air-gapping: disable all network "
+        "connectivity\n"
+        "  network(args...)     Network sandboxing (domains=..., ports=..., "
+        "offline=...)\n");
 
     if (session && session->context_managers) {
         printf("\nCustom context managers:\n");
