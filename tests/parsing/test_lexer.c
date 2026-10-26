@@ -914,4 +914,132 @@ describe(lexer) {
         free_lexer_input(input);
         free(input);
     }
+
+    it("should handle adjacent quotes and mixed quoted-unquoted words") {
+        // "#bench"[[:space:]]*
+        LexerInput *input =
+            init_lexer_input(NULL, "\"#bench\"[[:space:]]*", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "#bench[[:space:]]*");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+
+        // ("#bench"[[:space:]]*)
+        input = init_lexer_input(NULL, "(\"#bench\"[[:space:]]*)", NULL, NULL);
+        assertneq(input, NULL);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_LPAREN);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "#bench[[:space:]]*");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_RPAREN);
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+
+        // Concatenated quotes: "foo""bar" and 'foo'"bar"
+        input = init_lexer_input(NULL, "\"foo\"\"bar\" 'foo'\"bar\" \"foo\"bar\"baz\"", NULL, NULL);
+        assertneq(input, NULL);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "foobar");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "foobar");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "foobarbaz");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
+    it("should handle escaped quotes inside double quotes") {
+        LexerInput *input =
+            init_lexer_input(NULL, "\"hello \\\"world\\\"\"", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "hello \"world\"");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+
+        // eval "set -- $1 \"\${$1}\" \"\" \"\""
+        input = init_lexer_input(
+            NULL, "eval \"set -- $1 \\\"\\${$1}\\\" \\\"\\\" \\\"\\\"\"", NULL, NULL);
+        assertneq(input, NULL);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "eval");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_WORD);
+        asserteq_str(token.value, "set -- $1 \"\\${$1}\" \"\" \"\"");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
+
+    it("should handle command substitution containing escaped characters and quotes") {
+        LexerInput *input = init_lexer_input(
+            NULL, "chunk=$(printf '%s\\n' \"$initializer\"; read_chunk)", NULL, NULL);
+        assertneq(input, NULL);
+
+        LexerToken token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_ASSIGNMENT);
+        asserteq_str(token.value, "chunk");
+        asserteq_str(token.extra, "$(printf '%s\\n' \"$initializer\"; read_chunk)");
+        free_lexer_token(&token);
+
+        token = lexer_next_token(input);
+        asserteq(token.type, TOKEN_EOF);
+        free_lexer_token(&token);
+
+        free_lexer_input(input);
+        free(input);
+    }
 }

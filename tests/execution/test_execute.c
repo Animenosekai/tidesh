@@ -1416,4 +1416,47 @@ describe(execute) {
         free_session(session);
         free(session);
     }
+
+    it("should execute commands and case statements with adjacent quotes") {
+        Session *session = init_session(NULL, "/tmp/test_history");
+
+        // Case statement pattern with adjacent quote and glob: ("#bench" | "#bench"[[:space:]]*)
+        char *out1 = execute_string_stdout(
+            "line=\"#bench foo\"; case \"$line\" in "
+            "(\"#bench\" | \"#bench\"[[:space:]]*) echo \"matched_bench\" ;; "
+            "(*) echo \"no_match\" ;; esac",
+            session);
+        assertneq(out1, NULL);
+        asserteq_str(out1, "matched_bench");
+        free(out1);
+
+        // Concatenated quotes in word
+        char *out2 = execute_string_stdout("echo \"hello\"\"world\" 'foo'\"bar\"", session);
+        assertneq(out2, NULL);
+        asserteq_str(out2, "helloworld foobar");
+        free(out2);
+
+        // Assignment with adjacent quotes
+        int st = execute_string("VAR=\"abc\"'def'\"ghi\"", session);
+        asserteq(st, 0);
+        char *val = environ_get(session->environ, "VAR");
+        assertneq(val, NULL);
+        asserteq_str(val, "abcdefghi");
+
+        // Escaped quotes in double quotes
+        char *out3 = execute_string_stdout("echo \"hello \\\"world\\\"\"", session);
+        assertneq(out3, NULL);
+        asserteq_str(out3, "hello \"world\"");
+        free(out3);
+
+        // Piping into ast builtin reading stdin
+        char *out4 = execute_string_stdout("echo \"echo hello\" | ast", session);
+        assertneq(out4, NULL);
+        assert(strstr(out4, "NODE_COMMAND") != NULL);
+        assert(strstr(out4, "[\"echo\", \"hello\"]") != NULL);
+        free(out4);
+
+        free_session(session);
+        free(session);
+    }
 }

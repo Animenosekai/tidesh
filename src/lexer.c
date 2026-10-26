@@ -143,43 +143,72 @@ void free_lexer_token(LexerToken *token) {
     !defined(TIDESH_DISABLE_EXPANSIONS)
 /* Handle command substitution $(...) or <(...) or >(...) */
 static char *command_substitution(LexerInput *input) {
-    char    c       = advance(input); // Consume `(`
-    size_t  depth   = 1;
-    bool    escaped = false;
-    Dynamic command = {0};
+    char    c               = advance(input); // Consume `(`
+    size_t  depth           = 1;
+    bool    escaped         = false;
+    bool    in_single_quote = false;
+    bool    in_double_quote = false;
+    Dynamic command         = {0};
     init_dynamic(&command);
+
     while (depth > 0 && !is_at_end(input)) {
-        switch (c = advance(input)) {
-            case '(':
-                if (!escaped) {
-                    depth++;
-                }
-                dynamic_append(&command, c);
-                break;
-            case ')':
-                if (!escaped) {
-                    depth--;
-                }
-                if (depth == 0) {
-                    break;
-                }
-                dynamic_append(&command, c);
-                break;
-            case '\\':
-                if (!escaped) {
-                    escaped = true;
-                    continue;
-                    ;
-                }
-                // If already escaped, treat as normal character
-                escaped = false;
-                dynamic_append(&command, c);
-                break;
-            default:
-                dynamic_append(&command, c);
-                break;
+        c = advance(input);
+        if (escaped) {
+            escaped = false;
+            dynamic_append(&command, c);
+            continue;
         }
+
+        if (c == '\\') {
+            if (in_single_quote) {
+                dynamic_append(&command, '\\');
+            } else {
+                escaped = true;
+                dynamic_append(&command, '\\');
+            }
+            continue;
+        }
+
+        if (in_single_quote) {
+            if (c == '\'') {
+                in_single_quote = false;
+            }
+            dynamic_append(&command, c);
+            continue;
+        }
+
+        if (c == '\'') {
+            if (!in_double_quote) {
+                in_single_quote = true;
+            }
+            dynamic_append(&command, c);
+            continue;
+        }
+
+        if (c == '"') {
+            in_double_quote = !in_double_quote;
+            dynamic_append(&command, c);
+            continue;
+        }
+
+        if (!in_double_quote && c == '(') {
+            depth++;
+            dynamic_append(&command, c);
+            continue;
+        }
+
+        if (!in_double_quote && c == ')') {
+            depth--;
+            if (depth == 0) {
+                break;
+            }
+            dynamic_append(&command, c);
+            continue;
+        }
+
+        dynamic_append(&command, c);
     }
+
     char *result_command = dynamic_to_string(&command);
     free_dynamic(&command);
     return result_command;
@@ -289,6 +318,8 @@ static char *parameter_expansion_body(LexerInput *input) {
 }
 #endif /* !TIDESH_DISABLE_EXPANSIONS */
 
+static Dynamic read_quoted_word(LexerInput *input);
+
 /* Read a single unquoted word from the input */
 static Dynamic read_single_word(LexerInput *input) {
     Dynamic word_value = {0};
@@ -303,6 +334,15 @@ static Dynamic read_single_word(LexerInput *input) {
             (c == ';' || c == '&' || c == '|' || c == '<' || c == '>' ||
              c == '(' || c == ')' || (brace_depth == 0 && c == '}'))) {
             break;
+        }
+        if (!escaped && (c == '"' || c == '\'')) {
+            Dynamic quoted_value = read_quoted_word(input);
+            if (quoted_value.value) {
+                dynamic_extend(&word_value, quoted_value.value);
+            }
+            free_dynamic(&quoted_value);
+            c = peek(input);
+            continue;
         }
         if (c == '{') {
             brace_depth++;
@@ -374,7 +414,7 @@ static Dynamic read_quoted_word(LexerInput *input) {
     char quote_char = advance(input);
     char c          = peek(input);
 
-    while (!is_at_end(input) && c != quote_char) {
+    while (!is_at_end(input) && (escaped || c != quote_char)) {
         if (quote_char == '\'') {
             dynamic_append(&word_value, c);
             advance(input);
@@ -434,7 +474,7 @@ static Dynamic read_quoted_word(LexerInput *input) {
         c = peek(input);
     }
 
-    if (c == quote_char) {
+    if (c == quote_char && !escaped) {
         advance(input); // consume closing quote
     } else {
         dynamic_prepend(&word_value, quote_char);
@@ -495,6 +535,138 @@ static TokenType check_loop_keyword(const char *word) {
     return TOKEN_WORD;
 }
 #endif
+
+static LexerToken read_word_token(LexerInput *input) {
+    LexerToken token;
+    token.type  = TOKEN_WORD;
+    token.value = NULL;
+    token.extra = NULL;
+
+    bool    is_io_number = true;
+    bool    has_quotes   = false;
+    bool    escaped      = false;
+    int     brace_depth  = 0;
+    Dynamic word_value   = {0};
+    init_dynamic(&word_value);
+    char c = peek(input);
+
+    while (!is_at_end(input) && c != ' ' && c != '\t' && c != '\n' &&
+           c != '\r' && c != '|' && c != '&' && c != ';' && c != '(' &&
+           c != ')' && (brace_depth > 0 || c != '}')) {
+        if (!escaped && (c == '"' || c == '\'')) {
+            has_quotes           = true;
+            is_io_number         = false;
+            Dynamic quoted_value = read_quoted_word(input);
+            if (quoted_value.value) {
+                dynamic_extend(&word_value, quoted_value.value);
+            }
+            free_dynamic(&quoted_value);
+            c = peek(input);
+            continue;
+        }
+
+        if (!escaped && c == '{') {
+            brace_depth++;
+        } else if (!escaped && c == '}' && brace_depth > 0) {
+            brace_depth--;
+        }
+#ifndef TIDESH_DISABLE_REDIRECTIONS
+        if (is_io_number && (c < '0' || c > '9')) {
+            if (c == '>' || c == '<') {
+                token.type = TOKEN_IO_NUMBER;
+                break;
+            }
+            is_io_number = false;
+        }
+
+        if (!is_io_number && (c == '>' || c == '<')) {
+            break;
+        }
+#endif
+
+        if (!escaped && c == '$' && peek_next(input) == '(') {
+#if !defined(TIDESH_DISABLE_COMMAND_SUBSTITUTION) ||                           \
+    !defined(TIDESH_DISABLE_EXPANSIONS)
+            advance(input); // consume '$'
+            char *command = command_substitution(input);
+            dynamic_extend(&word_value, "$(");
+            dynamic_extend(&word_value, command);
+            dynamic_append(&word_value, ')');
+            free(command);
+#else
+            dynamic_append(&word_value, c);
+            advance(input);
+#endif
+            c = peek(input);
+            continue;
+        }
+
+        if (!escaped && c == '$' && peek_next(input) == '{') {
+#ifndef TIDESH_DISABLE_EXPANSIONS
+            advance(input); // consume '$'
+            char *param = parameter_expansion_body(input);
+            dynamic_extend(&word_value, "${");
+            if (param) {
+                dynamic_extend(&word_value, param);
+                free(param);
+            }
+            dynamic_append(&word_value, '}');
+#else
+            dynamic_append(&word_value, c);
+            advance(input);
+#endif
+            c = peek(input);
+            continue;
+        }
+
+        if (!escaped && c == '\\') {
+            escaped = true;
+            advance(input);
+            c = peek(input);
+            continue;
+        }
+
+        if (!escaped && !has_quotes && !is_io_number && c == '=' &&
+            word_value.length > 0) {
+#ifndef TIDESH_DISABLE_ASSIGNMENTS
+            // Assignment detected
+            advance(input);
+            c                      = peek(input);
+            token.type             = TOKEN_ASSIGNMENT;
+            Dynamic unquoted_value = read_single_word(input);
+            token.extra            = dynamic_to_string(&unquoted_value);
+            free_dynamic(&unquoted_value);
+            break;
+#else
+            // Assignments disabled, treat = as part of the word
+            dynamic_append(&word_value, c);
+            advance(input);
+#endif
+        }
+
+        escaped = false;
+
+        dynamic_append(&word_value, c);
+        advance(input);
+        c = peek(input);
+    }
+
+    token.value = dynamic_to_string(&word_value);
+    free_dynamic(&word_value);
+#ifndef TIDESH_DISABLE_CONDITIONALS
+    // Check if the word is a conditional keyword
+    if (!has_quotes && token.type == TOKEN_WORD) {
+        token.type = check_conditional_keyword(token.value);
+    }
+#endif
+#ifndef TIDESH_DISABLE_LOOPS
+    // Check if the word is a loop keyword
+    if (!has_quotes && token.type == TOKEN_WORD) {
+        token.type = check_loop_keyword(token.value);
+    }
+#endif
+    return token;
+}
 
 LexerToken lexer_next_token(LexerInput *input) {
     // Skip whitespace
@@ -690,14 +862,8 @@ LexerToken lexer_next_token(LexerInput *input) {
                         skip_whitespaces(input);
 
                         // consume the word after <<<
-                        Dynamic word_value = {0};
-                        char    next       = peek(input);
-                        if (next == '"' || next == '\'') {
-                            word_value = read_quoted_word(input);
-                        } else {
-                            word_value = read_single_word(input);
-                        }
-                        token.value = dynamic_to_string(&word_value);
+                        Dynamic word_value = read_single_word(input);
+                        token.value        = dynamic_to_string(&word_value);
                         free_dynamic(&word_value);
                     } else { // << (here-doc)
                         bool ident_ignore = false;
@@ -711,15 +877,9 @@ LexerToken lexer_next_token(LexerInput *input) {
                         skip_whitespaces(input);
 
                         // consume the word after <<
-                        Dynamic word_value = {0};
-                        char    next       = peek(input);
-                        if (next == '"' || next == '\'') {
-                            word_value = read_quoted_word(input);
-                        } else {
-                            word_value = read_single_word(input);
-                        }
-                        char  *end_marker     = dynamic_to_string(&word_value);
-                        size_t end_marker_len = word_value.length;
+                        Dynamic word_value     = read_single_word(input);
+                        char   *end_marker     = dynamic_to_string(&word_value);
+                        size_t  end_marker_len = word_value.length;
                         free_dynamic(&word_value);
 
                         Dynamic content_value = {0};
@@ -898,7 +1058,7 @@ LexerToken lexer_next_token(LexerInput *input) {
                 }
             }
 #endif
-            goto handle_word;
+            return read_word_token(input);
         case '}':
 #ifndef TIDESH_DISABLE_BLOCKS
             // Check if blocks feature is enabled and followed by whitespace or
@@ -914,7 +1074,7 @@ LexerToken lexer_next_token(LexerInput *input) {
                 }
             }
 #endif
-            goto handle_word;
+            return read_word_token(input);
         case ')':
 #ifndef TIDESH_DISABLE_SUBSHELLS
             // Check if subshells feature is enabled
@@ -937,12 +1097,9 @@ LexerToken lexer_next_token(LexerInput *input) {
 #endif
             break;
         case '"':
-        case '\'': {
-            Dynamic word_value = read_quoted_word(input);
-            token.type         = TOKEN_WORD;
-            token.value        = dynamic_to_string(&word_value);
-            free_dynamic(&word_value);
-        } break;
+        case '\'':
+        default:
+            return read_word_token(input);
         case '#': {
             // Comment: consume until end of line
             advance(input); // consume '#'
@@ -960,127 +1117,6 @@ LexerToken lexer_next_token(LexerInput *input) {
             token.value = dynamic_to_string(&word_value);
             free_dynamic(&word_value);
         } break;
-
-        handle_word:
-        default:
-            // Handle words, IO numbers and assignments
-            token.type           = TOKEN_WORD;
-            bool    is_io_number = true;
-            bool    escaped      = false;
-            int     brace_depth  = 0;
-            Dynamic word_value   = {0};
-            init_dynamic(&word_value);
-
-            while (!is_at_end(input) && c != ' ' && c != '\t' && c != '\n' &&
-                   c != '\r' && c != '|' && c != '&' && c != ';' && c != '(' &&
-                   c != ')' && (brace_depth > 0 || c != '}')) {
-                if (!escaped && c == '{') {
-                    brace_depth++;
-                } else if (!escaped && c == '}' && brace_depth > 0) {
-                    brace_depth--;
-                }
-#ifndef TIDESH_DISABLE_REDIRECTIONS
-                if (is_io_number && (c < '0' || c > '9')) {
-                    if (c == '>' || c == '<') {
-                        token.type = TOKEN_IO_NUMBER;
-                        break;
-                    }
-                    is_io_number = false;
-                }
-
-                if (!is_io_number && (c == '>' || c == '<')) {
-                    break;
-                }
-#endif
-
-                if (!escaped && c == '$' && peek_next(input) == '(') {
-#if !defined(TIDESH_DISABLE_COMMAND_SUBSTITUTION) ||                           \
-    !defined(TIDESH_DISABLE_EXPANSIONS)
-                    advance(input); // consume '$'
-                    char *command = command_substitution(input);
-                    dynamic_extend(&word_value, "$(");
-                    dynamic_extend(&word_value, command);
-                    dynamic_append(&word_value, ')');
-                    free(command);
-#else
-                    dynamic_append(&word_value, c);
-                    advance(input);
-#endif
-                    c = peek(input);
-                    continue;
-                }
-
-                if (!escaped && c == '$' && peek_next(input) == '{') {
-#ifndef TIDESH_DISABLE_EXPANSIONS
-                    advance(input); // consume '$'
-                    char *param = parameter_expansion_body(input);
-                    dynamic_extend(&word_value, "${");
-                    if (param) {
-                        dynamic_extend(&word_value, param);
-                        free(param);
-                    }
-                    dynamic_append(&word_value, '}');
-#else
-                    dynamic_append(&word_value, c);
-                    advance(input);
-#endif
-                    c = peek(input);
-                    continue;
-                }
-
-                if (!escaped && c == '\\') {
-                    escaped = true;
-                    advance(input);
-                    c = peek(input);
-                    continue;
-                }
-
-                if (!escaped && !is_io_number && c == '=' &&
-                    word_value.length > 0) {
-#ifndef TIDESH_DISABLE_ASSIGNMENTS
-                    // Assignment detected
-                    advance(input);
-                    c          = peek(input);
-                    token.type = TOKEN_ASSIGNMENT;
-                    if (c == '"' || c == '\'') {
-                        Dynamic quoted_value = read_quoted_word(input);
-                        token.extra          = dynamic_to_string(&quoted_value);
-                        free_dynamic(&quoted_value);
-                    } else {
-                        Dynamic unquoted_value = read_single_word(input);
-                        token.extra = dynamic_to_string(&unquoted_value);
-                        free_dynamic(&unquoted_value);
-                    }
-                    break;
-#else
-                    // Assignments disabled, treat = as part of the word
-                    dynamic_append(&word_value, c);
-                    advance(input);
-#endif
-                }
-
-                escaped = false;
-
-                dynamic_append(&word_value, c);
-                advance(input);
-                c = peek(input);
-            }
-
-            token.value = dynamic_to_string(&word_value);
-            free_dynamic(&word_value);
-#ifndef TIDESH_DISABLE_CONDITIONALS
-            // Check if the word is a conditional keyword
-            if (token.type == TOKEN_WORD) {
-                token.type = check_conditional_keyword(token.value);
-            }
-#endif
-#ifndef TIDESH_DISABLE_LOOPS
-            // Check if the word is a loop keyword
-            if (token.type == TOKEN_WORD) {
-                token.type = check_loop_keyword(token.value);
-            }
-#endif
-            break;
     }
     return token;
 }

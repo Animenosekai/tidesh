@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "ast.h"
 #include "builtins/ast.h"
@@ -607,9 +608,9 @@ static void ast_json_print(FILE *out, const ASTNode *node, int indent) {
 static char *read_all_stdin(void) {
     Dynamic d = {0};
     init_dynamic(&d);
-    char   buf[1024];
-    size_t n;
-    while ((n = fread(buf, 1, sizeof(buf) - 1, stdin)) > 0) {
+    char    buf[1024];
+    ssize_t n;
+    while ((n = read(STDIN_FILENO, buf, sizeof(buf) - 1)) > 0) {
         buf[n] = '\0';
         dynamic_extend(&d, buf);
     }

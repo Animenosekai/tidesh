@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "builtins/lexer.h"
 #include "data/dynamic.h"
@@ -57,9 +58,9 @@ static void print_json_escaped(FILE *out, const char *s) {
 static char *read_all_stdin(void) {
     Dynamic d = {0};
     init_dynamic(&d);
-    char   buf[1024];
-    size_t n;
-    while ((n = fread(buf, 1, sizeof(buf) - 1, stdin)) > 0) {
+    char    buf[1024];
+    ssize_t n;
+    while ((n = read(STDIN_FILENO, buf, sizeof(buf) - 1)) > 0) {
         buf[n] = '\0';
         dynamic_extend(&d, buf);
     }
