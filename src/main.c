@@ -35,11 +35,121 @@ bool should_return(char *input, Session *session) {
 
     LexerToken token;
     TokenType  last_type = TOKEN_EOF;
+
+    /* Track nesting depth for constructs that allow multi-line input.
+     *
+     * For delimiter pairs ({ }, ( )) we simply count open vs close tokens.
+     * For keyword-delimited blocks we increment on the opening keyword and
+     * decrement on the matching closer:
+     *
+     *   brace_depth  — { ... }     (with-blocks, anonymous blocks, try-braces)
+     *   paren_depth  — ( ... )     (subshells)
+     *   if_depth     — if ... fi   (conditionals, including nested elif/else)
+     *   case_depth   — case ... esac
+     *   do_depth     — do ... done (loop bodies, or try/catch/finally in
+     *                               do-style; we increment on every `do`
+     *                               and decrement on every `done`)
+     *
+     * Note on try/catch/finally:
+     *   - brace-style: `try { ... } catch { ... }` → covered by brace_depth
+     *   - do-style:    `try do ... done catch do ... done` → covered by
+     * do_depth Both forms therefore need no separate try counter.
+     *
+     * Note on loops (for/while/until):
+     *   A loop header must be followed by `do`, so brace_depth or do_depth
+     *   will account for the open body.  We track an explicit pending_do
+     *   counter for the gap between the loop keyword and its `do`/`{`.
+     */
+    int brace_depth = 0;
+    int paren_depth = 0;
+    int if_depth    = 0;
+    int case_depth  = 0;
+    int do_depth    = 0; /* every `do` incremented, every `done` decremented */
+    int pending_do  = 0; /* loop/with header seen but `do`/`{` not yet */
+
     do {
         token = lexer_next_token(&lexer_input);
         if (token.type == TOKEN_EOF) {
             break;
         }
+
+        switch (token.type) {
+#ifndef TIDESH_DISABLE_BLOCKS
+            case TOKEN_LBRACE:
+                brace_depth++;
+                pending_do = 0; /* header `{` consumed */
+                break;
+            case TOKEN_RBRACE:
+                if (brace_depth > 0)
+                    brace_depth--;
+                break;
+#endif
+
+#ifndef TIDESH_DISABLE_SUBSHELLS
+            case TOKEN_LPAREN:
+                paren_depth++;
+                break;
+            case TOKEN_RPAREN:
+                if (paren_depth > 0)
+                    paren_depth--;
+                break;
+#endif
+
+#ifndef TIDESH_DISABLE_CONDITIONALS
+            case TOKEN_IF:
+                if_depth++;
+                break;
+            case TOKEN_FI:
+                if (if_depth > 0)
+                    if_depth--;
+                break;
+            case TOKEN_CASE:
+                case_depth++;
+                break;
+            case TOKEN_ESAC:
+                if (case_depth > 0)
+                    case_depth--;
+                break;
+#endif
+
+#ifndef TIDESH_DISABLE_LOOPS
+            case TOKEN_FOR:
+            case TOKEN_WHILE:
+            case TOKEN_UNTIL:
+                pending_do++; /* waiting for `do` or `{` */
+                break;
+#endif
+            /* TOKEN_DO / TOKEN_DONE are used by loops, try, with, and catch
+             * regardless of whether loops are compiled in, so they are
+             * handled unconditionally. */
+            case TOKEN_DO:
+                do_depth++;
+                pending_do = 0; /* header `do` consumed */
+                break;
+            case TOKEN_DONE:
+                if (do_depth > 0)
+                    do_depth--;
+                break;
+
+#ifndef TIDESH_DISABLE_CONTEXT_MANAGERS
+            case TOKEN_WITH:
+                pending_do++; /* waiting for `do`/`{` after context list */
+                break;
+#endif
+
+            case TOKEN_TRY:
+            case TOKEN_CATCH:
+            case TOKEN_FINALLY:
+                /* These all expect a `{` or `do` to follow; treat the same
+                 * as a loop header so we keep the prompt open until the
+                 * body opener arrives. */
+                pending_do++;
+                break;
+
+            default:
+                break;
+        }
+
         last_type = token.type;
         free_lexer_token(&token);
     } while (1);
@@ -47,7 +157,12 @@ bool should_return(char *input, Session *session) {
     free(new_input);
     free_lexer_input(&lexer_input);
 
-    return last_type == TOKEN_EOL;
+    /* Only submit the input when the last visible token was a newline AND
+     * there are no open/unmatched constructs waiting for a closer. */
+    bool open_constructs = brace_depth > 0 || paren_depth > 0 || if_depth > 0 ||
+                           case_depth > 0 || do_depth > 0 || pending_do > 0;
+
+    return last_type == TOKEN_EOL && !open_constructs;
 }
 
 static char *expand_prompt(const char *prompt, Session *session) {
